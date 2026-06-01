@@ -848,6 +848,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
     <div class="nav-tab" onclick="gotoTab('teams')" data-tab="teams">Teams</div>
     <div class="nav-tab" onclick="gotoTab('compare')" data-tab="compare">Compare</div>
     <div class="nav-tab" onclick="gotoTab('clips')" data-tab="clips">Clips <span class="nt-badge" id="nb-clips">0</span></div>
+    <div class="nav-tab" onclick="gotoTab('biblioteca')" data-tab="biblioteca">Biblioteca</div>
   </div>
   <div class="match-pill" id="match-pill">—</div>
   <div class="topbar-right">
@@ -1286,6 +1287,54 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
 .cm-empty { text-align:center; padding:40px; font-family:var(--font-mono); font-size:9px; color:var(--text-3); }
 </style>
 
+<!-- ============ PANTALLA: Biblioteca de acciones ============ -->
+<div class="screen" id="screen-biblioteca">
+  <div class="bib-hdr">
+    <div>
+      <div class="bib-title">Biblioteca de acciones</div>
+      <div class="bib-sub" id="bib-sub">Catálogo y eficiencia</div>
+    </div>
+    <div class="bib-scope">
+      <button class="bib-scope-btn active" id="bib-scope-current" onclick="setBibScope('current')">Partido actual</button>
+      <button class="bib-scope-btn" id="bib-scope-hist" onclick="setBibScope('hist')">Histórico equipo</button>
+    </div>
+  </div>
+  <div class="bib-filters" id="bib-filters">
+    <button class="bib-filter active" onclick="setBibTipo(this,'all')">Todas</button>
+    <button class="bib-filter" onclick="setBibTipo(this,'ofensivo')">Ofensiva</button>
+    <button class="bib-filter" onclick="setBibTipo(this,'defensivo')">Defensiva</button>
+    <button class="bib-filter" onclick="setBibTipo(this,'stat')">Stats</button>
+  </div>
+  <div class="bib-kpis" id="bib-kpis"></div>
+  <div class="bib-list" id="bib-list"></div>
+</div>
+<style>
+.bib-hdr { display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; padding:16px 20px; border-bottom:1px solid var(--border-subtle); }
+.bib-title { font-family:var(--font-disp); font-size:18px; font-weight:800; color:var(--text); }
+.bib-sub { font-family:var(--font-mono); font-size:9px; color:var(--offense); letter-spacing:.5px; margin-top:3px; }
+.bib-scope { margin-left:auto; display:flex; gap:6px; }
+.bib-scope-btn { font-family:var(--font-mono); font-size:9px; color:var(--text-2); background:var(--bg-panel); border:1px solid var(--border-light); border-radius:var(--r-sm); padding:7px 12px; cursor:pointer; transition:all var(--t-fast); }
+.bib-scope-btn.active { color:#fff; background:var(--offense); border-color:var(--offense); }
+.bib-filters { display:flex; gap:6px; flex-wrap:wrap; padding:12px 20px 0; }
+.bib-filter { font-family:var(--font-mono); font-size:8px; letter-spacing:.5px; color:var(--text-3); background:var(--bg-panel); border:1px solid var(--border-subtle); border-radius:10px; padding:4px 11px; cursor:pointer; }
+.bib-filter.active { color:var(--text); border-color:var(--border-strong); }
+.bib-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 20px 4px; }
+.bib-kpi { background:var(--bg-panel); border:1px solid var(--border-subtle); border-radius:var(--r-sm); padding:12px; text-align:center; }
+.bib-kpi-val { font-family:var(--font-disp); font-size:22px; font-weight:800; }
+.bib-kpi-label { font-family:var(--font-mono); font-size:7px; letter-spacing:1px; color:var(--text-3); text-transform:uppercase; margin-top:2px; }
+.bib-list { padding:10px 20px 30px; display:flex; flex-direction:column; gap:8px; }
+.bib-row { background:var(--bg-panel); border:1px solid var(--border-subtle); border-radius:var(--r-sm); padding:11px 13px; }
+.bib-row-top { display:flex; align-items:center; gap:8px; }
+.bib-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.bib-name { font-family:var(--font-disp); font-size:14px; font-weight:700; color:var(--text); flex:1; }
+.bib-type { font-family:var(--font-mono); font-size:7px; letter-spacing:.5px; padding:2px 7px; border-radius:8px; }
+.bib-stats-row { display:flex; gap:16px; margin-top:8px; font-family:var(--font-mono); font-size:8px; color:var(--text-3); }
+.bib-stat b { font-family:var(--font-disp); font-size:13px; font-weight:800; display:block; }
+.bib-effbar { margin-top:9px; height:6px; border-radius:3px; background:var(--bg-base); overflow:hidden; }
+.bib-effbar-fill { height:100%; border-radius:3px; }
+.bib-empty { text-align:center; padding:40px; font-family:var(--font-mono); font-size:9px; color:var(--text-3); }
+</style>
+
 <script>
 const DB = {
   save: (k,v) => { try { localStorage.setItem('spro5_'+k, JSON.stringify(v)); } catch(e){} },
@@ -1423,6 +1472,7 @@ function showScreen(id) {
   if (id==='teams')     renderTeamsScreen();
   if (id==='compare')   renderCompareScreen();
   if (id==='clips')     renderClipManager();
+  if (id==='biblioteca') renderBiblioteca();
   if (id==='splash')    renderSplash();
   updateActiveTeamBadge();
 }
@@ -2913,6 +2963,111 @@ async function runPreviewSequence(seq) {
 function previewExportFull() {
   const seq = buildExportSequence(S.clips, {});
   runPreviewSequence(seq);
+}
+
+// ---------- BIBLIOTECA DE ACCIONES ----------
+let _bibScope = 'current';
+let _bibTipo = 'all';
+
+function setBibScope(scope) {
+  _bibScope = scope;
+  document.getElementById('bib-scope-current')?.classList.toggle('active', scope === 'current');
+  document.getElementById('bib-scope-hist')?.classList.toggle('active', scope === 'hist');
+  renderBiblioteca();
+}
+function setBibTipo(el, tipo) {
+  _bibTipo = tipo;
+  if (el && el.parentElement) el.parentElement.querySelectorAll('.bib-filter').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderBiblioteca();
+}
+
+function bibClips() {
+  if (_bibScope === 'hist') {
+    const team = (typeof getActiveTeam === 'function') ? getActiveTeam() : null;
+    const games = (team && typeof getTeamGames === 'function') ? getTeamGames(team.id) : [];
+    return games.flatMap(g => g.clips || []);
+  }
+  return S.clips;
+}
+
+function bibAccent(tipo) {
+  if (tipo === 'defensivo') return '#4f8ef7';
+  if (tipo === 'stat') return '#34c769';
+  return '#f97316';
+}
+
+function renderBiblioteca() {
+  const list = document.getElementById('bib-list');
+  const kpis = document.getElementById('bib-kpis');
+  const sub = document.getElementById('bib-sub');
+  if (!list) return;
+
+  let clips = bibClips();
+  if (_bibTipo !== 'all') {
+    clips = clips.filter(c => _bibTipo === 'ofensivo'
+      ? (c.tipo === 'ofensivo' || c.tipo === 'custom')
+      : c.tipo === _bibTipo);
+  }
+
+  const total = clips.length;
+  if (sub) sub.textContent = _bibScope === 'hist'
+    ? 'Histórico del equipo · ' + ((typeof getActiveTeam === 'function' && getActiveTeam()) ? getActiveTeam().name : '')
+    : 'Partido actual · ' + S.local + ' vs ' + S.visit;
+
+  // agregación por acción
+  const map = {};
+  clips.forEach(c => {
+    if (!map[c.accion]) map[c.accion] = { accion: c.accion, tipo: c.tipo, count: 0, ok: 0 };
+    map[c.accion].count++;
+    if (c.isOk) map[c.accion].ok++;
+  });
+  const rows = Object.values(map).map(m => ({
+    accion: m.accion, tipo: m.tipo, count: m.count, ok: m.ok,
+    neg: m.count - m.ok,
+    ef: m.count ? Math.round(m.ok / m.count * 100) : 0,
+    share: total ? Math.round(m.count / total * 100) : 0
+  })).sort((a, b) => b.count - a.count);
+
+  // KPIs
+  const okTotal = clips.filter(c => c.isOk).length;
+  const pctGlobal = total ? Math.round(okTotal / total * 100) : 0;
+  if (kpis) {
+    kpis.innerHTML = `
+      <div class="bib-kpi"><div class="bib-kpi-val" style="color:var(--offense)">${rows.length}</div><div class="bib-kpi-label">Acciones</div></div>
+      <div class="bib-kpi"><div class="bib-kpi-val">${total}</div><div class="bib-kpi-label">Clips</div></div>
+      <div class="bib-kpi"><div class="bib-kpi-val" style="color:var(--positive)">${total ? pctGlobal + '%' : '—'}</div><div class="bib-kpi-label">Positivo</div></div>`;
+  }
+
+  if (!rows.length) {
+    list.innerHTML = '<div class="bib-empty">' +
+      (_bibScope === 'hist'
+        ? 'No hay partidos guardados de este equipo todavía.'
+        : 'No hay acciones en el partido actual. Etiquetá en el Scout.') +
+      '</div>';
+    return;
+  }
+
+  list.innerHTML = rows.map(r => {
+    const accent = bibAccent(r.tipo);
+    const efColor = r.ef >= 55 ? 'var(--positive)' : r.ef >= 40 ? '#c9a83b' : 'var(--negative)';
+    const typeLabel = r.tipo === 'defensivo' ? 'DEF' : r.tipo === 'stat' ? 'STAT' : 'OFF';
+    return `<div class="bib-row">
+      <div class="bib-row-top">
+        <span class="bib-dot" style="background:${accent}"></span>
+        <span class="bib-name">${r.accion}</span>
+        <span class="bib-type" style="color:${accent};background:${accent}18;border:1px solid ${accent}33">${typeLabel}</span>
+      </div>
+      <div class="bib-stats-row">
+        <div class="bib-stat"><b>${r.count}</b>veces</div>
+        <div class="bib-stat"><b>${r.share}%</b>del uso</div>
+        <div class="bib-stat"><b style="color:var(--positive)">${r.ok}</b>positivas</div>
+        <div class="bib-stat"><b style="color:var(--negative)">${r.neg}</b>negativas</div>
+        <div class="bib-stat"><b style="color:${efColor}">${r.ef}%</b>eficiencia</div>
+      </div>
+      <div class="bib-effbar"><div class="bib-effbar-fill" style="width:${r.ef}%;background:${efColor}"></div></div>
+    </div>`;
+  }).join('');
 }
 
 // Mantener el badge de Clips actualizado al etiquetar o borrar
