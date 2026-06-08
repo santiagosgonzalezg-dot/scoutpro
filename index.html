@@ -3689,5 +3689,205 @@ updateClipsBadge();
 })();
 </script>
 
+<!-- ====================================================================== -->
+<!-- ScoutPRO v7 — Roles: admin (todo) / coach (solo lectura, equipos dados)-->
+<!-- ====================================================================== -->
+<style>
+/* Coach = solo lectura: ocultamos controles de escritura */
+.role-coach .sts-new,
+.role-coach .splash-modes,
+.role-coach .teams-sidebar-hdr .tb-btn,
+.role-coach .roster-add,
+.role-coach .roster-item .ri-del,
+.role-coach .quick-tag-bar,
+.role-coach #wizard-box,
+.role-coach #tab-etiquetas .etq-mode-header,
+.role-coach #tab-etiquetas .etq-sec,
+.role-coach #tab-etiquetas .buf-row,
+.role-coach #tab-etiquetas .suggested-tags,
+.role-coach .tb-btn.save { display: none !important; }
+.role-coach .splash-shortcuts { display: none !important; }
+
+.coach-readonly-note {
+  font-family: var(--font-mono); font-size: 8px; color: var(--text-3);
+  letter-spacing: 1px; text-align: center; margin-top: 10px; text-transform: uppercase;
+}
+
+/* Panel de coaches (sólo admin) */
+.coaches-panel { margin-top: 16px; }
+.coach-add { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.coach-add input { flex: 1; min-width: 180px; background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--r-sm); padding: 6px 10px; font-size: 13px; color: var(--text); outline: none; font-family: var(--font-ui); }
+.coach-add input:focus { border-color: var(--defense); }
+.coach-add button { background: var(--defense-bg); border: 1px solid var(--defense); border-radius: var(--r-sm); padding: 6px 14px; color: var(--defense); font-family: var(--font-mono); font-size: 9px; cursor: pointer; white-space: nowrap; transition: all var(--t-fast); }
+.coach-add button:hover { background: var(--defense); color: #fff; }
+.coach-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.coach-chip { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: 14px; font-family: var(--font-mono); font-size: 9px; color: var(--text-2); }
+.coach-chip .cc-del { cursor: pointer; color: var(--text-3); }
+.coach-chip .cc-del:hover { color: var(--negative); }
+.coach-empty { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); padding: 4px 0; }
+.role-pill { font-family: var(--font-mono); font-size: 7px; letter-spacing: 1px; padding: 2px 7px; border-radius: 10px; text-transform: uppercase; margin-left: 6px; }
+.role-pill.admin { color: var(--offense); background: var(--offense-bg); border: 1px solid var(--offense); }
+.role-pill.coach { color: var(--defense); background: var(--defense-bg); border: 1px solid var(--defense); }
+</style>
+
+<script>
+/* ScoutPRO v7 — capa de roles */
+(function () {
+  let role = null;            // 'admin' | 'coach' | null (desconocido)
+  const isAdmin = () => role === 'admin';
+  window.scoutIsAdmin = isAdmin;
+
+  function notifyRO() { if (typeof notify === 'function') notify('Modo solo lectura — pedile acceso al administrador.'); }
+  function blockIfCoach() { if (!isAdmin()) { notifyRO(); return true; } return false; }
+
+  /* ---------- aplicar el rol a la interfaz ---------- */
+  function applyRole() {
+    const admin = isAdmin();
+    document.body.classList.toggle('role-admin', admin);
+    document.body.classList.toggle('role-coach', !admin);
+    // pill de rol al lado del email
+    const badge = document.getElementById('auth-user-badge');
+    if (badge && role) {
+      let pill = document.getElementById('role-pill');
+      if (!pill) {
+        pill = document.createElement('span');
+        pill.id = 'role-pill';
+        badge.insertAdjacentElement('afterend', pill);
+      }
+      pill.className = 'role-pill ' + (admin ? 'admin' : 'coach');
+      pill.textContent = admin ? 'ADMIN' : 'COACH';
+    }
+    // nota de solo-lectura en el splash para coaches
+    if (!admin) {
+      const inner = document.querySelector('#screen-splash .splash-inner');
+      if (inner && !document.getElementById('coach-ro-note')) {
+        const n = document.createElement('div');
+        n.id = 'coach-ro-note';
+        n.className = 'coach-readonly-note';
+        n.textContent = 'Perfil Coach · solo lectura de tus equipos asignados';
+        inner.appendChild(n);
+      }
+    }
+  }
+
+  async function loadRole() {
+    const sb = window._sb;
+    if (!sb) { role = 'admin'; applyRole(); return; }   // sin nube: modo local sin restricción
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { role = null; applyRole(); return; }
+      const { data, error } = await sb.from('profiles').select('role').eq('id', user.id).single();
+      if (error) throw error;
+      role = (data && data.role) || 'coach';
+    } catch (e) { console.warn('[ScoutPRO] rol:', e); role = 'coach'; }
+    window.SCOUTPRO_ROLE = role;
+    applyRole();
+    // refrescar la pantalla actual por si cambió lo visible
+    if (typeof S !== 'undefined' && typeof showScreen === 'function') showScreen(S.curScreen || 'splash');
+  }
+
+  /* ---------- envolver showScreen para re-aplicar y meter panel admin ---------- */
+  if (typeof showScreen === 'function') {
+    const _showScreen = showScreen;
+    showScreen = function (id) {
+      _showScreen.apply(this, arguments);
+      applyRole();
+    };
+  }
+
+  /* ---------- panel de coaches en el detalle de equipo (sólo admin) ---------- */
+  if (typeof renderTeamDetail === 'function') {
+    const _renderTD = renderTeamDetail;
+    renderTeamDetail = function (teamId) {
+      _renderTD.apply(this, arguments);
+      if (isAdmin()) appendCoachesPanel(teamId);
+    };
+  }
+
+  function appendCoachesPanel(teamId) {
+    const main = document.getElementById('teams-main'); if (!main) return;
+    const panel = document.createElement('div');
+    panel.className = 'coaches-panel';
+    panel.innerHTML =
+      '<div class="team-partidos-title">Coaches con acceso</div>' +
+      '<div class="coach-add">' +
+        '<input id="coach-email-' + teamId + '" type="email" placeholder="email del coach (ya registrado)" ' +
+        'onkeydown="if(event.key===\'Enter\')adminAssignCoach(\'' + teamId + '\')">' +
+        '<button onclick="adminAssignCoach(\'' + teamId + '\')">+ Dar acceso</button>' +
+      '</div>' +
+      '<div class="coach-list" id="coach-list-' + teamId + '"><div class="coach-empty">Cargando…</div></div>';
+    main.appendChild(panel);
+    fetchCoaches(teamId);
+  }
+
+  async function fetchCoaches(teamId) {
+    const cont = document.getElementById('coach-list-' + teamId);
+    if (!cont) return;
+    const sb = window._sb; if (!sb) { cont.innerHTML = ''; return; }
+    try {
+      const { data: tc, error } = await sb.from('team_coaches').select('user_id').eq('team_id', teamId);
+      if (error) throw error;
+      const ids = (tc || []).map(r => r.user_id);
+      if (!ids.length) { cont.innerHTML = '<div class="coach-empty">Sin coaches asignados todavía.</div>'; return; }
+      const { data: profs } = await sb.from('profiles').select('id,email').in('id', ids);
+      const byId = {}; (profs || []).forEach(p => byId[p.id] = p.email);
+      cont.innerHTML = ids.map(uid =>
+        '<div class="coach-chip">' + (byId[uid] || uid) +
+        '<span class="cc-del" title="Quitar acceso" onclick="adminRemoveCoach(\'' + teamId + '\',\'' + uid + '\')">✕</span></div>'
+      ).join('');
+    } catch (e) { console.error(e); cont.innerHTML = '<div class="coach-empty">No se pudo cargar.</div>'; }
+  }
+
+  window.adminAssignCoach = async function (teamId) {
+    if (!isAdmin()) return;
+    const inp = document.getElementById('coach-email-' + teamId);
+    const email = ((inp && inp.value) || '').trim().toLowerCase();
+    if (!email) { if (inp) inp.focus(); return; }
+    const sb = window._sb; if (!sb) return;
+    try {
+      const { data: prof, error } = await sb.from('profiles').select('id,role').eq('email', email).maybeSingle();
+      if (error) throw error;
+      if (!prof) { notify('Ese email todavía no se registró en la app.'); return; }
+      const { error: insErr } = await sb.from('team_coaches').insert({ team_id: teamId, user_id: prof.id });
+      if (insErr && !/duplicate|already/i.test(insErr.message || '')) throw insErr;
+      if (inp) inp.value = '';
+      notify('Acceso dado a ' + email);
+      fetchCoaches(teamId);
+    } catch (e) { console.error(e); notify('⚠ No se pudo asignar: ' + (e.message || e)); }
+  };
+
+  window.adminRemoveCoach = async function (teamId, userId) {
+    if (!isAdmin()) return;
+    const sb = window._sb; if (!sb) return;
+    try {
+      await sb.from('team_coaches').delete().eq('team_id', teamId).eq('user_id', userId);
+      notify('Acceso quitado');
+      fetchCoaches(teamId);
+    } catch (e) { console.error(e); }
+  };
+
+  /* ---------- candados de escritura para el coach ---------- */
+  function guard(name) {
+    if (typeof window[name] === 'function') {
+      const orig = window[name];
+      window[name] = function () { if (blockIfCoach()) return; return orig.apply(this, arguments); };
+    }
+  }
+  ['saveCurrentGame', 'tagAction', 'addTeamFromSplash', 'showNewTeamDialog', 'rosterAdd', 'rosterRemove', 'addCustomTag'].forEach(guard);
+
+  /* ---------- hooks de sesión ---------- */
+  const sb = window._sb;
+  if (sb) {
+    sb.auth.getSession().then(({ data }) => { if (data && data.session) loadRole(); });
+    sb.auth.onAuthStateChange((event, session) => {
+      if (session) { loadRole(); }
+      else { role = null; window.SCOUTPRO_ROLE = null; applyRole(); }
+    });
+  } else {
+    role = 'admin'; applyRole();
+  }
+})();
+</script>
+
 </body>
 </html>
