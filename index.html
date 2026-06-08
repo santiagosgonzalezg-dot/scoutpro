@@ -3497,7 +3497,7 @@ updateClipsBadge();
     // asegurar que el equipo activo exista en la nube (evita errores al guardar el primer partido)
     try {
       const team = (typeof getActiveTeam === 'function') ? getActiveTeam() : null;
-      if (sb && team) await sb.from('teams').upsert({ id: team.id, name: team.name, color: team.color });
+      if (sb && team && team.id !== 'team_default') await sb.from('teams').upsert({ id: team.id, name: team.name, color: team.color });
     } catch (e) { console.error(e); }
     if (typeof showScreen === 'function') showScreen('splash');
   }
@@ -3784,6 +3784,7 @@ updateClipsBadge();
     applyRole();
     // refrescar la pantalla actual por si cambió lo visible
     if (typeof S !== 'undefined' && typeof showScreen === 'function') showScreen(S.curScreen || 'splash');
+    if (isAdmin()) maybeOnboard();
   }
 
   /* ---------- envolver showScreen para re-aplicar y meter panel admin ---------- */
@@ -3864,6 +3865,87 @@ updateClipsBadge();
       notify('Acceso quitado');
       fetchCoaches(teamId);
     } catch (e) { console.error(e); }
+  };
+
+  /* ---------- onboarding: cargar equipos cuando el admin no tiene ninguno ---------- */
+  let onboardShown = false;
+  async function maybeOnboard() {
+    if (onboardShown) return;
+    const sb = window._sb; if (!sb) return;
+    try {
+      const { data, error } = await sb.from('teams').select('id');
+      if (error) throw error;
+      if (data && data.length) return;   // ya tiene equipos cargados
+    } catch (e) { console.warn('[ScoutPRO] onboarding:', e); return; }
+    onboardShown = true;
+    showOnboard();
+  }
+
+  function showOnboard() {
+    let ov = document.getElementById('onboard-overlay');
+    if (ov) { ov.style.display = 'flex'; refreshOnboardList(); return; }
+    ov = document.createElement('div');
+    ov.id = 'onboard-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:5200;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:20px';
+    ov.innerHTML =
+      '<div style="width:440px;max-width:100%;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:26px 22px;animation:modalIn .2s ease">' +
+        '<div style="font-family:var(--font-disp);font-size:24px;font-weight:800;letter-spacing:.5px;margin-bottom:2px">Cargá tus equipos</div>' +
+        '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px">Todavía no tenés ningún equipo cargado</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:12px">' +
+          '<input id="onboard-name" placeholder="Nombre del equipo / club" style="flex:1;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:9px 12px;font-size:14px;color:var(--text);outline:none;font-family:var(--font-ui)" onkeydown="if(event.key===\'Enter\')onboardCreate()">' +
+          '<button onclick="onboardCreate()" style="background:var(--offense);color:#fff;border:none;border-radius:var(--r-sm);padding:0 16px;font-family:var(--font-disp);font-size:14px;font-weight:700;cursor:pointer">+ Crear</button>' +
+        '</div>' +
+        '<div id="onboard-list" style="margin-bottom:16px"></div>' +
+        '<button id="onboard-done" onclick="onboardDone()" style="width:100%;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:11px;font-family:var(--font-disp);font-size:14px;font-weight:700;letter-spacing:1px;color:var(--text-2);cursor:pointer;text-transform:uppercase">Empezar</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+    refreshOnboardList();
+    setTimeout(() => { const i = document.getElementById('onboard-name'); if (i) i.focus(); }, 60);
+  }
+
+  function realTeams() {
+    return (typeof S !== 'undefined' ? S.teams : []).filter(t => t.id !== 'team_default');
+  }
+
+  function refreshOnboardList() {
+    const list = document.getElementById('onboard-list'); if (!list) return;
+    const teams = realTeams();
+    const done = document.getElementById('onboard-done');
+    if (!teams.length) {
+      list.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-3);line-height:1.7;padding:2px 0">Agregá uno o más equipos (tus clubes). Después vas a poder cargar el plantel y los partidos de cada uno.</div>';
+      if (done) done.textContent = 'Por ahora no';
+    } else {
+      list.innerHTML = teams.map(t =>
+        '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);margin-bottom:4px">' +
+          '<div style="width:22px;height:22px;border-radius:var(--r-sm);background:' + (t.color || '#f97316') + ';opacity:.85"></div>' +
+          '<span style="font-family:var(--font-disp);font-size:14px;font-weight:700">' + t.name + '</span>' +
+          '<span style="margin-left:auto;font-family:var(--font-mono);font-size:8px;color:var(--positive)">✓ creado</span>' +
+        '</div>'
+      ).join('');
+      if (done) done.textContent = 'Empezar';
+    }
+  }
+
+  window.onboardCreate = function () {
+    const inp = document.getElementById('onboard-name');
+    const name = ((inp && inp.value) || '').trim();
+    if (!name) { if (inp) inp.focus(); return; }
+    if (typeof addTeam === 'function') {
+      const id = addTeam(name);
+      if (id && typeof setActiveTeam === 'function') setActiveTeam(id);
+    }
+    if (inp) { inp.value = ''; inp.focus(); }
+    refreshOnboardList();
+  };
+
+  window.onboardDone = async function () {
+    // si no creó ninguno, dejamos válido el equipo por defecto en la nube (para que pueda guardar)
+    if (!realTeams().length) {
+      const sb = window._sb;
+      try { const t = getActiveTeam(); if (sb && t) await sb.from('teams').upsert({ id: t.id, name: t.name, color: t.color }); } catch (e) {}
+    }
+    const ov = document.getElementById('onboard-overlay'); if (ov) ov.style.display = 'none';
+    if (typeof showScreen === 'function') showScreen('splash');
   };
 
   /* ---------- candados de escritura para el coach ---------- */
