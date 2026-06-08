@@ -850,7 +850,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
 
 <!-- TOPBAR -->
 <div class="topbar" id="main-topbar" style="display:none">
-  <div class="topbar-logo">SCOUT<span class="lo-s">PRO</span><span class="lo-v">v5</span></div>
+  <div class="topbar-logo">SCOUT<span class="lo-s">PRO</span><span class="lo-v">v6</span></div>
   <div class="nav-tabs" id="nav-tabs">
     <div class="nav-tab active" onclick="gotoTab('scout')" data-tab="scout">Scout <span class="nt-badge" id="nb-scout">0</span></div>
     <div class="nav-tab" onclick="gotoTab('board')" data-tab="board">Board</div>
@@ -863,10 +863,12 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
   <div class="match-pill" id="match-pill">—</div>
   <div class="topbar-right">
     <div id="active-team-badge" class="team-badge" onclick="gotoTab('teams')" style="display:none"></div>
+    <span id="auth-user-badge" style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
     <button class="tb-btn" onclick="toggleKbOverlay()" title="Keyboard shortcuts">?</button>
     <button class="tb-btn" onclick="showScreen('splash')">← Home</button>
     <button class="tb-btn save" onclick="saveCurrentGame()" title="Ctrl+S">Save</button>
     <button class="tb-btn export" onclick="openExportModal()">Export</button>
+    <button class="tb-btn logout" onclick="authLogout()" title="Cerrar sesión">Salir</button>
   </div>
 </div>
 
@@ -1563,7 +1565,7 @@ function saveCurrentGame() {
   const team=getActiveTeam(); if (!team) return;
   const game={
     id:S.currentGameId||('game_'+Date.now()),
-    teamId:team.id, scoutType:S.scoutType,
+    teamId:team.id, scoutType:S.scoutType, playerId:(S.currentScoutPlayerId||null),
     local:S.local, visit:S.visit, score:S.score,
     scoreLocal:parseInt(S.score.split('–')[0])||0,
     scoreVisit:parseInt(S.score.split('–')[1])||0,
@@ -3112,9 +3114,9 @@ updateClipsBadge();
 
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
     }
   });
   window._sb = sb; // por si querés depurar desde la consola
@@ -3136,7 +3138,7 @@ updateClipsBadge();
   // ---------- Mapeos app <-> base ----------
   function gameToRow(g) {
     return {
-      id: g.id, team_id: g.teamId, scout_type: g.scoutType,
+      id: g.id, team_id: g.teamId, player_id: g.playerId || null, scout_type: g.scoutType,
       local: g.local, visit: g.visit, score: g.score,
       score_local: g.scoreLocal || 0, score_visit: g.scoreVisit || 0,
       comp: g.comp, fecha: g.fecha, jornada: g.jornada,
@@ -3158,7 +3160,7 @@ updateClipsBadge();
   }
   function rowToGame(g, clipRows) {
     return {
-      id: g.id, teamId: g.team_id, scoutType: g.scout_type,
+      id: g.id, teamId: g.team_id, playerId: g.player_id || null, scoutType: g.scout_type,
       local: g.local, visit: g.visit, score: g.score,
       scoreLocal: g.score_local, scoreVisit: g.score_visit,
       comp: g.comp, fecha: g.fecha, jornada: g.jornada,
@@ -3213,7 +3215,13 @@ updateClipsBadge();
     }
     if (!S.teams.some(t => t.id === S.activeTeamId) && S.teams[0]) S.activeTeamId = S.teams[0].id;
 
-    // roster + etiquetas custom
+    // roster por equipo (objetos completos) + lista global (fallback)
+    S.allPlayers = playersR.data || [];
+    S.playersByTeam = {};
+    S.allPlayers.forEach(p => {
+      (S.playersByTeam[p.team_id] = S.playersByTeam[p.team_id] || []).push(p);
+    });
+    Object.values(S.playersByTeam).forEach(arr => arr.sort((a, b) => (a.orden || 0) - (b.orden || 0)));
     if (playersR.data && playersR.data.length) {
       S.jugadores = playersR.data.map(p => (p.numero ? '#' + p.numero + ' ' : '') + p.name);
     }
@@ -3307,13 +3315,379 @@ updateClipsBadge();
   window.scoutproCloud = { reload: cloudLoadAll, saveGame: cloudSaveGameFull, client: sb };
 
   // ---------- Arranque ----------
-  // La app ya pintó con datos locales; ahora traemos lo de la nube y re-renderizamos.
-  cloudLoadAll().catch(e => {
-    console.error('[ScoutPRO] Error cargando desde Supabase:', e);
-    notify('⚠ Supabase: ' + errStr(e));
-  });
+  // La carga de datos ahora la dispara la capa de login (script de abajo),
+  // sólo cuando hay una sesión activa. Así cada usuario ve únicamente lo suyo.
 })();
 </script>
 <!-- =========================================================== -->
+<!-- ====================================================================== -->
+<!-- ScoutPRO v6 — Login + Roster por equipo + Modo Individual (add-on)     -->
+<!-- ====================================================================== -->
+<style>
+/* ===== AUTH GATE ===== */
+#auth-gate { position: fixed; inset: 0; z-index: 5000; background: var(--bg-base); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.auth-card { width: 360px; max-width: 100%; background: var(--bg-raised); border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: 28px 24px; animation: modalIn 0.2s ease; }
+.auth-logo { font-family: var(--font-disp); font-size: 36px; font-weight: 900; letter-spacing: 2px; line-height: 1; text-align: center; margin-bottom: 2px; }
+.auth-logo span { color: var(--offense); }
+.auth-sub { font-family: var(--font-mono); font-size: 8px; color: var(--text-3); letter-spacing: 2px; text-align: center; margin-bottom: 22px; text-transform: uppercase; }
+.auth-tabs { display: flex; gap: 4px; margin-bottom: 18px; background: var(--bg-panel); padding: 3px; border-radius: var(--r-sm); }
+.auth-tab { flex: 1; text-align: center; padding: 7px; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.5px; color: var(--text-3); cursor: pointer; border-radius: var(--r-sm); border: 1px solid transparent; transition: all var(--t-fast); text-transform: uppercase; }
+.auth-tab.active { color: var(--offense); background: var(--offense-bg); border-color: var(--offense); }
+.auth-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.auth-field label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 1px; color: var(--text-3); text-transform: uppercase; }
+.auth-field input { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--r-sm); padding: 9px 12px; font-family: var(--font-ui); font-size: 14px; color: var(--text); outline: none; transition: border-color var(--t-base); }
+.auth-field input:focus { border-color: var(--offense); }
+.auth-btn { width: 100%; background: var(--offense); color: #fff; border: none; border-radius: var(--r-sm); padding: 11px; font-family: var(--font-disp); font-size: 15px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: background var(--t-base); text-transform: uppercase; margin-top: 4px; }
+.auth-btn:hover { background: #ea6c10; }
+.auth-btn:disabled { background: var(--bg-hover); color: var(--text-3); cursor: not-allowed; }
+.auth-msg { font-family: var(--font-mono); font-size: 9px; text-align: center; margin-top: 14px; min-height: 14px; line-height: 1.5; }
+.auth-msg.err { color: var(--negative); }
+.auth-msg.ok { color: var(--positive); }
+.tb-btn.logout { border-color: var(--border-light); color: var(--text-2); }
+.tb-btn.logout:hover { border-color: var(--negative); color: var(--negative); background: var(--negative-bg); }
+
+/* ===== PLAYER PICKER (modo Individual) ===== */
+.pp-overlay { position: fixed; inset: 0; z-index: 650; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); padding: 20px; }
+.pp-modal { width: 460px; max-width: 100%; max-height: 82vh; background: var(--bg-raised); border: 1px solid var(--border-light); border-radius: var(--r-lg); display: flex; flex-direction: column; overflow: hidden; animation: modalIn 0.15s ease; }
+.pp-header { padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; }
+.pp-title { font-family: var(--font-disp); font-size: 17px; font-weight: 800; }
+.pp-sub { font-family: var(--font-mono); font-size: 7px; color: var(--text-3); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+.pp-body { padding: 12px; overflow-y: auto; }
+.pp-player { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--r-sm); border: 1px solid var(--border-subtle); margin-bottom: 4px; cursor: pointer; transition: all var(--t-fast); background: var(--bg-panel); }
+.pp-player:hover { border-color: var(--offense); background: var(--offense-bg); }
+.pp-num { width: 28px; height: 28px; border-radius: var(--r-sm); background: var(--bg-hover); display: flex; align-items: center; justify-content: center; font-family: var(--font-disp); font-size: 12px; font-weight: 800; color: var(--offense); flex-shrink: 0; }
+.pp-pname { font-family: var(--font-disp); font-size: 14px; font-weight: 700; }
+.pp-ppos { font-family: var(--font-mono); font-size: 7px; color: var(--text-3); }
+.pp-empty { text-align: center; padding: 24px; font-family: var(--font-mono); font-size: 9px; color: var(--text-3); line-height: 1.8; }
+
+/* ===== ROSTER (en Teams) ===== */
+.roster-panel { margin-top: 16px; }
+.roster-add { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.roster-add input { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--r-sm); padding: 6px 10px; font-size: 13px; color: var(--text); outline: none; font-family: var(--font-ui); }
+.roster-add input:focus { border-color: var(--offense); }
+.roster-add input.num { width: 56px; }
+.roster-add input.name { flex: 1; min-width: 140px; }
+.roster-add button { background: var(--offense-bg); border: 1px solid var(--offense); border-radius: var(--r-sm); padding: 6px 14px; color: var(--offense); font-family: var(--font-mono); font-size: 9px; cursor: pointer; transition: all var(--t-fast); white-space: nowrap; }
+.roster-add button:hover { background: var(--offense); color: #fff; }
+.roster-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.roster-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: var(--r-sm); }
+.roster-item .ri-num { width: 26px; height: 26px; border-radius: var(--r-sm); background: var(--offense-bg); color: var(--offense); display: flex; align-items: center; justify-content: center; font-family: var(--font-disp); font-size: 12px; font-weight: 800; flex-shrink: 0; }
+.roster-item .ri-name { font-family: var(--font-disp); font-size: 13px; font-weight: 700; flex: 1; }
+.roster-item .ri-del { background: none; border: none; color: var(--text-3); cursor: pointer; font-size: 12px; padding: 2px 5px; border-radius: var(--r-sm); }
+.roster-item .ri-del:hover { color: var(--negative); background: var(--negative-bg); }
+.roster-empty { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); padding: 10px 0; line-height: 1.7; }
+</style>
+
+<!-- AUTH GATE -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <div class="auth-logo">SCOUT<span>PRO</span></div>
+    <div class="auth-sub">Basketball Intelligence</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
+      <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
+    </div>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label>Contraseña</label>
+      <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+    <button class="auth-btn" id="auth-submit" onclick="authSubmit()">Ingresar</button>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- PLAYER PICKER -->
+<div class="pp-overlay" id="pp-overlay">
+  <div class="pp-modal">
+    <div class="pp-header">
+      <div>
+        <div class="pp-title">Elegí un jugador</div>
+        <div class="pp-sub" id="pp-team-name">—</div>
+      </div>
+      <button class="pm-close" onclick="closePlayerPicker()">✕</button>
+    </div>
+    <div class="pp-body" id="pp-body"></div>
+  </div>
+</div>
+
+<script>
+/* ScoutPRO v6 — capa de login + roster por equipo + modo Individual */
+(function () {
+  const $ = id => document.getElementById(id);
+  let authMode = 'login';
+
+  function activeTeamId() { return (typeof S !== 'undefined' && S.activeTeamId) || null; }
+  function rosterOf(teamId) {
+    if (typeof S === 'undefined') return [];
+    S.playersByTeam = S.playersByTeam || {};
+    return S.playersByTeam[teamId] || [];
+  }
+  function playerLabel(p) { return (p.numero ? '#' + p.numero + ' ' : '') + p.name; }
+  function esc(s) { return String(s == null ? '' : s).replace(/'/g, "\\'"); }
+
+  /* ================= AUTH ================= */
+  function showGate() { const g = $('auth-gate'); if (g) g.style.display = 'flex'; }
+  function hideGate() { const g = $('auth-gate'); if (g) g.style.display = 'none'; }
+  function setMsg(text, kind) { const m = $('auth-msg'); if (!m) return; m.textContent = text || ''; m.className = 'auth-msg' + (kind ? ' ' + kind : ''); }
+
+  window.authSetMode = function (mode) {
+    authMode = mode;
+    $('auth-tab-login').classList.toggle('active', mode === 'login');
+    $('auth-tab-signup').classList.toggle('active', mode === 'signup');
+    $('auth-submit').textContent = mode === 'login' ? 'Ingresar' : 'Crear cuenta';
+    setMsg('');
+  };
+
+  function traducirError(e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    if (/Invalid login/i.test(msg)) return 'Email o contraseña incorrectos.';
+    if (/already registered|already exists|User already/i.test(msg)) return 'Ese email ya tiene cuenta. Probá ingresar.';
+    if (/at least 6|password should be|weak/i.test(msg)) return 'La contraseña debe tener al menos 6 caracteres.';
+    if (/confirm/i.test(msg)) return 'Tenés que confirmar el email antes de ingresar.';
+    if (/rate limit|too many/i.test(msg)) return 'Demasiados intentos. Esperá un momento.';
+    return msg;
+  }
+
+  window.authSubmit = async function () {
+    const sb = window._sb;
+    const email = ($('auth-email').value || '').trim();
+    const pass = $('auth-pass').value || '';
+    if (!email || !pass) { setMsg('Completá email y contraseña.', 'err'); return; }
+    if (!sb) { setMsg('Supabase no está configurado.', 'err'); return; }
+    const btn = $('auth-submit'); btn.disabled = true;
+    try {
+      if (authMode === 'signup') {
+        const { data, error } = await sb.auth.signUp({ email, password: pass });
+        if (error) throw error;
+        if (data && data.session) { setMsg('Cuenta creada.', 'ok'); await afterLogin(); }
+        else { setMsg('Cuenta creada. Si te pide confirmar por email, hacelo y después ingresá.', 'ok'); window.authSetMode('login'); }
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+        if (error) throw error;
+        await afterLogin();
+      }
+    } catch (e) { setMsg(traducirError(e), 'err'); }
+    finally { btn.disabled = false; }
+  };
+
+  window.authLogout = async function () {
+    const sb = window._sb;
+    try { if (sb) await sb.auth.signOut(); } catch (e) {}
+    const badge = $('auth-user-badge'); if (badge) badge.textContent = '';
+    $('auth-pass').value = '';
+    setMsg('');
+    showGate();
+  };
+
+  async function afterLogin() {
+    const sb = window._sb;
+    hideGate();
+    try {
+      const { data } = await sb.auth.getUser();
+      const email = data && data.user ? data.user.email : '';
+      const badge = $('auth-user-badge'); if (badge) badge.textContent = email;
+    } catch (e) {}
+    // traer datos del usuario desde la nube
+    try { if (window.scoutproCloud && window.scoutproCloud.reload) await window.scoutproCloud.reload(); }
+    catch (e) { console.error(e); }
+    // asegurar que el equipo activo exista en la nube (evita errores al guardar el primer partido)
+    try {
+      const team = (typeof getActiveTeam === 'function') ? getActiveTeam() : null;
+      if (sb && team) await sb.from('teams').upsert({ id: team.id, name: team.name, color: team.color });
+    } catch (e) { console.error(e); }
+    if (typeof showScreen === 'function') showScreen('splash');
+  }
+
+  /* ================= ROSTER POR EQUIPO ================= */
+  if (typeof renderJugadores === 'function') {
+    const _renderJug = renderJugadores;
+    renderJugadores = function () {
+      const cont = document.getElementById('jugadores-list');
+      const roster = rosterOf(activeTeamId());
+      if (!cont) return;
+      if (!roster.length) return _renderJug.apply(this, arguments);
+      cont.innerHTML = roster.map(p => {
+        const label = playerLabel(p);
+        const tag = p.numero ? ('#' + p.numero) : (p.name || '').substring(0, 2);
+        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--r-sm);cursor:pointer;border:1px solid transparent;margin-bottom:2px;transition:all var(--t-fast)" onclick="toggleJug(this,\'' + esc(label) + '\')">' +
+          '<div style="width:24px;height:24px;border-radius:var(--r-sm);background:var(--bg-hover);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:7px;color:var(--text-2)">' + tag + '</div>' +
+          '<span style="font-size:12px">' + label + '</span></div>';
+      }).join('');
+    };
+  }
+
+  if (typeof renderTeamDetail === 'function') {
+    const _renderTD = renderTeamDetail;
+    renderTeamDetail = function (teamId) {
+      _renderTD.apply(this, arguments);
+      appendRosterPanel(teamId);
+    };
+  }
+
+  function appendRosterPanel(teamId) {
+    const main = document.getElementById('teams-main'); if (!main) return;
+    const roster = rosterOf(teamId);
+    const panel = document.createElement('div');
+    panel.className = 'roster-panel';
+    let html = '<div class="team-partidos-title">Plantel (' + roster.length + ')</div>' +
+      '<div class="roster-add">' +
+        '<input class="num" id="ros-num-' + teamId + '" placeholder="#" maxlength="3">' +
+        '<input class="name" id="ros-name-' + teamId + '" placeholder="Nombre del jugador" onkeydown="if(event.key===\'Enter\')rosterAdd(\'' + teamId + '\')">' +
+        '<input id="ros-pos-' + teamId + '" placeholder="Pos" maxlength="4" style="width:70px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:6px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)">' +
+        '<button onclick="rosterAdd(\'' + teamId + '\')">+ Agregar</button>' +
+      '</div>';
+    if (!roster.length) {
+      html += '<div class="roster-empty">Todavía no hay jugadores en este equipo.<br>Cargá el plantel acá; después lo vas a poder elegir en el modo <b>Individual</b>.</div>';
+    } else {
+      html += '<div class="roster-list">' + roster.map(p =>
+        '<div class="roster-item">' +
+          '<div class="ri-num">' + (p.numero ? ('#' + p.numero) : '–') + '</div>' +
+          '<div class="ri-name">' + p.name + (p.posicion ? (' <span style="color:var(--text-3);font-size:9px;font-family:var(--font-mono)">' + p.posicion + '</span>') : '') + '</div>' +
+          '<button class="ri-del" title="Quitar" onclick="rosterRemove(\'' + teamId + '\',\'' + p.id + '\')">✕</button>' +
+        '</div>'
+      ).join('') + '</div>';
+    }
+    panel.innerHTML = html;
+    main.appendChild(panel);
+  }
+
+  window.rosterAdd = async function (teamId) {
+    const nameEl = document.getElementById('ros-name-' + teamId);
+    const numEl = document.getElementById('ros-num-' + teamId);
+    const posEl = document.getElementById('ros-pos-' + teamId);
+    const name = ((nameEl && nameEl.value) || '').trim();
+    if (!name) { if (nameEl) nameEl.focus(); return; }
+    const numero = ((numEl && numEl.value) || '').trim();
+    const posicion = ((posEl && posEl.value) || '').trim();
+    const id = 'player_' + Date.now();
+    const orden = rosterOf(teamId).length;
+    const rec = { id, team_id: teamId, name, numero: numero || null, posicion: posicion || null, orden };
+    S.playersByTeam = S.playersByTeam || {};
+    (S.playersByTeam[teamId] = S.playersByTeam[teamId] || []).push(rec);
+    const sb = window._sb;
+    if (sb) {
+      try {
+        const { error } = await sb.from('players').insert(rec);
+        if (error) throw error;
+        if (typeof notify === 'function') notify('Jugador agregado: ' + name);
+      } catch (e) {
+        console.error(e);
+        if (typeof notify === 'function') notify('⚠ No se pudo guardar el jugador en la nube');
+      }
+    }
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+  };
+
+  window.rosterRemove = async function (teamId, playerId) {
+    const arr = rosterOf(teamId);
+    const i = arr.findIndex(p => p.id === playerId);
+    if (i > -1) arr.splice(i, 1);
+    const sb = window._sb;
+    if (sb) { try { await sb.from('players').delete().eq('id', playerId); } catch (e) { console.error(e); } }
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+  };
+
+  /* ================= MODO INDIVIDUAL ================= */
+  let _goPartidoOrig = null;
+  if (typeof goPartido === 'function') {
+    _goPartidoOrig = goPartido;
+    goPartido = function (tipo) {
+      if (tipo === 'Individual') { openPlayerPicker(); return; }
+      S.currentScoutPlayerId = null;
+      S.currentScoutPlayerName = null;
+      updateIndividualBanner();
+      _goPartidoOrig.apply(this, arguments);
+    };
+  }
+
+  window.openPlayerPicker = function () {
+    const tid = activeTeamId();
+    const team = (typeof getActiveTeam === 'function') ? getActiveTeam() : null;
+    const roster = rosterOf(tid);
+    const nameEl = document.getElementById('pp-team-name');
+    if (nameEl) nameEl.textContent = team ? team.name : '';
+    const body = document.getElementById('pp-body');
+    if (body) {
+      if (!roster.length) {
+        body.innerHTML = '<div class="pp-empty">Este equipo todavía no tiene jugadores.<br>Andá a <b>Teams</b>, elegí el equipo y cargá el plantel.<br>Después volvé a <b>Individual</b>.</div>';
+      } else {
+        body.innerHTML = roster.map(p =>
+          '<div class="pp-player" onclick="pickPlayer(\'' + p.id + '\')">' +
+            '<div class="pp-num">' + (p.numero ? ('#' + p.numero) : '–') + '</div>' +
+            '<div><div class="pp-pname">' + p.name + '</div>' + (p.posicion ? ('<div class="pp-ppos">' + p.posicion + '</div>') : '') + '</div>' +
+          '</div>'
+        ).join('');
+      }
+    }
+    const ov = document.getElementById('pp-overlay'); if (ov) ov.style.display = 'flex';
+  };
+
+  window.closePlayerPicker = function () { const ov = document.getElementById('pp-overlay'); if (ov) ov.style.display = 'none'; };
+
+  window.pickPlayer = function (playerId) {
+    const p = rosterOf(activeTeamId()).find(x => x.id === playerId);
+    if (!p) return;
+    S.currentScoutPlayerId = p.id;
+    S.currentScoutPlayerName = playerLabel(p);
+    closePlayerPicker();
+    updateIndividualBanner();
+    if (_goPartidoOrig) _goPartidoOrig('Individual');
+  };
+
+  function updateIndividualBanner() {
+    const wrap = document.querySelector('#screen-partido .partido-wrap');
+    if (!wrap) return;
+    let banner = document.getElementById('pf-individual-banner');
+    if (S.currentScoutPlayerId && S.currentScoutPlayerName) {
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'pf-individual-banner';
+        banner.style.cssText = 'background:var(--offense-bg);border:1px solid var(--offense);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:12px;font-family:var(--font-mono);font-size:9px;color:var(--offense)';
+        const sub = wrap.querySelector('.pf-sub');
+        if (sub) sub.insertAdjacentElement('afterend', banner);
+        else wrap.insertBefore(banner, wrap.firstChild);
+      }
+      banner.style.display = '';
+      banner.innerHTML = '👤 Scouting individual de <b>' + S.currentScoutPlayerName + '</b>';
+    } else if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+
+  if (typeof goScout === 'function') {
+    const _goScout = goScout;
+    goScout = function () {
+      _goScout.apply(this, arguments);
+      if (S.currentScoutPlayerId && S.currentScoutPlayerName) {
+        const pill = document.getElementById('match-pill');
+        if (pill) pill.textContent += ' · 👤 ' + S.currentScoutPlayerName;
+        const meta = document.getElementById('disp-meta');
+        if (meta) meta.textContent += ' · 👤 ' + S.currentScoutPlayerName;
+      }
+    };
+  }
+
+  /* ================= ARRANQUE ================= */
+  async function boot() {
+    const sb = window._sb;
+    window.authSetMode('login');
+    if (!sb) { hideGate(); return; }   // sin Supabase: corre local, sin login
+    showGate();
+    try {
+      const { data } = await sb.auth.getSession();
+      if (data && data.session) await afterLogin();
+    } catch (e) { console.error(e); }
+    sb.auth.onAuthStateChange((event, session) => { if (!session) showGate(); });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
 </body>
 </html>
