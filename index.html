@@ -2149,7 +2149,7 @@ function renderTeamDetail(teamId) {
   let html=`<div class="team-detail-header">
     <div class="td-avatar" style="background:${team.color}22;color:${team.color}">${team.name.substring(0,2).toUpperCase()}</div>
     <div><div class="td-name">${team.name}</div><div class="td-meta">${games.length} games · ${allClips.length} clips</div></div>
-    <div class="td-actions">${team.id!==S.activeTeamId?`<button class="tb-btn accent" onclick="setActiveTeam('${team.id}')">Set Active</button>`:`<div style="font-family:var(--font-mono);font-size:8px;color:var(--offense);padding:3px 8px;border:1px solid var(--offense);border-radius:var(--r-sm)">Active</div>`}</div>
+    <div class="td-actions" style="display:flex;gap:4px;align-items:center">${team.id!==S.activeTeamId?`<button class="tb-btn accent" onclick="setActiveTeam('${team.id}')">Set Active</button>`:`<div style="font-family:var(--font-mono);font-size:8px;color:var(--offense);padding:3px 8px;border:1px solid var(--offense);border-radius:var(--r-sm)">Active</div>`}<button class="tb-btn" onclick="renameTeam('${team.id}')" title="Renombrar equipo">Renombrar</button><button class="tb-btn" onclick="deleteTeam('${team.id}')" title="Borrar equipo" style="border-color:var(--negative);color:var(--negative)">Borrar</button></div>
   </div>`;
   if (adv) {
     html+=`<div class="team-agg-stats">
@@ -2184,6 +2184,7 @@ function renderTeamDetail(teamId) {
       <div class="pr-score">${g.score}</div>
       <div class="pr-clips">${clips.length} clips</div>
       <div class="pr-result ${isWin?'win':isLoss?'loss':'nd'}">${isWin?'WIN':isLoss?'LOSS':'—'}</div>
+      <button class="pr-del" title="Borrar partido" onclick="event.stopPropagation();deleteGame('${g.id}')" style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:var(--r-sm)">✕</button>
     </div>`;
   });
   main.innerHTML=html;
@@ -3547,6 +3548,7 @@ updateClipsBadge();
         '<div class="roster-item">' +
           '<div class="ri-num">' + (p.numero ? ('#' + p.numero) : '–') + '</div>' +
           '<div class="ri-name">' + p.name + (p.posicion ? (' <span style="color:var(--text-3);font-size:9px;font-family:var(--font-mono)">' + p.posicion + '</span>') : '') + '</div>' +
+          '<button class="ri-del" title="Editar" style="color:var(--text-2)" onclick="rosterEdit(\'' + teamId + '\',\'' + p.id + '\')">✎</button>' +
           '<button class="ri-del" title="Quitar" onclick="rosterRemove(\'' + teamId + '\',\'' + p.id + '\')">✕</button>' +
         '</div>'
       ).join('') + '</div>';
@@ -3693,25 +3695,7 @@ updateClipsBadge();
 <!-- ScoutPRO v7 — Roles: admin (todo) / coach (solo lectura, equipos dados)-->
 <!-- ====================================================================== -->
 <style>
-/* Coach = solo lectura: ocultamos controles de escritura */
-.role-coach .sts-new,
-.role-coach .splash-modes,
-.role-coach .teams-sidebar-hdr .tb-btn,
-.role-coach .roster-add,
-.role-coach .roster-item .ri-del,
-.role-coach .quick-tag-bar,
-.role-coach #wizard-box,
-.role-coach #tab-etiquetas .etq-mode-header,
-.role-coach #tab-etiquetas .etq-sec,
-.role-coach #tab-etiquetas .buf-row,
-.role-coach #tab-etiquetas .suggested-tags,
-.role-coach .tb-btn.save { display: none !important; }
-.role-coach .splash-shortcuts { display: none !important; }
-
-.coach-readonly-note {
-  font-family: var(--font-mono); font-size: 8px; color: var(--text-3);
-  letter-spacing: 1px; text-align: center; margin-top: 10px; text-transform: uppercase;
-}
+/* Coaches manejan SUS propios equipos (no es solo-lectura). El admin ve/maneja todo. */
 
 /* Panel de coaches (sólo admin) */
 .coaches-panel { margin-top: 16px; }
@@ -3757,17 +3741,6 @@ updateClipsBadge();
       pill.className = 'role-pill ' + (admin ? 'admin' : 'coach');
       pill.textContent = admin ? 'ADMIN' : 'COACH';
     }
-    // nota de solo-lectura en el splash para coaches
-    if (!admin) {
-      const inner = document.querySelector('#screen-splash .splash-inner');
-      if (inner && !document.getElementById('coach-ro-note')) {
-        const n = document.createElement('div');
-        n.id = 'coach-ro-note';
-        n.className = 'coach-readonly-note';
-        n.textContent = 'Perfil Coach · solo lectura de tus equipos asignados';
-        inner.appendChild(n);
-      }
-    }
   }
 
   async function loadRole() {
@@ -3784,7 +3757,7 @@ updateClipsBadge();
     applyRole();
     // refrescar la pantalla actual por si cambió lo visible
     if (typeof S !== 'undefined' && typeof showScreen === 'function') showScreen(S.curScreen || 'splash');
-    if (isAdmin()) maybeOnboard();
+    maybeOnboard();
   }
 
   /* ---------- envolver showScreen para re-aplicar y meter panel admin ---------- */
@@ -3867,64 +3840,109 @@ updateClipsBadge();
     } catch (e) { console.error(e); }
   };
 
-  /* ---------- onboarding: cargar equipos cuando el admin no tiene ninguno ---------- */
+  /* ---------- onboarding: cargar equipo + jugadores en el primer ingreso ---------- */
   let onboardShown = false;
+  let onboardTeamId = null;
+
   async function maybeOnboard() {
     if (onboardShown) return;
     const sb = window._sb; if (!sb) return;
     try {
       const { data, error } = await sb.from('teams').select('id');
       if (error) throw error;
-      if (data && data.length) return;   // ya tiene equipos cargados
+      if (data && data.length) return;   // ya tiene equipos
     } catch (e) { console.warn('[ScoutPRO] onboarding:', e); return; }
     onboardShown = true;
     showOnboard();
   }
 
+  function realTeams() {
+    return (typeof S !== 'undefined' ? S.teams : []).filter(t => t.id !== 'team_default');
+  }
+  function onbRoster() {
+    if (typeof S === 'undefined' || !onboardTeamId) return [];
+    return (S.playersByTeam && S.playersByTeam[onboardTeamId]) || [];
+  }
+  function onbCount(tid) { return ((typeof S !== 'undefined' && S.playersByTeam && S.playersByTeam[tid]) || []).length; }
+
   function showOnboard() {
     let ov = document.getElementById('onboard-overlay');
-    if (ov) { ov.style.display = 'flex'; refreshOnboardList(); return; }
+    if (ov) { ov.style.display = 'flex'; renderOnboard(); return; }
     ov = document.createElement('div');
     ov.id = 'onboard-overlay';
     ov.style.cssText = 'position:fixed;inset:0;z-index:5200;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:20px';
     ov.innerHTML =
-      '<div style="width:440px;max-width:100%;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:26px 22px;animation:modalIn .2s ease">' +
-        '<div style="font-family:var(--font-disp);font-size:24px;font-weight:800;letter-spacing:.5px;margin-bottom:2px">Cargá tus equipos</div>' +
-        '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px">Todavía no tenés ningún equipo cargado</div>' +
-        '<div style="display:flex;gap:6px;margin-bottom:12px">' +
+      '<div style="width:480px;max-width:100%;max-height:90vh;overflow-y:auto;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:26px 22px;animation:modalIn .2s ease">' +
+        '<div style="font-family:var(--font-disp);font-size:24px;font-weight:800;letter-spacing:.5px;margin-bottom:2px">Cargá tu equipo</div>' +
+        '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px">Creá tu equipo y su plantel para empezar</div>' +
+        '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">1 · Equipo / club</div>' +
+        '<div style="display:flex;gap:6px;margin-bottom:10px">' +
           '<input id="onboard-name" placeholder="Nombre del equipo / club" style="flex:1;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:9px 12px;font-size:14px;color:var(--text);outline:none;font-family:var(--font-ui)" onkeydown="if(event.key===\'Enter\')onboardCreate()">' +
-          '<button onclick="onboardCreate()" style="background:var(--offense);color:#fff;border:none;border-radius:var(--r-sm);padding:0 16px;font-family:var(--font-disp);font-size:14px;font-weight:700;cursor:pointer">+ Crear</button>' +
+          '<button onclick="onboardCreate()" style="background:var(--offense);color:#fff;border:none;border-radius:var(--r-sm);padding:0 16px;font-family:var(--font-disp);font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap">+ Crear</button>' +
         '</div>' +
-        '<div id="onboard-list" style="margin-bottom:16px"></div>' +
+        '<div id="onboard-teams" style="margin-bottom:16px"></div>' +
+        '<div id="onboard-roster-wrap" style="display:none">' +
+          '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin:6px 0">2 · Jugadores de <span id="onboard-team-label" style="color:var(--offense)"></span></div>' +
+          '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' +
+            '<input id="onb-pnum" placeholder="#" maxlength="3" style="width:54px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)">' +
+            '<input id="onb-pname" placeholder="Nombre del jugador" style="flex:1;min-width:140px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)" onkeydown="if(event.key===\'Enter\')onboardAddPlayer()">' +
+            '<input id="onb-ppos" placeholder="Pos" maxlength="4" style="width:64px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)">' +
+            '<button onclick="onboardAddPlayer()" style="background:var(--defense-bg);border:1px solid var(--defense);border-radius:var(--r-sm);padding:8px 12px;color:var(--defense);font-family:var(--font-mono);font-size:9px;cursor:pointer;white-space:nowrap">+ Jugador</button>' +
+          '</div>' +
+          '<div id="onboard-players" style="margin-bottom:12px"></div>' +
+        '</div>' +
         '<button id="onboard-done" onclick="onboardDone()" style="width:100%;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:11px;font-family:var(--font-disp);font-size:14px;font-weight:700;letter-spacing:1px;color:var(--text-2);cursor:pointer;text-transform:uppercase">Empezar</button>' +
       '</div>';
     document.body.appendChild(ov);
-    refreshOnboardList();
+    renderOnboard();
     setTimeout(() => { const i = document.getElementById('onboard-name'); if (i) i.focus(); }, 60);
   }
 
-  function realTeams() {
-    return (typeof S !== 'undefined' ? S.teams : []).filter(t => t.id !== 'team_default');
+  function renderOnboard() {
+    renderOnboardTeams();
+    renderOnboardRoster();
+    const done = document.getElementById('onboard-done');
+    if (done) done.textContent = realTeams().length ? 'Empezar' : 'Por ahora no';
   }
 
-  function refreshOnboardList() {
-    const list = document.getElementById('onboard-list'); if (!list) return;
+  function renderOnboardTeams() {
+    const box = document.getElementById('onboard-teams'); if (!box) return;
     const teams = realTeams();
-    const done = document.getElementById('onboard-done');
     if (!teams.length) {
-      list.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-3);line-height:1.7;padding:2px 0">Agregá uno o más equipos (tus clubes). Después vas a poder cargar el plantel y los partidos de cada uno.</div>';
-      if (done) done.textContent = 'Por ahora no';
-    } else {
-      list.innerHTML = teams.map(t =>
-        '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);margin-bottom:4px">' +
-          '<div style="width:22px;height:22px;border-radius:var(--r-sm);background:' + (t.color || '#f97316') + ';opacity:.85"></div>' +
-          '<span style="font-family:var(--font-disp);font-size:14px;font-weight:700">' + t.name + '</span>' +
-          '<span style="margin-left:auto;font-family:var(--font-mono);font-size:8px;color:var(--positive)">✓ creado</span>' +
+      box.innerHTML = '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-3);line-height:1.7;padding:2px 0">Creá tu equipo. Después le cargás los jugadores.</div>';
+      return;
+    }
+    box.innerHTML = teams.map(t => {
+      const sel = (t.id === onboardTeamId);
+      return '<div onclick="onboardSelectTeam(\'' + t.id + '\')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-panel);border:1px solid ' + (sel ? 'var(--offense)' : 'var(--border-subtle)') + ';border-radius:var(--r-sm);margin-bottom:4px;cursor:pointer">' +
+        '<div style="width:22px;height:22px;border-radius:var(--r-sm);background:' + (t.color || '#f97316') + ';opacity:.85"></div>' +
+        '<span style="font-family:var(--font-disp);font-size:14px;font-weight:700">' + t.name + '</span>' +
+        '<span style="margin-left:auto;font-family:var(--font-mono);font-size:8px;color:var(--text-3)">' + onbCount(t.id) + ' jug.</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderOnboardRoster() {
+    const wrap = document.getElementById('onboard-roster-wrap');
+    const lbl = document.getElementById('onboard-team-label');
+    const list = document.getElementById('onboard-players');
+    if (!wrap) return;
+    const team = (typeof S !== 'undefined') ? S.teams.find(t => t.id === onboardTeamId) : null;
+    if (!onboardTeamId || !team) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    if (lbl) lbl.textContent = team.name;
+    const roster = onbRoster();
+    if (list) {
+      list.innerHTML = roster.length ? roster.map(p =>
+        '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);margin-bottom:3px">' +
+          '<div style="width:24px;height:24px;border-radius:var(--r-sm);background:var(--offense-bg);color:var(--offense);display:flex;align-items:center;justify-content:center;font-family:var(--font-disp);font-size:11px;font-weight:800">' + (p.numero ? ('#' + p.numero) : '–') + '</div>' +
+          '<span style="font-family:var(--font-disp);font-size:13px;font-weight:700">' + p.name + (p.posicion ? (' <span style="color:var(--text-3);font-size:9px;font-family:var(--font-mono)">' + p.posicion + '</span>') : '') + '</span>' +
         '</div>'
-      ).join('');
-      if (done) done.textContent = 'Empezar';
+      ).join('') : '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-3);padding:2px 0">Agregá los jugadores del plantel.</div>';
     }
   }
+
+  window.onboardSelectTeam = function (id) { onboardTeamId = id; renderOnboard(); const i = document.getElementById('onb-pname'); if (i) i.focus(); };
 
   window.onboardCreate = function () {
     const inp = document.getElementById('onboard-name');
@@ -3932,30 +3950,48 @@ updateClipsBadge();
     if (!name) { if (inp) inp.focus(); return; }
     if (typeof addTeam === 'function') {
       const id = addTeam(name);
-      if (id && typeof setActiveTeam === 'function') setActiveTeam(id);
+      if (id) { onboardTeamId = id; if (typeof setActiveTeam === 'function') setActiveTeam(id); }
     }
-    if (inp) { inp.value = ''; inp.focus(); }
-    refreshOnboardList();
+    if (inp) inp.value = '';
+    renderOnboard();
+    const pn = document.getElementById('onb-pname'); if (pn) pn.focus();
+  };
+
+  window.onboardAddPlayer = async function () {
+    const tid = onboardTeamId; if (!tid) return;
+    const nu = document.getElementById('onb-pnum');
+    const nm = document.getElementById('onb-pname');
+    const po = document.getElementById('onb-ppos');
+    const name = ((nm && nm.value) || '').trim();
+    if (!name) { if (nm) nm.focus(); return; }
+    const numero = ((nu && nu.value) || '').trim();
+    const posicion = ((po && po.value) || '').trim();
+    const id = 'player_' + Date.now();
+    const orden = onbRoster().length;
+    const rec = { id, team_id: tid, name, numero: numero || null, posicion: posicion || null, orden };
+    if (typeof S !== 'undefined') {
+      S.playersByTeam = S.playersByTeam || {};
+      (S.playersByTeam[tid] = S.playersByTeam[tid] || []).push(rec);
+    }
+    const sb = window._sb;
+    if (sb) {
+      try { const { error } = await sb.from('players').insert(rec); if (error) throw error; }
+      catch (e) { console.error(e); if (typeof notify === 'function') notify('⚠ No se pudo guardar el jugador'); }
+    }
+    if (nu) nu.value = ''; if (nm) nm.value = ''; if (po) po.value = '';
+    if (nm) nm.focus();
+    renderOnboard();
   };
 
   window.onboardDone = async function () {
-    // si no creó ninguno, dejamos válido el equipo por defecto en la nube (para que pueda guardar)
     if (!realTeams().length) {
       const sb = window._sb;
       try { const t = getActiveTeam(); if (sb && t) await sb.from('teams').upsert({ id: t.id, name: t.name, color: t.color }); } catch (e) {}
     }
     const ov = document.getElementById('onboard-overlay'); if (ov) ov.style.display = 'none';
+    if (typeof renderSplash === 'function') renderSplash();
     if (typeof showScreen === 'function') showScreen('splash');
   };
-
-  /* ---------- candados de escritura para el coach ---------- */
-  function guard(name) {
-    if (typeof window[name] === 'function') {
-      const orig = window[name];
-      window[name] = function () { if (blockIfCoach()) return; return orig.apply(this, arguments); };
-    }
-  }
-  ['saveCurrentGame', 'tagAction', 'addTeamFromSplash', 'showNewTeamDialog', 'rosterAdd', 'rosterRemove', 'addCustomTag'].forEach(guard);
 
   /* ---------- hooks de sesión ---------- */
   const sb = window._sb;
@@ -3968,6 +4004,209 @@ updateClipsBadge();
   } else {
     role = 'admin'; applyRole();
   }
+})();
+</script>
+
+<!-- ====================================================================== -->
+<!-- ScoutPRO — Imprescindibles: CRUD + contraseña + sync + backup          -->
+<!-- ====================================================================== -->
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const sb = () => window._sb;
+
+  /* ================= BORRAR / RENOMBRAR EQUIPO ================= */
+  window.renameTeam = async function (id) {
+    const t = S.teams.find(x => x.id === id); if (!t) return;
+    const name = prompt('Nuevo nombre del equipo:', t.name);
+    if (name === null) return;
+    const nn = name.trim(); if (!nn) return;
+    t.name = nn;
+    if (typeof saveTeams === 'function') saveTeams();
+    if (sb()) { try { await sb().from('teams').update({ name: nn }).eq('id', id); } catch (e) { console.error(e); } }
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+    if (typeof renderSplash === 'function') renderSplash();
+    if (typeof updateActiveTeamBadge === 'function') updateActiveTeamBadge();
+    if (typeof notify === 'function') notify('Equipo renombrado');
+  };
+
+  window.deleteTeam = async function (id) {
+    const t = S.teams.find(x => x.id === id); if (!t) return;
+    if (!confirm('¿Borrar el equipo "' + t.name + '"?\nSe eliminan sus jugadores, partidos y clips. No se puede deshacer.')) return;
+    if (sb()) { try { await sb().from('teams').delete().eq('id', id); } catch (e) { console.error(e); if (typeof notify === 'function') notify('⚠ No se pudo borrar en la nube'); } }
+    S.teams = S.teams.filter(x => x.id !== id);
+    S.allGames = S.allGames.filter(g => g.teamId !== id);
+    if (S.playersByTeam) delete S.playersByTeam[id];
+    if (S.activeTeamId === id) S.activeTeamId = (S.teams[0] && S.teams[0].id) || 'team_default';
+    if (!S.teams.length) { S.teams = [{ id: 'team_default', name: 'My Team', color: '#f97316', partidos: [] }]; S.activeTeamId = 'team_default'; }
+    if (typeof saveTeams === 'function') saveTeams();
+    if (typeof saveAllGames === 'function') saveAllGames();
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+    if (typeof renderSplash === 'function') renderSplash();
+    if (typeof updateActiveTeamBadge === 'function') updateActiveTeamBadge();
+    const main = $('teams-main'); if (main) main.innerHTML = '<div style="padding:40px;text-align:center;font-family:var(--font-mono);font-size:9px;color:var(--text-3)">Elegí un equipo</div>';
+    if (typeof notify === 'function') notify('Equipo borrado');
+  };
+
+  /* ================= BORRAR PARTIDO ================= */
+  window.deleteGame = async function (id) {
+    const g = S.allGames.find(x => x.id === id);
+    const label = g ? (g.local + ' vs ' + g.visit) : 'este partido';
+    if (!confirm('¿Borrar ' + label + '?\nSe eliminan también sus clips. No se puede deshacer.')) return;
+    S.allGames = S.allGames.filter(x => x.id !== id);
+    S.teams.forEach(t => { if (t.partidos) t.partidos = t.partidos.filter(pid => pid !== id); });
+    if (typeof saveAllGames === 'function') saveAllGames();
+    if (typeof saveTeams === 'function') saveTeams();
+    if (sb()) { try { await sb().from('games').delete().eq('id', id); } catch (e) { console.error(e); if (typeof notify === 'function') notify('⚠ No se pudo borrar en la nube'); } }
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+    if (typeof renderSplash === 'function') renderSplash();
+    if (typeof notify === 'function') notify('Partido borrado');
+  };
+
+  /* ================= EDITAR JUGADOR ================= */
+  window.rosterEdit = async function (teamId, playerId) {
+    const arr = (S.playersByTeam && S.playersByTeam[teamId]) || [];
+    const p = arr.find(x => x.id === playerId); if (!p) return;
+    const numero = prompt('Número:', p.numero || ''); if (numero === null) return;
+    const name = prompt('Nombre:', p.name || ''); if (name === null) return;
+    if (!name.trim()) return;
+    const posicion = prompt('Posición:', p.posicion || ''); if (posicion === null) return;
+    p.numero = numero.trim() || null; p.name = name.trim(); p.posicion = posicion.trim() || null;
+    if (sb()) { try { await sb().from('players').update({ numero: p.numero, name: p.name, posicion: p.posicion }).eq('id', playerId); } catch (e) { console.error(e); if (typeof notify === 'function') notify('⚠ No se pudo actualizar'); } }
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+    if (typeof notify === 'function') notify('Jugador actualizado');
+  };
+
+  /* ================= CONTRASEÑA (cambiar / recuperar) ================= */
+  let pwdMode = 'change';
+  function buildPwdModal() {
+    if ($('pwd-overlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'pwd-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:5300;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px);padding:20px';
+    ov.innerHTML =
+      '<div style="width:360px;max-width:100%;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:24px 22px">' +
+        '<div id="pwd-title" style="font-family:var(--font-disp);font-size:20px;font-weight:800;margin-bottom:16px">Cambiar contraseña</div>' +
+        '<div class="auth-field"><label>Nueva contraseña</label><input type="password" id="pwd-new" placeholder="••••••••"></div>' +
+        '<div class="auth-field"><label>Repetir contraseña</label><input type="password" id="pwd-new2" placeholder="••••••••" onkeydown="if(event.key===\'Enter\')pwdSubmit()"></div>' +
+        '<div class="auth-msg" id="pwd-msg"></div>' +
+        '<div style="display:flex;gap:6px;margin-top:10px">' +
+          '<button class="tb-btn" style="flex:1;padding:9px;text-align:center" onclick="closePwd()">Cancelar</button>' +
+          '<button class="auth-btn" style="flex:2;margin-top:0" id="pwd-submit" onclick="pwdSubmit()">Guardar</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+  }
+  window.openPasswordModal = function (mode) {
+    pwdMode = mode || 'change';
+    buildPwdModal();
+    const t = $('pwd-title'); if (t) t.textContent = pwdMode === 'recovery' ? 'Definí tu nueva contraseña' : 'Cambiar contraseña';
+    const m = $('pwd-msg'); if (m) { m.textContent = ''; m.className = 'auth-msg'; }
+    if ($('pwd-new')) $('pwd-new').value = '';
+    if ($('pwd-new2')) $('pwd-new2').value = '';
+    $('pwd-overlay').style.display = 'flex';
+    setTimeout(() => { const i = $('pwd-new'); if (i) i.focus(); }, 50);
+  };
+  window.closePwd = function () { const o = $('pwd-overlay'); if (o) o.style.display = 'none'; };
+  window.pwdSubmit = async function () {
+    const m = $('pwd-msg');
+    const setM = (t, k) => { if (m) { m.textContent = t; m.className = 'auth-msg ' + (k || ''); } };
+    const p1 = ($('pwd-new').value) || '', p2 = ($('pwd-new2').value) || '';
+    if (p1.length < 6) { setM('Mínimo 6 caracteres.', 'err'); return; }
+    if (p1 !== p2) { setM('Las contraseñas no coinciden.', 'err'); return; }
+    if (!sb()) { setM('Supabase no configurado.', 'err'); return; }
+    const btn = $('pwd-submit'); btn.disabled = true;
+    try {
+      const { error } = await sb().auth.updateUser({ password: p1 });
+      if (error) throw error;
+      setM('Contraseña actualizada ✓', 'ok');
+      setTimeout(() => closePwd(), 900);
+    } catch (e) { setM((e && e.message) || 'Error', 'err'); }
+    finally { btn.disabled = false; }
+  };
+
+  window.authForgot = async function () {
+    const emailEl = $('auth-email');
+    const email = ((emailEl && emailEl.value) || '').trim();
+    const m = $('auth-msg');
+    const setM = (t, k) => { if (m) { m.textContent = t; m.className = 'auth-msg ' + (k || ''); } };
+    if (!email) { setM('Escribí tu email arriba y tocá de nuevo.', 'err'); if (emailEl) emailEl.focus(); return; }
+    if (!sb()) { setM('Supabase no configurado.', 'err'); return; }
+    try {
+      const { error } = await sb().auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+      if (error) throw error;
+      setM('Te mandamos un mail para resetear la contraseña.', 'ok');
+    } catch (e) { setM((e && e.message) || 'Error', 'err'); }
+  };
+
+  function injectForgotLink() {
+    const submit = $('auth-submit'); if (!submit) return;
+    if ($('auth-forgot')) return;
+    const a = document.createElement('div');
+    a.id = 'auth-forgot';
+    a.style.cssText = 'text-align:center;margin-top:12px;font-family:var(--font-mono);font-size:9px;color:var(--text-3);cursor:pointer;text-decoration:underline';
+    a.textContent = '¿Olvidaste tu contraseña?';
+    a.onclick = window.authForgot;
+    const msg = $('auth-msg');
+    if (msg) msg.insertAdjacentElement('afterend', a);
+    else submit.insertAdjacentElement('afterend', a);
+  }
+
+  /* ================= INDICADOR DE CONEXIÓN + BACKUP ================= */
+  function updateSyncDot() {
+    const led = $('sync-dot-led'), txt = $('sync-dot-txt');
+    if (!led) return;
+    const on = navigator.onLine;
+    led.style.background = on ? 'var(--positive)' : 'var(--text-3)';
+    if (txt) txt.textContent = on ? 'Online' : 'Sin conexión';
+  }
+
+  window.exportBackup = function () {
+    try {
+      const payload = {
+        app: 'ScoutPRO', exported_at: new Date().toISOString(),
+        teams: S.teams, activeTeamId: S.activeTeamId,
+        games: S.allGames, playersByTeam: S.playersByTeam || {}, customTags: S.customTags || []
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'scoutpro_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (typeof notify === 'function') notify('Backup descargado');
+    } catch (e) { console.error(e); if (typeof notify === 'function') notify('⚠ No se pudo generar el backup'); }
+  };
+
+  function injectTopbarTools() {
+    const right = document.querySelector('.topbar-right'); if (!right) return;
+    if ($('sync-dot')) return;
+    const dot = document.createElement('span'); dot.id = 'sync-dot';
+    dot.style.cssText = 'font-family:var(--font-mono);font-size:8px;display:flex;align-items:center;gap:4px;color:var(--text-3);padding:0 4px';
+    dot.innerHTML = '<span id="sync-dot-led" style="width:6px;height:6px;border-radius:50%;background:var(--positive);display:inline-block"></span><span id="sync-dot-txt">Online</span>';
+    right.insertBefore(dot, right.firstChild);
+    const bk = document.createElement('button'); bk.className = 'tb-btn'; bk.title = 'Descargar copia de seguridad'; bk.textContent = 'Backup'; bk.onclick = window.exportBackup;
+    const pwd = document.createElement('button'); pwd.className = 'tb-btn'; pwd.title = 'Cambiar contraseña'; pwd.textContent = 'Clave'; pwd.onclick = () => window.openPasswordModal('change');
+    const logout = right.querySelector('.tb-btn.logout');
+    if (logout) { right.insertBefore(bk, logout); right.insertBefore(pwd, logout); }
+    else { right.appendChild(bk); right.appendChild(pwd); }
+    updateSyncDot();
+  }
+
+  window.addEventListener('online', updateSyncDot);
+  window.addEventListener('offline', updateSyncDot);
+
+  /* ================= ARRANQUE ================= */
+  function boot() {
+    injectTopbarTools();
+    injectForgotLink();
+    buildPwdModal();
+    if (sb()) {
+      sb().auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') window.openPasswordModal('recovery'); });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
 </script>
 
