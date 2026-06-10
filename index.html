@@ -3615,7 +3615,7 @@ updateClipsBadge();
     const body = document.getElementById('pp-body');
     if (body) {
       if (!roster.length) {
-        body.innerHTML = '<div class="pp-empty">Este equipo todavía no tiene jugadores.<br>Andá a <b>Teams</b>, elegí el equipo y cargá el plantel.<br>Después volvé a <b>Individual</b>.</div>';
+        body.innerHTML = '<div class="pp-empty">Este equipo todavía no tiene jugadores.<br><br><button onclick="closePlayerPicker();openRosterLoader((typeof S!==\'undefined\')&&S.activeTeamId)" style="background:var(--offense);color:#fff;border:none;border-radius:var(--r-sm);padding:9px 16px;font-family:var(--font-disp);font-size:13px;font-weight:700;cursor:pointer">+ Cargar jugadores ahora</button><br><br><span style="font-size:8px">También podés cargarlos desde <b>Teams</b>.</span></div>';
       } else {
         body.innerHTML = roster.map(p =>
           '<div class="pp-player" onclick="pickPlayer(\'' + p.id + '\')">' +
@@ -4204,6 +4204,126 @@ updateClipsBadge();
     if (sb()) {
       sb().auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') window.openPasswordModal('recovery'); });
     }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
+<!-- ====================================================================== -->
+<!-- ScoutPRO — Al crear un equipo, abrir carga de jugadores                -->
+<!-- ====================================================================== -->
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const sb = () => window._sb;
+  let rlTeamId = null;
+
+  function rosterOf(tid) {
+    if (typeof S === 'undefined') return [];
+    S.playersByTeam = S.playersByTeam || {};
+    return S.playersByTeam[tid] || [];
+  }
+
+  function buildModal() {
+    if ($('rl-overlay')) return;
+    const ov = document.createElement('div');
+    ov.id = 'rl-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:5400;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:20px';
+    ov.innerHTML =
+      '<div style="width:460px;max-width:100%;max-height:90vh;overflow-y:auto;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:24px 22px;animation:modalIn .2s ease">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">' +
+          '<div><div style="font-family:var(--font-disp);font-size:22px;font-weight:800">Cargá los jugadores</div>' +
+          '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase">Equipo: <span id="rl-team" style="color:var(--offense)"></span></div></div>' +
+          '<button onclick="rlClose()" style="background:none;border:none;color:var(--text-3);font-size:16px;cursor:pointer">✕</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;margin:16px 0 8px;flex-wrap:wrap">' +
+          '<input id="rl-num" placeholder="#" maxlength="3" style="width:54px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)">' +
+          '<input id="rl-name" placeholder="Nombre del jugador" style="flex:1;min-width:150px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)" onkeydown="if(event.key===\'Enter\')rlAdd()">' +
+          '<input id="rl-pos" placeholder="Pos" maxlength="4" style="width:64px;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;color:var(--text);outline:none;font-family:var(--font-ui)">' +
+          '<button onclick="rlAdd()" style="background:var(--offense);color:#fff;border:none;border-radius:var(--r-sm);padding:8px 14px;font-family:var(--font-disp);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">+ Agregar</button>' +
+        '</div>' +
+        '<div id="rl-list" style="margin-bottom:16px"></div>' +
+        '<button onclick="rlClose()" style="width:100%;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);padding:11px;font-family:var(--font-disp);font-size:14px;font-weight:700;letter-spacing:1px;color:var(--text-2);cursor:pointer;text-transform:uppercase">Listo</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+  }
+
+  window.openRosterLoader = function (teamId) {
+    if (!teamId) return;
+    rlTeamId = teamId;
+    buildModal();
+    const team = (typeof S !== 'undefined') ? S.teams.find(t => t.id === teamId) : null;
+    const lbl = $('rl-team'); if (lbl) lbl.textContent = team ? team.name : '';
+    if ($('rl-num')) $('rl-num').value = '';
+    if ($('rl-name')) $('rl-name').value = '';
+    if ($('rl-pos')) $('rl-pos').value = '';
+    renderRL();
+    $('rl-overlay').style.display = 'flex';
+    setTimeout(() => { const i = $('rl-name'); if (i) i.focus(); }, 60);
+  };
+
+  window.rlClose = function () {
+    const o = $('rl-overlay'); if (o) o.style.display = 'none';
+    if (typeof renderTeamsScreen === 'function') renderTeamsScreen();
+    if (typeof renderSplash === 'function') renderSplash();
+  };
+
+  function renderRL() {
+    const list = $('rl-list'); if (!list) return;
+    const roster = rosterOf(rlTeamId);
+    list.innerHTML = roster.length ? roster.map(p =>
+      '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);margin-bottom:3px">' +
+        '<div style="width:24px;height:24px;border-radius:var(--r-sm);background:var(--offense-bg);color:var(--offense);display:flex;align-items:center;justify-content:center;font-family:var(--font-disp);font-size:11px;font-weight:800">' + (p.numero ? ('#' + p.numero) : '–') + '</div>' +
+        '<span style="font-family:var(--font-disp);font-size:13px;font-weight:700">' + p.name + (p.posicion ? (' <span style="color:var(--text-3);font-size:9px;font-family:var(--font-mono)">' + p.posicion + '</span>') : '') + '</span>' +
+        '<button title="Quitar" onclick="rlRemove(\'' + p.id + '\')" style="margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px">✕</button>' +
+      '</div>'
+    ).join('') : '<div style="font-family:var(--font-mono);font-size:9px;color:var(--text-3);padding:2px 0;line-height:1.7">Agregá los jugadores del plantel. Después los podés editar desde Teams.</div>';
+  }
+
+  window.rlAdd = async function () {
+    const tid = rlTeamId; if (!tid) return;
+    const nu = $('rl-num'), nm = $('rl-name'), po = $('rl-pos');
+    const name = ((nm && nm.value) || '').trim(); if (!name) { if (nm) nm.focus(); return; }
+    const numero = ((nu && nu.value) || '').trim();
+    const posicion = ((po && po.value) || '').trim();
+    const id = 'player_' + Date.now();
+    const orden = rosterOf(tid).length;
+    const rec = { id, team_id: tid, name, numero: numero || null, posicion: posicion || null, orden };
+    S.playersByTeam = S.playersByTeam || {};
+    (S.playersByTeam[tid] = S.playersByTeam[tid] || []).push(rec);
+    if (sb()) { try { const { error } = await sb().from('players').insert(rec); if (error) throw error; } catch (e) { console.error(e); if (typeof notify === 'function') notify('⚠ No se pudo guardar el jugador'); } }
+    if (nu) nu.value = ''; if (nm) nm.value = ''; if (po) po.value = '';
+    if (nm) nm.focus();
+    renderRL();
+  };
+
+  window.rlRemove = async function (playerId) {
+    const arr = rosterOf(rlTeamId);
+    const i = arr.findIndex(p => p.id === playerId); if (i > -1) arr.splice(i, 1);
+    if (sb()) { try { await sb().from('players').delete().eq('id', playerId); } catch (e) { console.error(e); } }
+    renderRL();
+  };
+
+  // Al crear un equipo (desde el inicio o desde Teams) abrir la carga de jugadores
+  function wrapCreate(name) {
+    if (typeof window[name] !== 'function') return;
+    const orig = window[name];
+    window[name] = function () {
+      const before = new Set((typeof S !== 'undefined' ? S.teams : []).map(t => t.id));
+      const r = orig.apply(this, arguments);
+      try {
+        const added = (typeof S !== 'undefined' ? S.teams : []).find(t => !before.has(t.id));
+        if (added) setTimeout(() => window.openRosterLoader(added.id), 150);
+      } catch (e) { console.error(e); }
+      return r;
+    };
+  }
+
+  function boot() {
+    buildModal();
+    wrapCreate('addTeamFromSplash');
+    wrapCreate('showNewTeamDialog');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
