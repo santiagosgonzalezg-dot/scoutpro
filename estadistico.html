@@ -25,8 +25,9 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .logo .a{color:var(--offense)}
 .logo .v{font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:2px;margin-left:6px;border:1px solid var(--border-light);border-radius:var(--r-sm);padding:2px 6px;vertical-align:middle}
 .tb-spacer{flex:1}
-.tb-btn{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);white-space:nowrap}
+.tb-btn{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);white-space:nowrap;text-decoration:none;display:inline-block}
 .tb-btn:hover{border-color:var(--offense);color:var(--offense)}
+.tb-btn.qtos:hover{border-color:var(--insight);color:var(--insight)}
 .wrap{max-width:1280px;margin:0 auto;padding:20px}
 .controls{display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .field{display:flex;flex-direction:column;gap:5px}
@@ -67,12 +68,28 @@ table.t tr:hover td{background:var(--bg-hover)}
 .chartbox{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-4);margin-bottom:var(--sp-4)}
 .legend{display:flex;gap:var(--sp-4);font-family:var(--font-mono);font-size:9px;color:var(--text-2);margin-top:var(--sp-2)}
 .legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.lid-toggle{display:flex;gap:6px;margin-bottom:var(--sp-4)}
+.lid-toggle button{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);color:var(--text-3);font-family:var(--font-mono);font-size:10px;padding:7px 16px;cursor:pointer;transition:all var(--t-fast)}
+.lid-toggle button.on{border-color:var(--offense);color:var(--offense);background:var(--offense-bg)}
+.lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-5)}
+.lb-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4) var(--sp-4)}
+.lb-title{font-family:var(--font-disp);font-weight:800;font-size:16px;letter-spacing:.5px;margin-bottom:var(--sp-3);display:flex;align-items:center;gap:7px}
+.lb-title .dot{width:8px;height:8px;border-radius:2px}
+.lb-row{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:8px}
+.lb-rank{font-family:var(--font-mono);font-size:9px;color:var(--text-3);width:12px;flex-shrink:0}
+.lb-name{font-family:var(--font-ui);font-size:12px;color:var(--text);width:138px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.lb-name small{color:var(--text-3);font-family:var(--font-mono);font-size:8px;margin-left:4px}
+.lb-track{flex:1;height:9px;background:var(--bg-panel);border-radius:2px;overflow:hidden}
+.lb-fill{height:100%;border-radius:2px;transition:width .3s}
+.lb-val{font-family:var(--font-disp);font-weight:800;font-size:16px;width:46px;text-align:right;flex-shrink:0}
 </style>
 </head>
 <body>
 <div class="topbar">
   <div class="logo"><span class="a">ESTADÍSTICO</span><span class="v">EQUIPOS</span></div>
   <div class="tb-spacer"></div>
+  <a class="tb-btn qtos" href="quintetos.html">🔄 Quintetos</a>
+  <a class="tb-btn" href="index.html">🏠 Menú</a>
   <button class="tb-btn" onclick="loadData()">↻ Actualizar</button>
 </div>
 
@@ -84,6 +101,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
   <div class="tabs" id="tabs" style="display:none">
     <button class="tab active" data-v="dashboard" onclick="switchView('dashboard')">Dashboard</button>
+    <button class="tab" data-v="lideres" onclick="switchView('lideres')">Líderes</button>
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
@@ -91,6 +109,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   </div>
 
   <div class="view active" id="view-dashboard"></div>
+  <div class="view" id="view-lideres"></div>
   <div class="view" id="view-equipo"></div>
   <div class="view" id="view-comparar"></div>
   <div class="view" id="view-jugadores"></div>
@@ -101,7 +120,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
 <script>
 const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8'};
-let sb=null,DATA=[];
+let sb=null,DATA=[],PLAYERS=[];
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key);return sb;}
 
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
@@ -115,6 +134,9 @@ async function loadData(){
     const {data,error}=await c.from('quintetos_log').select('*').limit(8000);
     if(error)throw error;
     DATA=(data||[]).map(r=>({...r,jugadores:Array.isArray(r.jugadores)?r.jugadores:(r.jugadores?JSON.parse(r.jugadores):[])}));
+    // Box score de jugadores (best-effort: si no existe la tabla, queda vacío)
+    try{ const pr=await c.from('jugadores_log').select('*').limit(20000); PLAYERS=pr.error?[]:(pr.data||[]); }
+    catch(_){ PLAYERS=[]; }
     if(!DATA.length){
       m.innerHTML='Todavía no hay partidos guardados.<br>Andá a <b>Quintetos</b>, cargá un partido y tocá <b>Guardar partido</b>.<br>Cuando guardes uno, refrescá esta página.';
       document.getElementById('controls').style.display='none';
@@ -376,7 +398,80 @@ function evoChart(list){
     '<div class="legend"><span><i style="background:#f97316"></i>Diferencial (+/-) por partido</span></div></div>';
 }
 
-function renderAll(){renderDashboard();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+// ── VISTA LÍDERES (box score individual) ──
+let lidMode='pg';
+function setLidMode(m){lidMode=m;renderLideres();}
+function playersAgg(){
+  const fase=document.getElementById('selFase').value;
+  const rows=PLAYERS.filter(r=>!fase||r.fase===fase);
+  const map={};
+  for(const r of rows){
+    const k=r.equipo+'|'+r.num+'|'+String(r.nombre||'').toLowerCase();
+    if(!map[k])map[k]={equipo:r.equipo,num:r.num,nombre:r.nombre,g:0,min:0,pts:0,ast:0,rob:0,tap:0,per:0,ro:0,rd:0,reb:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,faltas:0,pm:0};
+    const a=map[k];
+    if(num(r.min)>0)a.g++;
+    a.min+=num(r.min);a.pts+=num(r.pts);a.ast+=num(r.ast);a.rob+=num(r.rob);a.tap+=num(r.tap);a.per+=num(r.per);
+    a.ro+=num(r.ro);a.rd+=num(r.rd);a.reb+=num(r.reb);a.fgm+=num(r.fgm);a.fga+=num(r.fga);
+    a.tpm+=num(r.tpm);a.tpa+=num(r.tpa);a.ftm+=num(r.ftm);a.fta+=num(r.fta);a.faltas+=num(r.faltas);a.pm+=num(r.mas_menos);
+  }
+  return Object.values(map);
+}
+function pv(p,key){const g=p.g||1;const raw=p[key]||0;return lidMode==='pg'?raw/g:raw;}
+function fmtv(v,dec){return dec?(Math.round(v*10)/10).toFixed(1):Math.round(v);}
+function renderLideres(){
+  const el=document.getElementById('view-lideres');
+  const players=playersAgg().filter(p=>p.g>0);
+  if(!players.length){
+    el.innerHTML='<div class="empty">Todavía no hay stats individuales de jugadores.<br>Necesitás crear la tabla <b>jugadores_log</b> (te paso el SQL) y <b>re-guardar</b> un partido desde Quintetos.</div>';
+    return;
+  }
+  const per=lidMode==='pg';
+  const cats=[
+    {key:'pts',label:'Puntos',color:'#f97316'},
+    {key:'ast',label:'Asistencias',color:'#4f8ef7'},
+    {key:'rob',label:'Robos',color:'#34c769'},
+    {key:'tap',label:'Bloqueos',color:'#a78bfa'},
+    {key:'reb',label:'Rebotes',color:'#e0a83b'},
+    {key:'pm',label:'+/-',color:'#f05050'},
+  ];
+  const toggle='<div class="lid-toggle">'+
+    '<button class="'+(per?'on':'')+'" onclick="setLidMode(\'pg\')">Por partido</button>'+
+    '<button class="'+(!per?'on':'')+'" onclick="setLidMode(\'tot\')">Totales</button></div>';
+  const cards=cats.map(c=>{
+    const sorted=players.slice().sort((a,b)=>pv(b,c.key)-pv(a,c.key)).slice(0,5);
+    const mx=Math.max(0.001,...sorted.map(p=>Math.abs(pv(p,c.key))));
+    const rows=sorted.map((p,i)=>{
+      const v=pv(p,c.key);const w=Math.max(2,Math.round(Math.abs(v)/mx*100));
+      return '<div class="lb-row"><span class="lb-rank">'+(i+1)+'</span>'+
+        '<span class="lb-name">'+p.nombre+'<small>'+p.equipo+'</small></span>'+
+        '<span class="lb-track"><span class="lb-fill" style="width:'+w+'%;background:'+c.color+'"></span></span>'+
+        '<span class="lb-val">'+fmtv(v,per)+'</span></div>';
+    }).join('');
+    return '<div class="lb-card"><div class="lb-title"><span class="dot" style="background:'+c.color+'"></span>'+c.label+'</div>'+rows+'</div>';
+  }).join('');
+  if(!sortState['lideres'])sortState['lideres']={key:'pts',dir:-1};
+  const cols=[
+    {key:'rank',label:'#',left:true,cell:(r,i)=>'<span class="rank">'+String(i+1).padStart(2,'0')+'</span>'},
+    {key:'nombre',label:'Jugador',left:true,cell:r=>'<b>'+r.nombre+'</b>'},
+    {key:'eq',label:'Equipo',left:true,cell:r=>r.equipo},
+    {key:'g',label:'PJ',sortable:true,val:r=>r.g,cell:r=>r.g},
+    {key:'min',label:'MIN',sortable:true,val:r=>pv(r,'min'),cell:r=>fmtv(pv(r,'min'),per)},
+    {key:'pts',label:'PTS',sortable:true,val:r=>pv(r,'pts'),cell:r=>fmtv(pv(r,'pts'),per)},
+    {key:'ast',label:'AST',sortable:true,val:r=>pv(r,'ast'),cell:r=>fmtv(pv(r,'ast'),per)},
+    {key:'rob',label:'ROB',sortable:true,val:r=>pv(r,'rob'),cell:r=>fmtv(pv(r,'rob'),per)},
+    {key:'tap',label:'TAP',sortable:true,val:r=>pv(r,'tap'),cell:r=>fmtv(pv(r,'tap'),per)},
+    {key:'per',label:'PÉR',sortable:true,val:r=>pv(r,'per'),cell:r=>fmtv(pv(r,'per'),per)},
+    {key:'reb',label:'REB',sortable:true,val:r=>pv(r,'reb'),cell:r=>fmtv(pv(r,'reb'),per)},
+    {key:'ro',label:'RO',sortable:true,val:r=>pv(r,'ro'),cell:r=>fmtv(pv(r,'ro'),per)},
+    {key:'rd',label:'RD',sortable:true,val:r=>pv(r,'rd'),cell:r=>fmtv(pv(r,'rd'),per)},
+    {key:'pm',label:'+/-',sortable:true,val:r=>pv(r,'pm'),cell:r=>sgn(fmtv(pv(r,'pm'),per)),color:r=>dc(pv(r,'pm'))},
+  ];
+  el.innerHTML=toggle+'<div class="sec">Líderes de la liga · '+(per?'por partido':'totales')+'</div>'+
+    '<div class="lb-grid">'+cards+'</div>'+
+    sortableTable('view-lideres','Todos los jugadores',cols,players,'lideres');
+}
+
+function renderAll(){renderDashboard();renderLideres();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
