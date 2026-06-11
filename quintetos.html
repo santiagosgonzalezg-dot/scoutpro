@@ -31,10 +31,10 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .logo .lo-q{color:var(--offense)}
 .logo .lo-v{font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:2px;margin-left:6px;border:1px solid var(--border-light);border-radius:var(--r-sm);padding:2px 6px;vertical-align:middle}
 .tb-spacer{flex:1}
-.tb-meta{font-family:var(--font-mono);font-size:9px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase}
-.logo{cursor:pointer}
-.tb-home{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);display:none;white-space:nowrap}
-.tb-home:hover{border-color:var(--offense);color:var(--offense)}
+.tb-meta{font-family:var(--font-mono);font-size:9px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.logo{cursor:pointer;flex-shrink:0}
+.tb-home{background:var(--offense-bg);border:1px solid var(--offense-mid);border-radius:var(--r-sm);color:var(--offense);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);display:none;white-space:nowrap;flex-shrink:0}
+.tb-home:hover{background:var(--offense-mid);color:#fff}
 .tb-home.show{display:inline-block}
 
 .wrap{max-width:1280px;margin:0 auto;padding:20px}
@@ -170,9 +170,9 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 <body>
 <div class="topbar">
   <div class="logo" onclick="goHome()" title="Volver al inicio"><span class="lo-q">QUINTETOS</span><span class="lo-v">FIBA · v2</span></div>
+  <button class="tb-home" id="homeBtn" onclick="goHome()">↩ Volver al inicio</button>
   <div class="tb-spacer"></div>
   <div class="tb-meta" id="tbMeta"></div>
-  <button class="tb-home" id="homeBtn" onclick="goHome()">↩ Inicio</button>
 </div>
 
 <div class="wrap">
