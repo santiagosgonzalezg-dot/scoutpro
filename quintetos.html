@@ -491,19 +491,20 @@ function renderAll(){
 }
 
 function goHome(){
-  // Volver a la pantalla de carga, limpio
-  document.getElementById('matchcard').classList.remove('show');
-  document.getElementById('tabs').classList.remove('show');
-  document.getElementById('homeBtn').classList.remove('show');
-  document.getElementById('view-cmp').innerHTML='';
-  document.getElementById('view-cuarto').innerHTML='';
-  document.getElementById('view-cons').innerHTML='';
-  document.getElementById('tbMeta').textContent='';
-  const st=document.getElementById('status');st.className='status';st.textContent='';
-  S.results=null;S.data=null;S.cmpSel={1:null,2:null};curQ=null;
-  switchView('cmp');
-  window.scrollTo({top:0,behavior:'smooth'});
-  const inp=document.getElementById('matchId');inp.focus();inp.select();
+  // Volver al inicio: reinicio limpio y garantizado de la pantalla
+  try{
+    document.getElementById('matchcard').classList.remove('show');
+    document.getElementById('tabs').classList.remove('show');
+    document.getElementById('view-cmp').innerHTML='';
+    document.getElementById('view-cuarto').innerHTML='';
+    document.getElementById('view-cons').innerHTML='';
+    document.getElementById('tbMeta').textContent='';
+    const st=document.getElementById('status');st.className='status';st.textContent='';
+    S.results=null;S.data=null;S.cmpSel={1:null,2:null};curQ=null;
+    switchView('cmp');
+  }catch(e){}
+  // Recarga la página para dejar todo como recién abierto (a prueba de fallos)
+  location.reload();
 }
 
 function renderMatchHeader(){
