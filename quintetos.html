@@ -57,6 +57,16 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 /* MATCH HEADER */
 .matchcard{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-5);margin-bottom:var(--sp-4);display:none}
 .matchcard.show{display:block}
+.savebar{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-4);display:none}
+.savebar.show{display:block}
+.savebar-row{display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap}
+.sb-title{font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:.5px;color:var(--positive);align-self:center}
+.savebar .field input{padding:7px 10px;font-size:12px}
+.btn-save{background:var(--positive);color:#06210f;border:none;border-radius:var(--r);padding:9px 18px;font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;white-space:nowrap}
+.btn-save:hover{filter:brightness(1.08)}
+.btn-save:disabled{opacity:.5;cursor:wait}
+.save-status{font-family:var(--font-mono);font-size:10px;align-self:center}
+.save-status.err{color:var(--negative)} .save-status.ok{color:var(--positive)} .save-status.load{color:var(--text-2)}
 .mc-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:var(--sp-4)}
 .mc-team{display:flex;align-items:center;gap:var(--sp-3)}
 .mc-team.t2{flex-direction:row-reverse;text-align:right}
@@ -165,6 +175,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .btn:hover{border-color:var(--offense);color:var(--offense)}
 .empty{text-align:center;color:var(--text-3);font-family:var(--font-mono);font-size:11px;padding:40px}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="topbar">
@@ -192,6 +203,17 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
   </div>
 
   <div class="matchcard" id="matchcard"></div>
+
+  <div class="savebar" id="savebar">
+    <div class="savebar-row">
+      <div class="sb-title">Guardar en base</div>
+      <div class="field"><label>Fecha</label><input id="mFecha" type="date"></div>
+      <div class="field"><label>Fase</label><input id="mFase" placeholder="Liga / Playoff"></div>
+      <div class="field"><label>Jornada</label><input id="mJornada" placeholder="Fecha 12"></div>
+      <button class="btn-save" id="saveBtn" onclick="saveMatch()">↑ Guardar partido</button>
+      <div class="save-status" id="saveStatus"></div>
+    </div>
+  </div>
 
   <div class="tabs" id="tabs">
     <button class="tab active" data-v="cmp" onclick="switchView('cmp')">Comparar</button>
@@ -483,11 +505,58 @@ function pchip(p,t){return '<span class="pchip"><span class="pn">'+(p.num||'·')
 function renderAll(){
   document.getElementById('tabs').classList.add('show');
   document.getElementById('homeBtn').classList.add('show');
+  document.getElementById('savebar').classList.add('show');
+  const f=document.getElementById('mFecha'); if(!f.value)f.value=new Date().toISOString().slice(0,10);
+  document.getElementById('saveStatus').textContent='';
   renderMatchHeader();
   renderComparar();
   renderPorCuarto();
   renderConsolidado();
   document.getElementById('tbMeta').textContent=S.teams[1].name+' vs '+S.teams[2].name;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  GUARDADO EN SUPABASE  (baked-in)
+// ════════════════════════════════════════════════════════════════
+const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8'};
+let _sb=null;
+function getSB(){ if(_sb)return _sb; if(window.supabase&&window.supabase.createClient)_sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key); return _sb; }
+function saveStatusMsg(type,msg){const el=document.getElementById('saveStatus');el.className='save-status '+type;el.textContent=msg;}
+async function saveMatch(){
+  if(!S.results){saveStatusMsg('err','Cargá un partido primero.');return;}
+  const client=getSB();
+  if(!client){saveStatusMsg('err','No se pudo conectar a la base.');return;}
+  const matchId=(document.getElementById('matchId').value.match(/(\d{5,})/)||[])[1]||'';
+  const fecha=document.getElementById('mFecha').value||null;
+  const fase=document.getElementById('mFase').value.trim()||null;
+  const jornada=document.getElementById('mJornada').value.trim()||null;
+  const acc=buildConsolidatedData(S.results);
+  const rows=[];
+  for(const team of [1,2]){
+    const rival=S.teams[team===1?2:1].name;
+    for(const r of Object.values(acc[team])){
+      const m=calcMetrics(r);
+      rows.push({match_id:matchId,fecha,fase,jornada,
+        equipo:S.teams[team].name,rival,es_local:team===1,
+        jugadores:r.players.map(p=>({num:p.num,name:p.name})),
+        jugadores_key:r.players.map(p=>p.pid).sort().join('||'),
+        cuartos:r.quarters.slice().sort().join(','),
+        minutos:+m.mins.toFixed(2),pts_favor:m.ptsA,pts_contra:m.ptsR,diff:m.diff,
+        pos:m.posProp,pos_riv:m.posRiv,ef_off:m.efOff,ef_def:m.efDefRaw,
+        pt2c:m.pt2c,pt2i:m.pt2i,pt3c:m.pt3c,pt3i:m.pt3i,
+        ast:m.ast,rob:m.rob,per:m.per,reb_def:m.rebDef,reb_off:m.rebOff});
+    }
+  }
+  const btn=document.getElementById('saveBtn');btn.disabled=true;
+  saveStatusMsg('load','Guardando…');
+  try{
+    if(matchId)await client.from('quintetos_log').delete().eq('match_id',matchId);
+    const {error}=await client.from('quintetos_log').insert(rows);
+    if(error)throw error;
+    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos.');
+  }catch(e){
+    saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
+  }finally{ btn.disabled=false; }
 }
 
 function goHome(){
