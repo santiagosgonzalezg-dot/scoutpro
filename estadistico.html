@@ -83,13 +83,15 @@ table.t tr:hover td{background:var(--bg-hover)}
   </div>
 
   <div class="tabs" id="tabs" style="display:none">
-    <button class="tab active" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
+    <button class="tab active" data-v="dashboard" onclick="switchView('dashboard')">Dashboard</button>
+    <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
     <button class="tab" data-v="evolucion" onclick="switchView('evolucion')">Evolución</button>
   </div>
 
-  <div class="view active" id="view-equipo"></div>
+  <div class="view active" id="view-dashboard"></div>
+  <div class="view" id="view-equipo"></div>
   <div class="view" id="view-comparar"></div>
   <div class="view" id="view-jugadores"></div>
   <div class="view" id="view-evolucion"></div>
@@ -182,6 +184,82 @@ function doSort(stateKey,key){const s=sortState[stateKey];if(s.key===key)s.dir*=
 function chips(players){return players.map(p=>'<span class="pchip"><span class="pn">'+(p.num||'·')+'</span>'+p.name+'</span>').join(' ');}
 function dc(v){return v>0?'var(--positive)':v<0?'var(--negative)':'var(--text-3)';}
 function sgn(v){return (v>0?'+':'')+v;}
+
+// ── VISTA DASHBOARD (LIGA) ──
+function matchReboundIndex(rows){
+  const matches={};
+  for(const r of rows){const mid=r.match_id||'?';(matches[mid]=matches[mid]||{});(matches[mid][r.equipo]=matches[mid][r.equipo]||{ro:0,rd:0});matches[mid][r.equipo].ro+=num(r.reb_off);matches[mid][r.equipo].rd+=num(r.reb_def);}
+  return matches;
+}
+function leagueTeamStats(){
+  const rows=allRowsFiltered();
+  const matches=matchReboundIndex(rows);
+  const teamNames=[...new Set(rows.map(r=>r.equipo))];
+  return teamNames.map(t=>{
+    const tr=rows.filter(r=>r.equipo===t);
+    const a=agg(tr);
+    let orbN=0,orbD=0,drbN=0,drbD=0;
+    for(const mid of new Set(tr.map(r=>r.match_id))){
+      const mt=matches[mid];if(!mt)continue;const me=mt[t]||{ro:0,rd:0};
+      let rro=0,rrd=0;for(const rn of Object.keys(mt)){if(rn!==t){rro+=mt[rn].ro;rrd+=mt[rn].rd;}}
+      orbN+=me.ro;orbD+=me.ro+rrd;drbN+=me.rd;drbD+=me.rd+rro;
+    }
+    a.orbPct=orbD>0?Math.round(orbN/orbD*100):0;
+    a.drbPct=drbD>0?Math.round(drbN/drbD*100):0;
+    a.pace=a.pj>0?Math.round(a.pos/a.pj*10)/10:0;
+    a.net=a.efOff-a.efDef;
+    return {team:t,a};
+  });
+}
+function leagueLineups(){
+  const rows=allRowsFiltered();const groups={};
+  for(const r of rows){if(!r.jugadores||r.jugadores.length!==5)continue;const key=r.equipo+'#'+(r.jugadores_key||pkeyArr(r.jugadores));(groups[key]=groups[key]||{team:r.equipo,players:r.jugadores,rows:[]}).rows.push(r);}
+  let lus=Object.values(groups).map(g=>{const a=agg(g.rows);return {team:g.team,players:g.players,a,net:a.min>0?Math.round(a.diff/a.min*40*10)/10:0};});
+  let f=lus.filter(l=>l.a.min>=10);
+  if(f.length<5)f=lus.filter(l=>l.a.min>=4);
+  if(f.length<5)f=lus;
+  return f;
+}
+function renderDashboard(){
+  const teams=leagueTeamStats();
+  const el=document.getElementById('view-dashboard');
+  if(!teams.length){el.innerHTML='<div class="empty">Sin datos para mostrar.</div>';return;}
+  const cols=[
+    {key:'rank',label:'#',left:true,cell:(r,i)=>'<span class="rank">'+String(i+1).padStart(2,'0')+'</span>'},
+    {key:'team',label:'Equipo',left:true,cell:r=>'<b>'+r.team+'</b>'},
+    {key:'pj',label:'PJ',sortable:true,val:r=>r.a.pj,cell:r=>r.a.pj},
+    {key:'pace',label:'POS/PJ',sortable:true,val:r=>r.a.pace,cell:r=>r.a.pace},
+    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>r.a.efOff},
+    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>r.a.efDef},
+    {key:'net',label:'NET',sortable:true,val:r=>r.a.net,cell:r=>sgn(r.a.net),color:r=>dc(r.a.net)},
+    {key:'orb',label:'REB.OF%',sortable:true,val:r=>r.a.orbPct,cell:r=>r.a.orbPct+'%'},
+    {key:'drb',label:'REB.DEF%',sortable:true,val:r=>r.a.drbPct,cell:r=>r.a.drbPct+'%'},
+    {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
+  ];
+  if(!sortState['ligaTeams'])sortState['ligaTeams']={key:'net',dir:-1};
+  const rankTable=sortableTable('view-dashboard','Ranking de equipos',cols,teams,'ligaTeams');
+
+  const lus=leagueLineups();
+  const best=lus.slice().sort((a,b)=>b.net-a.net).slice(0,5);
+  const worst=lus.slice().sort((a,b)=>a.net-b.net).slice(0,5);
+  const luTable=(title,list)=>{
+    const body=list.map((l,i)=>'<tr>'+
+      '<td class="l"><span class="rank">'+String(i+1).padStart(2,'0')+'</span></td>'+
+      '<td class="l"><b>'+l.team+'</b></td>'+
+      '<td class="l">'+chips(l.players)+'</td>'+
+      '<td>'+Math.round(l.a.min)+'</td>'+
+      '<td style="color:'+dc(l.a.diff)+'">'+sgn(l.a.diff)+'</td>'+
+      '<td style="color:'+dc(l.net)+'">'+sgn(l.net)+'</td>'+
+      '<td>'+l.a.efOff+'</td><td>'+l.a.efDef+'</td></tr>').join('');
+    return '<div class="board"><div class="board-title">'+title+'</div><div class="tblwrap"><table class="t"><thead><tr>'+
+      '<th class="l">#</th><th class="l">Cuadro</th><th class="l">Quinteto</th><th>Min</th><th>+/-</th><th>NET/40</th><th>EF.OF</th><th>EF.DEF</th>'+
+      '</tr></thead><tbody>'+body+'</tbody></table></div></div>';
+  };
+  el.innerHTML=
+    rankTable+
+    '<div class="sec">Mejores 5 quintetos de la liga</div>'+luTable('Top quintetos',best)+
+    '<div class="sec">Peores 5 quintetos de la liga</div>'+luTable('Quintetos a revisar',worst);
+}
 
 // ── VISTA EQUIPO ──
 function renderEquipo(){
@@ -296,7 +374,7 @@ function evoChart(list){
     '<div class="legend"><span><i style="background:#f97316"></i>Diferencial (+/-) por partido</span></div></div>';
 }
 
-function renderAll(){renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+function renderAll(){renderDashboard();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
