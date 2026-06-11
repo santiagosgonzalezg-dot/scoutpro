@@ -232,6 +232,13 @@ function leagueTeamStats(){
     a.drbPct=drbD>0?Math.round(drbN/drbD*100):0;
     a.pace=a.pj>0?Math.round(a.pos/a.pj*10)/10:0;
     a.net=a.efOff-a.efDef;
+    a.fga=a.pt2i+a.pt3i;a.fgm=a.pt2c+a.pt3c;
+    a.fgPct=a.fga>0?Math.round(a.fgm/a.fga*1000)/10:0;
+    a.threeVol=a.fga>0?Math.round(a.pt3i/a.fga*1000)/10:0;
+    a.threePct=a.pt3i>0?Math.round(a.pt3c/a.pt3i*1000)/10:0;
+    a.astPos=a.pos>0?a.ast/a.pos:0;
+    a.astTo=a.per>0?a.ast/a.per:0;
+    a.astRob=a.rob>0?a.ast/a.rob:0;
     return {team:t,a};
   });
 }
@@ -258,6 +265,10 @@ function renderDashboard(){
     {key:'net',label:'NET',sortable:true,val:r=>r.a.net,cell:r=>sgn2(r.a.net),color:r=>dc(r.a.net)},
     {key:'orb',label:'REB.OF%',sortable:true,val:r=>r.a.orbPct,cell:r=>r.a.orbPct+'%'},
     {key:'drb',label:'REB.DEF%',sortable:true,val:r=>r.a.drbPct,cell:r=>r.a.drbPct+'%'},
+    {key:'fg',label:'TC%',sortable:true,val:r=>r.a.fgPct,cell:r=>r.a.fgPct+'%'},
+    {key:'3v',label:'3VOL',sortable:true,val:r=>r.a.threeVol,cell:r=>r.a.threeVol+'%'},
+    {key:'ap',label:'AST/POS',sortable:true,val:r=>r.a.astPos,cell:r=>r.a.astPos.toFixed(2)},
+    {key:'at',label:'AST/PÉR',sortable:true,val:r=>r.a.astTo,cell:r=>r.a.astTo.toFixed(2)},
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
   ];
   if(!sortState['ligaTeams'])sortState['ligaTeams']={key:'net',dir:-1};
@@ -279,7 +290,26 @@ function renderDashboard(){
       '<th class="l">#</th><th class="l">Cuadro</th><th class="l">Quinteto</th><th>Min</th><th>+/-</th><th>NET/40</th><th>EF.OF</th><th>EF.DEF</th>'+
       '</tr></thead><tbody>'+body+'</tbody></table></div></div>';
   };
+  const avg=(f)=>teams.length?teams.reduce((s,t)=>s+f(t),0)/teams.length:0;
+  const lgPace=avg(t=>t.a.pace),lgEfo=avg(t=>t.a.efOff),lgEfd=avg(t=>t.a.efDef),
+        lgFg=avg(t=>t.a.fgPct),lg3p=avg(t=>t.a.threePct),lg3v=avg(t=>t.a.threeVol),
+        lgAstPos=avg(t=>t.a.astPos),lgAstTo=avg(t=>t.a.astTo),lgAstRob=avg(t=>t.a.astRob),
+        lgOrb=avg(t=>t.a.orbPct),lgDrb=avg(t=>t.a.drbPct);
+  const ligaKpis='<div class="sec">Promedios de la liga</div><div class="kpis">'+
+    kpi(lgPace.toFixed(1),'POS / PARTIDO')+
+    kpi(pp(lgEfo),'EF.OF')+
+    kpi(pp(lgEfd),'EF.DEF')+
+    kpi(lgFg.toFixed(1)+'%','TIROS DE CANCHA')+
+    kpi(lg3p.toFixed(1)+'%','TRIPLES %')+
+    kpi(lg3v.toFixed(1)+'%','VOLUMEN DE 3')+
+    kpi(lgAstPos.toFixed(2),'AST / POS')+
+    kpi(lgAstTo.toFixed(2),'AST / PÉR')+
+    kpi(lgAstRob.toFixed(2),'AST / ROBO')+
+    kpi(Math.round(lgOrb)+'%','REB.OF%')+
+    kpi(Math.round(lgDrb)+'%','REB.DEF%')+
+    '</div>';
   el.innerHTML=
+    ligaKpis+
     rankTable+
     '<div class="sec">Mejores 5 quintetos de la liga</div>'+luTable('Top quintetos',best)+
     '<div class="sec">Peores 5 quintetos de la liga</div>'+luTable('Quintetos a revisar',worst);
