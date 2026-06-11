@@ -237,7 +237,7 @@ const S={data:null,teams:{1:{name:'',players:{}},2:{name:'',players:{}}},pool:{}
 // ════════════════════════════════════════════════════════════════
 function normName(n){return String(n||'').toLowerCase().replace(/[\s.,]/g,'');}
 function makePid(num,name){return num+'|'+normName(name);}
-function emptyStats(){return{ast:0,rob:0,per:0,pt2conv:0,pt2fail:0,pt3conv:0,pt3fail:0,tlconv:0,tlfail:0,rebOff:0,rebDef:0,oppPt2conv:0,oppPt3conv:0,oppPt2fail:0,oppPt3fail:0};}
+function emptyStats(){return{ast:0,rob:0,per:0,pt2conv:0,pt2fail:0,pt3conv:0,pt3fail:0,tlconv:0,tlfail:0,rebOff:0,rebDef:0,oppPt2conv:0,oppPt3conv:0,oppPt2fail:0,oppPt3fail:0,oppTlconv:0};}
 
 // ════════════════════════════════════════════════════════════════
 //  CONVERSIÓN FIBA JSON  ->  eventos internos
@@ -296,7 +296,13 @@ function ingest(data){
       const type=mapFibaType(e);
       const num=String(e.shirtNumber||'').trim();
       const rawName=e.player||'';
-      if(!num && !rawName) continue;            // eventos de equipo / sistema
+      if(!num && !rawName){
+        // Rebote de equipo (sin jugador): lo dejamos para sumarlo al quinteto en cancha
+        if(e.actionType==='rebound' && (e.tno===1||e.tno===2) && (type==='rebOff'||type==='rebDef')){
+          evs.push({time:'P'+per+' '+(e.gt||'00:00'),type,num:'',name:'',pid:'',teamReb:e.tno,action:'rebound'});
+        }
+        continue;            // otros eventos de sistema se descartan
+      }
       // Resolver al jugador canónico por equipo (tno) + dorsal, así el pid
       // siempre coincide con el plantel aunque el nombre venga en mayúsculas.
       let pid,name;
@@ -319,8 +325,8 @@ function ingest(data){
   for(let i=1;i<S.periods.length;i++){
     const prev=S.periods[i-1],cur=S.periods[i];
     const len=periodStart(prev);
-    const s1=buildLineups(S.events[prev],S.starters[1][prev],pids1,pids2,prev,len);
-    const s2=buildLineups(S.events[prev],S.starters[2][prev],pids2,pids1,prev,len);
+    const s1=buildLineups(S.events[prev],S.starters[1][prev],pids1,pids2,prev,len,1);
+    const s2=buildLineups(S.events[prev],S.starters[2][prev],pids2,pids1,prev,len,2);
     S.starters[1][cur]=s1[s1.length-1].players;
     S.starters[2][cur]=s2[s2.length-1].players;
   }
@@ -330,8 +336,8 @@ function ingest(data){
   for(const q of S.periods){
     const len=periodStart(q);
     results[q]={
-      lineups1:buildLineups(S.events[q],S.starters[1][q],pids1,pids2,q,len),
-      lineups2:buildLineups(S.events[q],S.starters[2][q],pids2,pids1,q,len)
+      lineups1:buildLineups(S.events[q],S.starters[1][q],pids1,pids2,q,len,1),
+      lineups2:buildLineups(S.events[q],S.starters[2][q],pids2,pids1,q,len,2)
     };
   }
   S.results=results;
@@ -358,7 +364,7 @@ function periodStart(per){
 // ════════════════════════════════════════════════════════════════
 //  MOTOR DE QUINTETOS  (lógica original, reutilizada)
 // ════════════════════════════════════════════════════════════════
-function buildLineups(events,starters,myPids,oppPids,quarter,startMin){
+function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
   startMin=startMin||10;
   const startLabel=String(startMin).padStart(2,'0')+':00';
   let currentMap=new Map();
@@ -373,6 +379,11 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin){
   const resolveOutPid=(outEv)=>{if(currentMap.has(outEv.pid))return outEv.pid;const f=findFuzzy(outEv,currentArr());return f?f.pid:null;};
 
   for(const ev of events){
+    if(ev.teamReb){
+      // Rebote de equipo: lo suma el quinteto propio que está en cancha
+      if(ev.teamReb===myTeamNo && (ev.type in segStats))segStats[ev.type]++;
+      continue;
+    }
     const isMine=myPids.has(ev.pid);
     const isOpp=oppPids.has(ev.pid);
     const onCourt=isOnCourt(ev);
@@ -414,6 +425,7 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin){
         if(ev.type==='pt3conv')segStats.oppPt3conv++;
         if(ev.type==='pt2fail')segStats.oppPt2fail++;
         if(ev.type==='pt3fail')segStats.oppPt3fail++;
+        if(ev.type==='tlconv')segStats.oppTlconv++;
       }
     }
   }
@@ -459,7 +471,7 @@ function buildConsolidatedData(res){
 function calcMetrics(r){
   const s=r.stats;
   const ptsA=s.pt2conv*2+s.pt3conv*3+(s.tlconv||0);
-  const ptsR=(s.oppPt2conv||0)*2+(s.oppPt3conv||0)*3;
+  const ptsR=(s.oppPt2conv||0)*2+(s.oppPt3conv||0)*3+(s.oppTlconv||0);
   const posProp=estPosProp(s)||1, posRiv=estPosRival(s)||1;
   const efOff=Math.round(ptsA/posProp*100);
   const efDefRaw=Math.round(ptsR/posRiv*100);
@@ -631,8 +643,8 @@ function renderCmpCenter(a,b){
     ['+/-',(a.diff>0?'+':'')+a.diff,(b.diff>0?'+':'')+b.diff,'max',a.diff,b.diff],
     ['PTS A FAVOR',a.ptsA,b.ptsA,'max',a.ptsA,b.ptsA],
     ['PTS EN CONTRA',a.ptsR,b.ptsR,'min',a.ptsR,b.ptsR],
-    ['EF. OFENSIVA',a.efOff,b.efOff,'max',a.efOff,b.efOff],
-    ['EF. DEFENSIVA',a.efDefRaw,b.efDefRaw,'min',a.efDefRaw,b.efDefRaw],
+    ['EF. OFENSIVA',(a.efOff/100).toFixed(2),(b.efOff/100).toFixed(2),'max',a.efOff,b.efOff],
+    ['EF. DEFENSIVA',(a.efDefRaw/100).toFixed(2),(b.efDefRaw/100).toFixed(2),'min',a.efDefRaw,b.efDefRaw],
   ];
   const rows=h2h.map(r=>{
     let ca='',cb='';
@@ -735,8 +747,8 @@ const CONS_COLS=[
   {key:'diff', label:'+/-',    fmt:m=>(m.diff>0?'+':'')+m.diff, val:m=>m.diff, color:m=>m.diff>0?'var(--positive)':m.diff<0?'var(--negative)':'var(--text-3)'},
   {key:'ptsA', label:'PTS+',   fmt:m=>m.ptsA,              val:m=>m.ptsA},
   {key:'ptsR', label:'PTS-',   fmt:m=>m.ptsR,              val:m=>m.ptsR},
-  {key:'efOff',label:'EF.OF',  fmt:m=>m.efOff,             val:m=>m.efOff},
-  {key:'efDef',label:'EF.DEF', fmt:m=>m.efDefRaw,          val:m=>m.efDefRaw},
+  {key:'efOff',label:'EF.OF',  fmt:m=>(m.efOff/100).toFixed(2),  val:m=>m.efOff},
+  {key:'efDef',label:'EF.DEF', fmt:m=>(m.efDefRaw/100).toFixed(2),val:m=>m.efDefRaw},
   {key:'pt2',  label:'PT2',    fmt:m=>m.pt2c+'/'+m.pt2i,   val:m=>m.pt2c},
   {key:'pt3',  label:'PT3',    fmt:m=>m.pt3c+'/'+m.pt3i,   val:m=>m.pt3c},
   {key:'ast',  label:'AST',    fmt:m=>m.ast,               val:m=>m.ast},
