@@ -44,7 +44,8 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .kpi .v{font-family:var(--font-disp);font-weight:900;font-size:30px;line-height:1}
 .kpi .k{font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase;margin-top:6px}
 .pos{color:var(--positive)}.neg{color:var(--negative)}.acc{color:var(--offense)}.def{color:var(--defense)}
-.sec{font-family:var(--font-mono);font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin:var(--sp-4) 0 var(--sp-3);display:flex;align-items:center;gap:var(--sp-3)}
+.sec{font-family:var(--font-disp);font-weight:800;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text);margin:var(--sp-5) 0 var(--sp-3);display:flex;align-items:center;gap:10px}
+.sec::before{content:"";width:3px;height:16px;background:var(--offense);border-radius:2px;flex-shrink:0}
 .sec::after{content:'';flex:1;height:1px;background:var(--border-subtle)}
 .board{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);overflow:hidden;margin-bottom:var(--sp-4)}
 .board-title{font-family:var(--font-disp);font-weight:700;font-size:15px;letter-spacing:.5px;color:var(--offense);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border-subtle)}
@@ -521,16 +522,42 @@ function renderLideres(){
 }
 
 // ── VISTA TIROS (mapa de tiros) ──
-let tiroTeam='',tiroPlayer='__all__';
+let tiroTeam='',tiroPlayer='__all__',tiroMatch='';
 function setTiroTeam(v){tiroTeam=v;tiroPlayer='__all__';renderTiros();}
 function setTiroPlayer(v){tiroPlayer=v;renderTiros();}
-function courtSVGFull(shots){
+function setTiroMatch(v){tiroMatch=v;renderTiros();}
+function shotMade(s){return s.made===true||s.made==='true'||+s.made===1;}
+function shotZone(s){
+  if(s.tipo==='3pt')return 'triple';
+  let fx=+s.x,fy=+s.y;if(!isFinite(fx))return 'media';
+  if(fx>50){fx=100-fx;fy=100-fy;}              // plegamos al aro más cercano
+  if(fx<21&&Math.abs(fy-50)<17)return 'pintura';
+  return 'media';
+}
+function zoneChip(cx,cy,pct,sub,col){
+  return '<g><rect x="'+(cx-19)+'" y="'+(cy-10)+'" width="38" height="20" rx="3" fill="rgba(8,9,13,0.86)" stroke="'+col+'" stroke-width="0.9"/>'+
+    '<text x="'+cx+'" y="'+(cy-0.3)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-size="10" font-weight="800" text-anchor="middle">'+pct+'%</text>'+
+    '<text x="'+cx+'" y="'+(cy+7)+'" fill="#8891a0" font-family="DM Mono,monospace" font-size="5.5" text-anchor="middle">'+sub+'</text></g>';
+}
+function zoneOverlay(sel){
+  const buckets={pintura:[],media:[],triple:[]};
+  sel.forEach(s=>{const z=shotZone(s);buckets[z].push(s);});
+  const st=arr=>{const m=arr.filter(shotMade).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*100):0};};
+  const defs=[
+    {z:'pintura',col:'#f97316',pos:[[40,75],[240,75]]},
+    {z:'media',col:'#4f8ef7',pos:[[78,32],[202,32]]},
+    {z:'triple',col:'#a78bfa',pos:[[78,118],[202,118]]},
+  ];
+  let out='';
+  defs.forEach(d=>{const s=st(buckets[d.z]);if(!s.a)return;d.pos.forEach(p=>{out+=zoneChip(p[0],p[1],s.pct,s.m+'/'+s.a,d.col);});});
+  return out;
+}
+function courtSVGFull(shots,overlay){
   const dots=shots.map(s=>{
     const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
     const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
-    const made=(s.made===true||s.made==='true'||+s.made===1);
-    return made?'<circle class="shot-made" cx="'+cx+'" cy="'+cy+'" r="2.2"/>'
-               :'<circle class="shot-miss" cx="'+cx+'" cy="'+cy+'" r="2.2"/>';
+    return shotMade(s)?'<circle class="shot-made" cx="'+cx+'" cy="'+cy+'" r="2.2"/>'
+                      :'<circle class="shot-miss" cx="'+cx+'" cy="'+cy+'" r="2.2"/>';
   }).join('');
   return '<svg class="court-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'+
     '<rect class="court-fill" x="0.5" y="0.5" width="279" height="149"/>'+
@@ -547,24 +574,34 @@ function courtSVGFull(shots){
     '<line class="court-line" x1="268" y1="66" x2="268" y2="84"/>'+
     '<circle class="court-line" cx="264.25" cy="75" r="4.5"/>'+
     '<path class="court-line" d="M279.5 9 L250.1 9 A67.5 67.5 0 0 0 250.1 141 L279.5 141"/>'+
-    dots+'</svg>';
+    dots+(overlay||'')+'</svg>';
 }
 function renderTiros(){
   const el=document.getElementById('view-tiros');
   if(!SHOTS.length){el.innerHTML='<div class="empty">Todavía no hay tiros cargados.<br>Necesitás crear la tabla <b>tiros_log</b> (te paso el SQL) y <b>re-guardar</b> un partido desde Quintetos.</div>';return;}
   const fase=document.getElementById('selFase').value;
-  const base=SHOTS.filter(s=>!fase||s.fase===fase);
-  const teams=[...new Set(base.map(s=>s.equipo))].sort();
+  const poolFase=SHOTS.filter(s=>!fase||s.fase===fase);
+  // partidos disponibles
+  const mids=[...new Set(poolFase.map(s=>s.match_id))];
+  const mLabel=mid=>{const r=poolFase.filter(s=>s.match_id===mid);const eqs=[...new Set(r.map(s=>s.equipo))];const f=(r[0]&&r[0].fecha)||'';return (f?f+' · ':'')+eqs.join(' vs ');};
+  const mObjs=mids.map(mid=>({mid,lbl:mLabel(mid),fecha:(poolFase.find(s=>s.match_id===mid)||{}).fecha||''}))
+                  .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  if(tiroMatch&&!mids.includes(tiroMatch))tiroMatch='';
+  const pool=tiroMatch?poolFase.filter(s=>s.match_id===tiroMatch):poolFase;
+  const teams=[...new Set(pool.map(s=>s.equipo))].sort();
   if(tiroTeam&&!teams.includes(tiroTeam))tiroTeam='';
-  const rows=base.filter(s=>!tiroTeam||s.equipo===tiroTeam);
+  const rows=pool.filter(s=>!tiroTeam||s.equipo===tiroTeam);
   const players=[...new Set(rows.map(s=>((s.num||'')+' '+(s.nombre||'')).trim()))].sort();
   if(tiroPlayer!=='__all__'&&!players.includes(tiroPlayer))tiroPlayer='__all__';
   const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>((s.num||'')+' '+(s.nombre||'')).trim()===tiroPlayer);
-  const z=arr=>{const m=arr.filter(s=>s.made===true||s.made==='true'||+s.made===1).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
+  const z=arr=>{const m=arr.filter(shotMade).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
   const all=z(sel),p2=z(sel.filter(s=>s.tipo!=='3pt')),p3=z(sel.filter(s=>s.tipo==='3pt'));
+  const playerSel=tiroPlayer!=='__all__';
+  const matchOpts='<option value="">Toda la temporada</option>'+mObjs.map(m=>'<option value="'+m.mid+'"'+(m.mid===tiroMatch?' selected':'')+'>'+m.lbl+'</option>').join('');
   const teamOpts='<option value="">Todos los equipos</option>'+teams.map(t=>'<option'+(t===tiroTeam?' selected':'')+'>'+t+'</option>').join('');
   const plOpts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
   const ctl='<div class="tiros-ctl">'+
+    '<span class="zone-lbl">Partido</span><select onchange="setTiroMatch(this.value)">'+matchOpts+'</select>'+
     '<span class="zone-lbl">Equipo</span><select onchange="setTiroTeam(this.value)">'+teamOpts+'</select>'+
     '<span class="zone-lbl">Jugador</span><select onchange="setTiroPlayer(this.value)">'+plOpts+'</select>'+
     '<span class="zone-sub">● verde = encestado · ○ rojo = errado</span></div>';
@@ -572,8 +609,11 @@ function renderTiros(){
     kpi(all.pct+'%','Total · '+all.m+'/'+all.a)+
     kpi(p2.pct+'%','Tiros de 2 · '+p2.m+'/'+p2.a)+
     kpi(p3.pct+'%','Tiros de 3 · '+p3.m+'/'+p3.a)+'</div>';
-  el.innerHTML=ctl+'<div class="sec">Mapa de tiros'+(tiroTeam?' · '+tiroTeam:' · toda la liga')+' · '+sel.length+' tiros</div>'+
-    '<div class="court-box">'+courtSVGFull(sel)+'</div>'+kpiRow;
+  const ctx=(tiroMatch?mLabel(tiroMatch):'toda la temporada')+(tiroTeam?' · '+tiroTeam:'')+(playerSel?' · '+tiroPlayer:'');
+  const overlay=playerSel?zoneOverlay(sel):'';
+  const hint=playerSel?'':'<div class="zone-sub" style="margin-top:6px">Elegí un jugador para ver su efectividad por zona (pintura · media · triple) sobre la cancha.</div>';
+  el.innerHTML=ctl+'<div class="sec">Mapa de tiros · '+ctx+' · '+sel.length+' tiros</div>'+
+    '<div class="court-box">'+courtSVGFull(sel,overlay)+'</div>'+hint+kpiRow;
 }
 
 function renderAll(){renderDashboard();renderLideres();renderTiros();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
