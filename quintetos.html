@@ -146,12 +146,20 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .board-title{font-family:var(--font-disp);font-weight:700;font-size:15px;letter-spacing:.5px;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border-subtle)}
 .board.t1 .board-title{color:var(--offense)} .board.t2 .board-title{color:var(--defense)}
 .btbl{width:100%;border-collapse:collapse}
-.btbl th{font-family:var(--font-mono);font-size:7px;letter-spacing:1px;color:var(--text-3);padding:7px var(--sp-2);text-align:right;text-transform:uppercase;border-bottom:1px solid var(--border-subtle);font-weight:400;white-space:nowrap}
-.btbl th:nth-child(2){text-align:left}
+.btbl thead tr{background:var(--bg-panel)}
+.btbl th{font-family:var(--font-mono);font-size:8px;letter-spacing:.8px;color:var(--text-2);padding:10px var(--sp-2);text-align:right;text-transform:uppercase;border-bottom:1px solid var(--border-light);font-weight:500;white-space:nowrap}
+.btbl th:nth-child(1),.btbl th:nth-child(2),.btbl th:nth-child(3){text-align:left}
+.btbl th.sortable{cursor:pointer;user-select:none;transition:color var(--t-fast)}
+.btbl th.sortable:hover{color:var(--text)}
+.btbl th.sorted{color:var(--offense)}
+.btbl th .arr{font-size:8px;margin-left:1px}
 .btbl td{padding:7px var(--sp-2);border-bottom:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:10px;text-align:right;white-space:nowrap}
-.btbl td:nth-child(2){text-align:left}
+.btbl td:nth-child(1),.btbl td:nth-child(2),.btbl td:nth-child(3){text-align:left}
+.btbl td.col-active{color:var(--text);background:rgba(249,115,22,0.05)}
+.btbl th.sorted{background:rgba(249,115,22,0.07)}
 .btbl tr:hover td{background:var(--bg-hover)}
 .btbl .qn{color:var(--text-3)}
+.sorthint{font-family:var(--font-mono);font-size:9px;color:var(--text-3);margin-right:auto;align-self:center}
 .bq{font-family:var(--font-mono);font-size:7px;color:var(--text-2);background:var(--bg-panel);border-radius:2px;padding:1px 4px;margin-right:2px}
 .toolbar{display:flex;justify-content:flex-end;gap:var(--sp-2);margin-bottom:var(--sp-3)}
 .btn{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:6px 12px;cursor:pointer;transition:all var(--t-fast)}
@@ -651,44 +659,67 @@ function lcard(l,team){
 }
 
 // ---- CONSOLIDADO ----
+let consSort={key:'mins',dir:-1}; // dir: -1 desc, 1 asc
+const CONS_COLS=[
+  {key:'mins', label:'Min',    fmt:m=>fmtMins(m.mins),     val:m=>m.mins},
+  {key:'pos',  label:'POS',    fmt:m=>m.posProp,           val:m=>m.posProp},
+  {key:'diff', label:'+/-',    fmt:m=>(m.diff>0?'+':'')+m.diff, val:m=>m.diff, color:m=>m.diff>0?'var(--positive)':m.diff<0?'var(--negative)':'var(--text-3)'},
+  {key:'ptsA', label:'PTS+',   fmt:m=>m.ptsA,              val:m=>m.ptsA},
+  {key:'ptsR', label:'PTS-',   fmt:m=>m.ptsR,              val:m=>m.ptsR},
+  {key:'efOff',label:'EF.OF',  fmt:m=>m.efOff,             val:m=>m.efOff},
+  {key:'efDef',label:'EF.DEF', fmt:m=>m.efDefRaw,          val:m=>m.efDefRaw},
+  {key:'pt2',  label:'PT2',    fmt:m=>m.pt2c+'/'+m.pt2i,   val:m=>m.pt2c},
+  {key:'pt3',  label:'PT3',    fmt:m=>m.pt3c+'/'+m.pt3i,   val:m=>m.pt3c},
+  {key:'ast',  label:'AST',    fmt:m=>m.ast,               val:m=>m.ast},
+  {key:'rob',  label:'ROB',    fmt:m=>m.rob,               val:m=>m.rob},
+  {key:'per',  label:'PÉR',    fmt:m=>m.per,               val:m=>m.per},
+  {key:'reb',  label:'REB',    fmt:m=>m.rebDef+m.rebOff,   val:m=>m.rebDef+m.rebOff},
+  {key:'rd',   label:'RD',     fmt:m=>m.rebDef,            val:m=>m.rebDef},
+  {key:'ro',   label:'RO',     fmt:m=>m.rebOff,            val:m=>m.rebOff},
+];
+function setConsSort(key){ if(consSort.key===key)consSort.dir*=-1; else {consSort.key=key;consSort.dir=-1;} renderConsolidado(); }
 function renderConsolidado(){
   const acc=buildConsolidatedData(S.results);
+  const arrow=consSort.dir<0?'▼':'▲';
+  const head='<th>#</th><th>Quinteto</th><th>Q</th>'+CONS_COLS.map(c=>{
+    const on=c.key===consSort.key;
+    return '<th class="sortable'+(on?' sorted':'')+'" onclick="setConsSort(\''+c.key+'\')" title="Ordenar por '+c.label+'">'+c.label+(on?' <span class="arr">'+arrow+'</span>':'')+'</th>';
+  }).join('');
+  const col=CONS_COLS.find(c=>c.key===consSort.key)||CONS_COLS[0];
   const tbl=(team)=>{
-    const rows=Object.values(acc[team]).sort((a,b)=>b.totalMins-a.totalMins);
+    let rows=Object.values(acc[team]).map(r=>({r,m:calcMetrics(r)}));
     if(!rows.length)return '';
-    const body=rows.map((r,i)=>{
-      const m=calcMetrics(r);const dc=m.diff>0?'var(--positive)':m.diff<0?'var(--negative)':'var(--text-3)';
+    rows.sort((a,b)=>(col.val(a.m)-col.val(b.m))*consSort.dir);
+    const body=rows.map((row,i)=>{
+      const r=row.r,m=row.m;
       const q=r.quarters.slice().sort().map(x=>'<span class="bq">'+(x>4?('OT'+(x-4)):('Q'+x))+'</span>').join('');
+      const cells=CONS_COLS.map(c=>{
+        const active=c.key===consSort.key;
+        const style=c.color?(' style="color:'+c.color(m)+'"'):'';
+        return '<td class="'+(active?'col-active':'')+'"'+style+'>'+c.fmt(m)+'</td>';
+      }).join('');
       return '<tr><td class="qn">'+String(i+1).padStart(2,'0')+'</td>'+
-        '<td>'+r.players.map(p=>pchip(p,team)).join(' ')+'</td>'+
-        '<td>'+q+'</td><td>'+fmtMins(m.mins)+'</td>'+
-        '<td style="color:'+dc+'">'+(m.diff>0?'+':'')+m.diff+'</td>'+
-        '<td>'+m.ptsA+'</td><td>'+m.ptsR+'</td>'+
-        '<td>'+m.efOff+'</td><td>'+m.efDefRaw+'</td>'+
-        '<td>'+m.pt2c+'/'+m.pt2i+'</td><td>'+m.pt3c+'/'+m.pt3i+'</td>'+
-        '<td>'+m.ast+'</td><td>'+m.rob+'</td><td>'+m.per+'</td><td>'+m.rebDef+'</td><td>'+m.rebOff+'</td></tr>';
+        '<td>'+r.players.map(p=>pchip(p,team)).join(' ')+'</td><td>'+q+'</td>'+cells+'</tr>';
     }).join('');
     return '<div class="board t'+team+'"><div class="board-title">'+S.teams[team].name+'</div>'+
-      '<div style="overflow-x:auto"><table class="btbl"><thead><tr>'+
-      '<th>#</th><th>Quinteto</th><th>Q</th><th>Min</th><th>+/-</th><th>PTS+</th><th>PTS-</th><th>EF.OF</th><th>EF.DEF</th><th>PT2</th><th>PT3</th><th>AST</th><th>ROB</th><th>PÉR</th><th>RD</th><th>RO</th>'+
-      '</tr></thead><tbody>'+body+'</tbody></table></div></div>';
+      '<div style="overflow-x:auto"><table class="btbl"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div></div>';
   };
   document.getElementById('view-cons').innerHTML=
-    '<div class="toolbar"><button class="btn" onclick="exportCSV()">↓ Exportar CSV</button></div>'+
+    '<div class="toolbar"><span class="sorthint">Tocá un encabezado para ordenar · ahora por '+col.label+' '+arrow+'</span><button class="btn" onclick="exportCSV()">↓ Exportar CSV</button></div>'+
     tbl(1)+tbl(2);
 }
 
 function exportCSV(){
   const acc=buildConsolidatedData(S.results);
-  let csv='Equipo,Quinteto,Cuartos,Min,+/-,PTS A favor,PTS En contra,EF.OF,EF.DEF,PT2 C/I,PT3 C/I,AST,ROB,PER,RD,RO\n';
+  let csv='Equipo,Quinteto,Cuartos,Min,POS,+/-,PTS A favor,PTS En contra,EF.OF,EF.DEF,PT2 C/I,PT3 C/I,AST,ROB,PER,REB,RD,RO\n';
   for(const team of [1,2]){
     const rows=Object.values(acc[team]).sort((a,b)=>b.totalMins-a.totalMins);
     for(const r of rows){
       const m=calcMetrics(r);
       const quinteto=r.players.map(p=>'#'+p.num+' '+p.name).join(' | ');
       csv+='"'+S.teams[team].name+'","'+quinteto+'","'+r.quarters.slice().sort().join(',')+'",'+
-        fmtMins(m.mins)+','+(m.diff>0?'+':'')+m.diff+','+m.ptsA+','+m.ptsR+','+m.efOff+','+m.efDefRaw+','+
-        m.pt2c+'/'+m.pt2i+','+m.pt3c+'/'+m.pt3i+','+m.ast+','+m.rob+','+m.per+','+m.rebDef+','+m.rebOff+'\n';
+        fmtMins(m.mins)+','+m.posProp+','+(m.diff>0?'+':'')+m.diff+','+m.ptsA+','+m.ptsR+','+m.efOff+','+m.efDefRaw+','+
+        m.pt2c+'/'+m.pt2i+','+m.pt3c+'/'+m.pt3i+','+m.ast+','+m.rob+','+m.per+','+(m.rebDef+m.rebOff)+','+m.rebDef+','+m.rebOff+'\n';
     }
   }
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
