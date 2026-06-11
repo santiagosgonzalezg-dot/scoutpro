@@ -521,52 +521,59 @@ function renderLideres(){
 }
 
 // ── VISTA TIROS (mapa de tiros) ──
-let tiroPlayer='__all__';
+let tiroTeam='',tiroPlayer='__all__';
+function setTiroTeam(v){tiroTeam=v;tiroPlayer='__all__';renderTiros();}
 function setTiroPlayer(v){tiroPlayer=v;renderTiros();}
-function mapShot(s){
-  let fx=+s.x,fy=+s.y;
-  if(!isFinite(fx)||!isFinite(fy))return null;
-  if(fx>50){fx=100-fx;fy=100-fy;}              // plegamos los dos aros a una sola cancha
-  return {cx:fy/100*150,cy:fx/50*141,made:(s.made===true||s.made==='true'||+s.made===1)};
-}
-function courtSVG(shots){
-  const dots=shots.map(s=>{const m=mapShot(s);if(!m)return'';
-    return m.made
-      ?'<circle class="shot-made" cx="'+m.cx.toFixed(1)+'" cy="'+m.cy.toFixed(1)+'" r="2.3"/>'
-      :'<circle class="shot-miss" cx="'+m.cx.toFixed(1)+'" cy="'+m.cy.toFixed(1)+'" r="2.3"/>';
+function courtSVGFull(shots){
+  const dots=shots.map(s=>{
+    const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
+    const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
+    const made=(s.made===true||s.made==='true'||+s.made===1);
+    return made?'<circle class="shot-made" cx="'+cx+'" cy="'+cy+'" r="2.2"/>'
+               :'<circle class="shot-miss" cx="'+cx+'" cy="'+cy+'" r="2.2"/>';
   }).join('');
-  return '<svg class="court-svg" viewBox="0 0 150 141" xmlns="http://www.w3.org/2000/svg">'+
-    '<rect class="court-fill" x="0.5" y="0.5" width="149" height="140"/>'+
-    '<rect class="court-line" x="0.5" y="0.5" width="149" height="140"/>'+
-    '<rect class="court-line" x="50.5" y="0.5" width="49" height="58"/>'+
-    '<circle class="court-line" cx="75" cy="58" r="18"/>'+
-    '<line class="court-line" x1="66" y1="12" x2="84" y2="12"/>'+
-    '<circle class="court-line" cx="75" cy="16" r="4.5"/>'+
-    '<path class="court-line" d="M9 0.5 L9 30.1 A67.5 67.5 0 0 0 141 30.1 L141 0.5"/>'+
+  return '<svg class="court-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'+
+    '<rect class="court-fill" x="0.5" y="0.5" width="279" height="149"/>'+
+    '<rect class="court-line" x="0.5" y="0.5" width="279" height="149"/>'+
+    '<line class="court-line" x1="140" y1="0.5" x2="140" y2="149.5"/>'+
+    '<circle class="court-line" cx="140" cy="75" r="18"/>'+
+    '<rect class="court-line" x="0.5" y="50.5" width="57.5" height="49"/>'+
+    '<circle class="court-line" cx="58" cy="75" r="18"/>'+
+    '<line class="court-line" x1="12" y1="66" x2="12" y2="84"/>'+
+    '<circle class="court-line" cx="15.75" cy="75" r="4.5"/>'+
+    '<path class="court-line" d="M0.5 9 L29.9 9 A67.5 67.5 0 0 1 29.9 141 L0.5 141"/>'+
+    '<rect class="court-line" x="222" y="50.5" width="57.5" height="49"/>'+
+    '<circle class="court-line" cx="222" cy="75" r="18"/>'+
+    '<line class="court-line" x1="268" y1="66" x2="268" y2="84"/>'+
+    '<circle class="court-line" cx="264.25" cy="75" r="4.5"/>'+
+    '<path class="court-line" d="M279.5 9 L250.1 9 A67.5 67.5 0 0 0 250.1 141 L279.5 141"/>'+
     dots+'</svg>';
 }
 function renderTiros(){
   const el=document.getElementById('view-tiros');
   if(!SHOTS.length){el.innerHTML='<div class="empty">Todavía no hay tiros cargados.<br>Necesitás crear la tabla <b>tiros_log</b> (te paso el SQL) y <b>re-guardar</b> un partido desde Quintetos.</div>';return;}
-  const team=document.getElementById('selTeam').value;
   const fase=document.getElementById('selFase').value;
-  const rows=SHOTS.filter(s=>(!team||s.equipo===team)&&(!fase||s.fase===fase));
+  const base=SHOTS.filter(s=>!fase||s.fase===fase);
+  const teams=[...new Set(base.map(s=>s.equipo))].sort();
+  if(tiroTeam&&!teams.includes(tiroTeam))tiroTeam='';
+  const rows=base.filter(s=>!tiroTeam||s.equipo===tiroTeam);
   const players=[...new Set(rows.map(s=>((s.num||'')+' '+(s.nombre||'')).trim()))].sort();
   if(tiroPlayer!=='__all__'&&!players.includes(tiroPlayer))tiroPlayer='__all__';
   const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>((s.num||'')+' '+(s.nombre||'')).trim()===tiroPlayer);
   const z=arr=>{const m=arr.filter(s=>s.made===true||s.made==='true'||+s.made===1).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
   const all=z(sel),p2=z(sel.filter(s=>s.tipo!=='3pt')),p3=z(sel.filter(s=>s.tipo==='3pt'));
-  const opts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
-  const ctl='<div class="tiros-ctl"><span class="zone-lbl">Jugador</span>'+
-    '<select onchange="setTiroPlayer(this.value)">'+opts+'</select>'+
+  const teamOpts='<option value="">Todos los equipos</option>'+teams.map(t=>'<option'+(t===tiroTeam?' selected':'')+'>'+t+'</option>').join('');
+  const plOpts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
+  const ctl='<div class="tiros-ctl">'+
+    '<span class="zone-lbl">Equipo</span><select onchange="setTiroTeam(this.value)">'+teamOpts+'</select>'+
+    '<span class="zone-lbl">Jugador</span><select onchange="setTiroPlayer(this.value)">'+plOpts+'</select>'+
     '<span class="zone-sub">● verde = encestado · ○ rojo = errado</span></div>';
-  const zonePanel='<div class="court-box">'+
-    '<div class="zone-row"><span class="zone-lbl">Total</span><span><span class="zone-val">'+all.pct+'%</span><span class="zone-sub">'+all.m+'/'+all.a+'</span></span></div>'+
-    '<div class="zone-row"><span class="zone-lbl">Tiros de 2</span><span><span class="zone-val" style="color:#f97316">'+p2.pct+'%</span><span class="zone-sub">'+p2.m+'/'+p2.a+'</span></span></div>'+
-    '<div class="zone-row"><span class="zone-lbl">Tiros de 3</span><span><span class="zone-val" style="color:#a78bfa">'+p3.pct+'%</span><span class="zone-sub">'+p3.m+'/'+p3.a+'</span></span></div>'+
-    '</div>';
-  el.innerHTML=ctl+'<div class="sec">Mapa de tiros'+(team?' · '+team:'')+' · '+sel.length+' tiros</div>'+
-    '<div class="shot-wrap"><div class="court-box">'+courtSVG(sel)+'</div>'+zonePanel+'</div>';
+  const kpiRow='<div class="kpis" style="margin-top:var(--sp-4)">'+
+    kpi(all.pct+'%','Total · '+all.m+'/'+all.a)+
+    kpi(p2.pct+'%','Tiros de 2 · '+p2.m+'/'+p2.a)+
+    kpi(p3.pct+'%','Tiros de 3 · '+p3.m+'/'+p3.a)+'</div>';
+  el.innerHTML=ctl+'<div class="sec">Mapa de tiros'+(tiroTeam?' · '+tiroTeam:' · toda la liga')+' · '+sel.length+' tiros</div>'+
+    '<div class="court-box">'+courtSVGFull(sel)+'</div>'+kpiRow;
 }
 
 function renderAll(){renderDashboard();renderLideres();renderTiros();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
