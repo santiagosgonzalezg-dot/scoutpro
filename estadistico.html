@@ -150,8 +150,8 @@ function agg(rows){
     if(r.match_id)a.matches.add(r.match_id);
   }
   a.diff=a.ptsF-a.ptsC;
-  a.efOff=a.pos>0?Math.round(a.ptsF/a.pos*100):0;
-  a.efDef=a.posRiv>0?Math.round(a.ptsC/a.posRiv*100):0;
+  a.efOff=a.pos>0?a.ptsF/a.pos:0;
+  a.efDef=a.posRiv>0?a.ptsC/a.posRiv:0;
   a.pj=a.matches.size;
   return a;
 }
@@ -184,6 +184,8 @@ function doSort(stateKey,key){const s=sortState[stateKey];if(s.key===key)s.dir*=
 function chips(players){return players.map(p=>'<span class="pchip"><span class="pn">'+(p.num||'·')+'</span>'+p.name+'</span>').join(' ');}
 function dc(v){return v>0?'var(--positive)':v<0?'var(--negative)':'var(--text-3)';}
 function sgn(v){return (v>0?'+':'')+v;}
+function pp(v){return (Number(v)||0).toFixed(2);}
+function sgn2(v){const n=Number(v)||0;return (n>0?'+':'')+n.toFixed(2);}
 
 // ── VISTA DASHBOARD (LIGA) ──
 function matchReboundIndex(rows){
@@ -229,9 +231,9 @@ function renderDashboard(){
     {key:'team',label:'Equipo',left:true,cell:r=>'<b>'+r.team+'</b>'},
     {key:'pj',label:'PJ',sortable:true,val:r=>r.a.pj,cell:r=>r.a.pj},
     {key:'pace',label:'POS/PJ',sortable:true,val:r=>r.a.pace,cell:r=>r.a.pace},
-    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>r.a.efOff},
-    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>r.a.efDef},
-    {key:'net',label:'NET',sortable:true,val:r=>r.a.net,cell:r=>sgn(r.a.net),color:r=>dc(r.a.net)},
+    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
+    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)},
+    {key:'net',label:'NET',sortable:true,val:r=>r.a.net,cell:r=>sgn2(r.a.net),color:r=>dc(r.a.net)},
     {key:'orb',label:'REB.OF%',sortable:true,val:r=>r.a.orbPct,cell:r=>r.a.orbPct+'%'},
     {key:'drb',label:'REB.DEF%',sortable:true,val:r=>r.a.drbPct,cell:r=>r.a.drbPct+'%'},
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
@@ -250,7 +252,7 @@ function renderDashboard(){
       '<td>'+Math.round(l.a.min)+'</td>'+
       '<td style="color:'+dc(l.a.diff)+'">'+sgn(l.a.diff)+'</td>'+
       '<td style="color:'+dc(l.net)+'">'+sgn(l.net)+'</td>'+
-      '<td>'+l.a.efOff+'</td><td>'+l.a.efDef+'</td></tr>').join('');
+      '<td>'+pp(l.a.efOff)+'</td><td>'+pp(l.a.efDef)+'</td></tr>').join('');
     return '<div class="board"><div class="board-title">'+title+'</div><div class="tblwrap"><table class="t"><thead><tr>'+
       '<th class="l">#</th><th class="l">Cuadro</th><th class="l">Quinteto</th><th>Min</th><th>+/-</th><th>NET/40</th><th>EF.OF</th><th>EF.DEF</th>'+
       '</tr></thead><tbody>'+body+'</tbody></table></div></div>';
@@ -268,7 +270,7 @@ function renderEquipo(){
   const ppg=a.pj?(a.diff/a.pj):0;
   const kpis=
     '<div class="kpis">'+
-    kpi(a.pj,'Partidos')+kpi(a.efOff,'EF. OFENSIVA','acc')+kpi(a.efDef,'EF. DEFENSIVA','def')+
+    kpi(a.pj,'Partidos')+kpi(pp(a.efOff),'EF. OFENSIVA','acc')+kpi(pp(a.efDef),'EF. DEFENSIVA','def')+
     kpi(sgn(a.diff),'+/- TOTAL',a.diff>=0?'pos':'neg')+kpi(sgn(Math.round(ppg*10)/10),'+/- X PARTIDO',ppg>=0?'pos':'neg')+
     '</div>';
   // top quintetos
@@ -281,8 +283,8 @@ function renderEquipo(){
     {key:'pj',label:'PJ',sortable:true,val:r=>r.a.pj,cell:r=>r.a.pj},
     {key:'min',label:'Min',sortable:true,val:r=>r.a.min,cell:r=>Math.round(r.a.min)},
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
-    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>r.a.efOff},
-    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>r.a.efDef},
+    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
+    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)},
     {key:'ptsF',label:'PTS+',sortable:true,val:r=>r.a.ptsF,cell:r=>r.a.ptsF},
     {key:'ptsC',label:'PTS-',sortable:true,val:r=>r.a.ptsC,cell:r=>r.a.ptsC},
   ];
@@ -299,8 +301,8 @@ function renderComparar(){
     {key:'rank',label:'#',left:true,cell:(r,i)=>'<span class="rank">'+String(i+1).padStart(2,'0')+'</span>'},
     {key:'team',label:'Equipo',left:true,cell:r=>'<b>'+r.team+'</b>'},
     {key:'pj',label:'PJ',sortable:true,val:r=>r.a.pj,cell:r=>r.a.pj},
-    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>r.a.efOff},
-    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>r.a.efDef},
+    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
+    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)},
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
     {key:'pt3',label:'3PT%',sortable:true,val:r=>r.a.pt3i?r.a.pt3c/r.a.pt3i*100:0,cell:r=>r.a.pt3i?Math.round(r.a.pt3c/r.a.pt3i*100)+'%':'—'},
     {key:'ast',label:'AST',sortable:true,val:r=>r.a.ast,cell:r=>r.a.ast},
@@ -331,8 +333,8 @@ function renderJugadores(){
     {key:'onoff',label:'+/- /40 ON',sortable:true,val:r=>r.onR,cell:r=>sgn(Math.round(r.onR*10)/10),color:r=>dc(r.onR)},
     {key:'offR',label:'+/- /40 OFF',sortable:true,val:r=>r.offR,cell:r=>sgn(Math.round(r.offR*10)/10),color:r=>dc(r.offR)},
     {key:'net',label:'NET ON/OFF',sortable:true,val:r=>r.net,cell:r=>sgn(Math.round(r.net*10)/10),color:r=>dc(r.net)},
-    {key:'efo',label:'EF.OF ON',sortable:true,val:r=>r.on.efOff,cell:r=>r.on.efOff},
-    {key:'efd',label:'EF.DEF ON',sortable:true,val:r=>r.on.efDef,cell:r=>r.on.efDef},
+    {key:'efo',label:'EF.OF ON',sortable:true,val:r=>r.on.efOff,cell:r=>pp(r.on.efOff)},
+    {key:'efd',label:'EF.DEF ON',sortable:true,val:r=>r.on.efDef,cell:r=>pp(r.on.efDef)},
   ];
   document.getElementById('view-jugadores').innerHTML=
     '<div class="sec">Rinde cuando está / no está en cancha · '+team+'</div>'+
@@ -353,8 +355,8 @@ function renderEvolucion(){
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
     {key:'pf',label:'PTS+',sortable:true,val:r=>r.a.ptsF,cell:r=>r.a.ptsF},
     {key:'pc',label:'PTS-',sortable:true,val:r=>r.a.ptsC,cell:r=>r.a.ptsC},
-    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>r.a.efOff},
-    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>r.a.efDef},
+    {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
+    {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)},
   ];
   document.getElementById('view-evolucion').innerHTML=chart+sortableTable('view-evolucion','Partido a partido · '+team,cols,list,'evo');
 }
