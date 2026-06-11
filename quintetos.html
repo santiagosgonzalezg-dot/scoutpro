@@ -32,6 +32,10 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .logo .lo-v{font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:2px;margin-left:6px;border:1px solid var(--border-light);border-radius:var(--r-sm);padding:2px 6px;vertical-align:middle}
 .tb-spacer{flex:1}
 .tb-meta{font-family:var(--font-mono);font-size:9px;color:var(--text-3);letter-spacing:1px;text-transform:uppercase}
+.logo{cursor:pointer}
+.tb-home{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);display:none;white-space:nowrap}
+.tb-home:hover{border-color:var(--offense);color:var(--offense)}
+.tb-home.show{display:inline-block}
 
 .wrap{max-width:1280px;margin:0 auto;padding:20px}
 
@@ -157,9 +161,10 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 </head>
 <body>
 <div class="topbar">
-  <div class="logo"><span class="lo-q">QUINTETOS</span><span class="lo-v">FIBA · v2</span></div>
+  <div class="logo" onclick="goHome()" title="Volver al inicio"><span class="lo-q">QUINTETOS</span><span class="lo-v">FIBA · v2</span></div>
   <div class="tb-spacer"></div>
   <div class="tb-meta" id="tbMeta"></div>
+  <button class="tb-home" id="homeBtn" onclick="goHome()">↩ Inicio</button>
 </div>
 
 <div class="wrap">
@@ -470,11 +475,28 @@ function pchip(p,t){return '<span class="pchip"><span class="pn">'+(p.num||'·')
 
 function renderAll(){
   document.getElementById('tabs').classList.add('show');
+  document.getElementById('homeBtn').classList.add('show');
   renderMatchHeader();
   renderComparar();
   renderPorCuarto();
   renderConsolidado();
   document.getElementById('tbMeta').textContent=S.teams[1].name+' vs '+S.teams[2].name;
+}
+
+function goHome(){
+  // Volver a la pantalla de carga, limpio
+  document.getElementById('matchcard').classList.remove('show');
+  document.getElementById('tabs').classList.remove('show');
+  document.getElementById('homeBtn').classList.remove('show');
+  document.getElementById('view-cmp').innerHTML='';
+  document.getElementById('view-cuarto').innerHTML='';
+  document.getElementById('view-cons').innerHTML='';
+  document.getElementById('tbMeta').textContent='';
+  const st=document.getElementById('status');st.className='status';st.textContent='';
+  S.results=null;S.data=null;S.cmpSel={1:null,2:null};curQ=null;
+  switchView('cmp');
+  window.scrollTo({top:0,behavior:'smooth'});
+  const inp=document.getElementById('matchId');inp.focus();inp.select();
 }
 
 function renderMatchHeader(){
