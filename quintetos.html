@@ -35,6 +35,9 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .logo{cursor:pointer;flex-shrink:0}
 .tb-home{background:var(--offense-bg);border:1px solid var(--offense-mid);border-radius:var(--r-sm);color:var(--offense);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);display:inline-block;white-space:nowrap;flex-shrink:0}
 .tb-home:hover{background:var(--offense-mid);color:#fff}
+.tb-nav{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 12px;transition:all var(--t-fast);white-space:nowrap;text-decoration:none;display:inline-block;flex-shrink:0}
+.tb-nav:hover{border-color:var(--text-2);color:var(--text)}
+.tb-nav.stat:hover{border-color:var(--insight);color:var(--insight)}
 
 .wrap{max-width:1280px;margin:0 auto;padding:20px}
 
@@ -183,6 +186,8 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
   <button class="tb-home" id="homeBtn" onclick="goHome()">↩ Volver al inicio</button>
   <div class="tb-spacer"></div>
   <div class="tb-meta" id="tbMeta"></div>
+  <a class="tb-nav stat" href="estadistico.html">📊 Estadístico</a>
+  <a class="tb-nav" href="index.html">🏠 Menú</a>
 </div>
 
 <div class="wrap">
@@ -237,7 +242,7 @@ const S={data:null,teams:{1:{name:'',players:{}},2:{name:'',players:{}}},pool:{}
 // ════════════════════════════════════════════════════════════════
 function normName(n){return String(n||'').toLowerCase().replace(/[\s.,]/g,'');}
 function makePid(num,name){return num+'|'+normName(name);}
-function emptyStats(){return{ast:0,rob:0,per:0,pt2conv:0,pt2fail:0,pt3conv:0,pt3fail:0,tlconv:0,tlfail:0,rebOff:0,rebDef:0,oppPt2conv:0,oppPt3conv:0,oppPt2fail:0,oppPt3fail:0,oppTlconv:0};}
+function emptyStats(){return{ast:0,rob:0,per:0,pt2conv:0,pt2fail:0,pt3conv:0,pt3fail:0,tlconv:0,tlfail:0,rebOff:0,rebDef:0,oppPt2conv:0,oppPt3conv:0,oppPt2fail:0,oppPt3fail:0,oppTlconv:0,oppTlfail:0,oppRebOff:0,oppPer:0};}
 
 // ════════════════════════════════════════════════════════════════
 //  CONVERSIÓN FIBA JSON  ->  eventos internos
@@ -381,7 +386,8 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
   for(const ev of events){
     if(ev.teamReb){
       // Rebote de equipo: lo suma el quinteto propio que está en cancha
-      if(ev.teamReb===myTeamNo && (ev.type in segStats))segStats[ev.type]++;
+      if(ev.teamReb===myTeamNo){ if(ev.type in segStats)segStats[ev.type]++; }
+      else if(ev.type==='rebOff'){ segStats.oppRebOff++; }
       continue;
     }
     const isMine=myPids.has(ev.pid);
@@ -426,6 +432,9 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
         if(ev.type==='pt2fail')segStats.oppPt2fail++;
         if(ev.type==='pt3fail')segStats.oppPt3fail++;
         if(ev.type==='tlconv')segStats.oppTlconv++;
+        if(ev.type==='tlfail')segStats.oppTlfail++;
+        if(ev.type==='rebOff')segStats.oppRebOff++;
+        if(ev.type==='per')segStats.oppPer++;
       }
     }
   }
@@ -447,8 +456,16 @@ function fuzzyMatch(p,ev){
 function parseTime(t){const m=t.match(/P(\d+)\s+(\d{1,2}):(\d{2})/);if(!m)return 0;return parseInt(m[2])+parseInt(m[3])/60;}
 function segMinutes(seg){const d=parseTime(seg.startTime)-parseTime(seg.endTime);return d<0?0:d;}
 function fmtMins(m){const mins=Math.floor(m);const secs=Math.round((m-mins)*60);return mins+"'"+String(secs).padStart(2,'0')+'"';}
-function estPosProp(s){const fga=(s.pt2conv+s.pt2fail)+(s.pt3conv+s.pt3fail);return Math.max(0,fga+(s.per||0));}
-function estPosRival(s){const oppFGA=(s.oppPt2conv+s.oppPt2fail)+(s.oppPt3conv+s.oppPt3fail);return Math.max(0,oppFGA+(s.rob||0));}
+function estPosProp(s){
+  const fga=(s.pt2conv+s.pt2fail)+(s.pt3conv+s.pt3fail);
+  const fta=(s.tlconv||0)+(s.tlfail||0);
+  return Math.max(0, fga - (s.rebOff||0) + (s.per||0) + 0.44*fta);
+}
+function estPosRival(s){
+  const oppFga=(s.oppPt2conv+s.oppPt2fail)+(s.oppPt3conv+s.oppPt3fail);
+  const oppFta=(s.oppTlconv||0)+(s.oppTlfail||0);
+  return Math.max(0, oppFga - (s.oppRebOff||0) + (s.oppPer||0) + 0.44*oppFta);
+}
 
 function buildConsolidatedData(res){
   const acc={1:{},2:{}};
@@ -734,7 +751,7 @@ function lcard(l,team){
   const diffbar='<div class="diffbar">'+
     '<span>PTS+ <span class="dv ann">'+ptsA+'</span></span><span>PTS- <span class="dv rec">'+ptsR+'</span></span>'+
     '<span>NET <span class="dv" style="color:'+dc+'">'+(diff>0?'+':'')+diff+'</span></span>'+
-    '<span>~POS '+estPosProp(s)+'/'+estPosRival(s)+'</span></div>';
+    '<span>~POS '+Math.round(estPosProp(s))+'/'+Math.round(estPosRival(s))+'</span></div>';
   return '<div class="lcard t'+team+'"><div class="lcard-meta"><span>▶ '+l.startTime.replace('P'+curQ+' ','')+' · ⏹ '+l.endTime.replace('P'+curQ+' ','')+'</span>'+warn+'</div>'+
     '<div class="lcard-players">'+chips+'</div><div class="sgrid">'+sg+'</div>'+diffbar+'</div>';
 }
@@ -743,7 +760,7 @@ function lcard(l,team){
 let consSort={key:'mins',dir:-1}; // dir: -1 desc, 1 asc
 const CONS_COLS=[
   {key:'mins', label:'Min',    fmt:m=>fmtMins(m.mins),     val:m=>m.mins},
-  {key:'pos',  label:'POS',    fmt:m=>m.posProp,           val:m=>m.posProp},
+  {key:'pos',  label:'POS',    fmt:m=>Math.round(m.posProp), val:m=>m.posProp},
   {key:'diff', label:'+/-',    fmt:m=>(m.diff>0?'+':'')+m.diff, val:m=>m.diff, color:m=>m.diff>0?'var(--positive)':m.diff<0?'var(--negative)':'var(--text-3)'},
   {key:'ptsA', label:'PTS+',   fmt:m=>m.ptsA,              val:m=>m.ptsA},
   {key:'ptsR', label:'PTS-',   fmt:m=>m.ptsR,              val:m=>m.ptsR},
