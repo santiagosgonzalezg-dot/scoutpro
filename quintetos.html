@@ -591,7 +591,15 @@ async function saveMatch(){
       if(pe)throw pe;
       pmsg=' · '+prows.length+' jugadores';
     }catch(pe){ pmsg=' · (jugadores no guardados: '+(pe.message||pe)+')'; }
-    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+'.');
+    // Mapa de tiros (coordenadas) -> tiros_log (best-effort)
+    let smsg='';
+    try{
+      const srows=buildShotRows(matchId,fecha,fase,jornada);
+      if(matchId)await client.from('tiros_log').delete().eq('match_id',matchId);
+      if(srows.length){const {error:se}=await client.from('tiros_log').insert(srows);if(se)throw se;}
+      smsg=' · '+srows.length+' tiros';
+    }catch(se){ smsg=' · (tiros no guardados: '+(se.message||se)+')'; }
+    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+'.');
   }catch(e){
     saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
   }finally{ btn.disabled=false; }
@@ -623,6 +631,30 @@ function buildPlayerRows(matchId,fecha,fase,jornada){
         faltas:g('sFoulsPersonal','sFoulsTotal','sFouls'),
         mas_menos:g('sPlusMinusPoints','sPlusMinus'),
         ef:g('sEfficiency','eff','sEff')});
+    }
+  }
+  return rows;
+}
+function buildShotRows(matchId,fecha,fase,jornada){
+  const rows=[];
+  for(const team of [1,2]){
+    const tm=S.data.tm[String(team)];const rival=S.teams[team===1?2:1].name;
+    const shots=tm.shot||tm.shots||[];
+    for(const sh of shots){
+      const x=+sh.x,y=+sh.y;
+      if(!isFinite(x)||!isFinite(y))continue;
+      let made;
+      if(sh.r!=null)made=(+sh.r===1);
+      else if(sh.made!=null)made=(sh.made===true||+sh.made===1);
+      else if(sh.success!=null)made=(sh.success===true||+sh.success===1);
+      else made=/made|scored|conv/i.test(String(sh.subType||sh.result||''));
+      const at=String(sh.actionType||sh.subType||'');
+      const tipo=(at.includes('3')||+sh.points===3||+sh.pts===3)?'3pt':'2pt';
+      rows.push({match_id:matchId,fecha,fase,jornada,
+        equipo:S.teams[team].name,rival,
+        num:String(sh.shirtNumber||sh.p||'').trim(),
+        nombre:sh.player||sh.scoreboardName||'',
+        x:+x.toFixed(2),y:+y.toFixed(2),made:!!made,tipo,periodo:+sh.per||null});
     }
   }
   return rows;
