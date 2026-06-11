@@ -82,6 +82,21 @@ table.t tr:hover td{background:var(--bg-hover)}
 .lb-track{flex:1;height:9px;background:var(--bg-panel);border-radius:2px;overflow:hidden}
 .lb-fill{height:100%;border-radius:2px;transition:width .3s}
 .lb-val{font-family:var(--font-disp);font-weight:800;font-size:16px;width:46px;text-align:right;flex-shrink:0}
+.shot-wrap{display:grid;grid-template-columns:minmax(260px,1fr) minmax(220px,300px);gap:var(--sp-4);align-items:start}
+@media(max-width:720px){.shot-wrap{grid-template-columns:1fr}}
+.court-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3)}
+.court-svg{width:100%;height:auto;display:block}
+.court-line{fill:none;stroke:rgba(255,255,255,.18);stroke-width:1}
+.court-fill{fill:rgba(255,255,255,.02)}
+.shot-made{fill:#34c769;fill-opacity:.85}
+.shot-miss{fill:none;stroke:#f05050;stroke-width:1.4;stroke-opacity:.8}
+.tiros-ctl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--sp-4);align-items:center}
+.tiros-ctl select{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);color:var(--text);font-family:var(--font-ui);font-size:13px;padding:7px 12px}
+.zone-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--border-subtle)}
+.zone-row:last-child{border-bottom:none}
+.zone-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase}
+.zone-val{font-family:var(--font-disp);font-weight:800;font-size:18px}
+.zone-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-left:6px}
 </style>
 </head>
 <body>
@@ -102,6 +117,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="tabs" id="tabs" style="display:none">
     <button class="tab active" data-v="dashboard" onclick="switchView('dashboard')">Dashboard</button>
     <button class="tab" data-v="lideres" onclick="switchView('lideres')">Líderes</button>
+    <button class="tab" data-v="tiros" onclick="switchView('tiros')">Tiros</button>
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
@@ -110,6 +126,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
   <div class="view active" id="view-dashboard"></div>
   <div class="view" id="view-lideres"></div>
+  <div class="view" id="view-tiros"></div>
   <div class="view" id="view-equipo"></div>
   <div class="view" id="view-comparar"></div>
   <div class="view" id="view-jugadores"></div>
@@ -120,7 +137,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
 <script>
 const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8'};
-let sb=null,DATA=[],PLAYERS=[];
+let sb=null,DATA=[],PLAYERS=[],SHOTS=[];
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key);return sb;}
 
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
@@ -137,6 +154,8 @@ async function loadData(){
     // Box score de jugadores (best-effort: si no existe la tabla, queda vacío)
     try{ const pr=await c.from('jugadores_log').select('*').limit(20000); PLAYERS=pr.error?[]:(pr.data||[]); }
     catch(_){ PLAYERS=[]; }
+    try{ const tr=await c.from('tiros_log').select('*').limit(40000); SHOTS=tr.error?[]:(tr.data||[]); }
+    catch(_){ SHOTS=[]; }
     if(!DATA.length){
       m.innerHTML='Todavía no hay partidos guardados.<br>Andá a <b>Quintetos</b>, cargá un partido y tocá <b>Guardar partido</b>.<br>Cuando guardes uno, refrescá esta página.';
       document.getElementById('controls').style.display='none';
@@ -501,7 +520,56 @@ function renderLideres(){
     sortableTable('view-lideres','Todos los jugadores',cols,players,'lideres');
 }
 
-function renderAll(){renderDashboard();renderLideres();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+// ── VISTA TIROS (mapa de tiros) ──
+let tiroPlayer='__all__';
+function setTiroPlayer(v){tiroPlayer=v;renderTiros();}
+function mapShot(s){
+  let fx=+s.x,fy=+s.y;
+  if(!isFinite(fx)||!isFinite(fy))return null;
+  if(fx>50){fx=100-fx;fy=100-fy;}              // plegamos los dos aros a una sola cancha
+  return {cx:fy/100*150,cy:fx/50*141,made:(s.made===true||s.made==='true'||+s.made===1)};
+}
+function courtSVG(shots){
+  const dots=shots.map(s=>{const m=mapShot(s);if(!m)return'';
+    return m.made
+      ?'<circle class="shot-made" cx="'+m.cx.toFixed(1)+'" cy="'+m.cy.toFixed(1)+'" r="2.3"/>'
+      :'<circle class="shot-miss" cx="'+m.cx.toFixed(1)+'" cy="'+m.cy.toFixed(1)+'" r="2.3"/>';
+  }).join('');
+  return '<svg class="court-svg" viewBox="0 0 150 141" xmlns="http://www.w3.org/2000/svg">'+
+    '<rect class="court-fill" x="0.5" y="0.5" width="149" height="140"/>'+
+    '<rect class="court-line" x="0.5" y="0.5" width="149" height="140"/>'+
+    '<rect class="court-line" x="50.5" y="0.5" width="49" height="58"/>'+
+    '<circle class="court-line" cx="75" cy="58" r="18"/>'+
+    '<line class="court-line" x1="66" y1="12" x2="84" y2="12"/>'+
+    '<circle class="court-line" cx="75" cy="16" r="4.5"/>'+
+    '<path class="court-line" d="M9 0.5 L9 30.1 A67.5 67.5 0 0 0 141 30.1 L141 0.5"/>'+
+    dots+'</svg>';
+}
+function renderTiros(){
+  const el=document.getElementById('view-tiros');
+  if(!SHOTS.length){el.innerHTML='<div class="empty">Todavía no hay tiros cargados.<br>Necesitás crear la tabla <b>tiros_log</b> (te paso el SQL) y <b>re-guardar</b> un partido desde Quintetos.</div>';return;}
+  const team=document.getElementById('selTeam').value;
+  const fase=document.getElementById('selFase').value;
+  const rows=SHOTS.filter(s=>(!team||s.equipo===team)&&(!fase||s.fase===fase));
+  const players=[...new Set(rows.map(s=>((s.num||'')+' '+(s.nombre||'')).trim()))].sort();
+  if(tiroPlayer!=='__all__'&&!players.includes(tiroPlayer))tiroPlayer='__all__';
+  const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>((s.num||'')+' '+(s.nombre||'')).trim()===tiroPlayer);
+  const z=arr=>{const m=arr.filter(s=>s.made===true||s.made==='true'||+s.made===1).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
+  const all=z(sel),p2=z(sel.filter(s=>s.tipo!=='3pt')),p3=z(sel.filter(s=>s.tipo==='3pt'));
+  const opts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
+  const ctl='<div class="tiros-ctl"><span class="zone-lbl">Jugador</span>'+
+    '<select onchange="setTiroPlayer(this.value)">'+opts+'</select>'+
+    '<span class="zone-sub">● verde = encestado · ○ rojo = errado</span></div>';
+  const zonePanel='<div class="court-box">'+
+    '<div class="zone-row"><span class="zone-lbl">Total</span><span><span class="zone-val">'+all.pct+'%</span><span class="zone-sub">'+all.m+'/'+all.a+'</span></span></div>'+
+    '<div class="zone-row"><span class="zone-lbl">Tiros de 2</span><span><span class="zone-val" style="color:#f97316">'+p2.pct+'%</span><span class="zone-sub">'+p2.m+'/'+p2.a+'</span></span></div>'+
+    '<div class="zone-row"><span class="zone-lbl">Tiros de 3</span><span><span class="zone-val" style="color:#a78bfa">'+p3.pct+'%</span><span class="zone-sub">'+p3.m+'/'+p3.a+'</span></span></div>'+
+    '</div>';
+  el.innerHTML=ctl+'<div class="sec">Mapa de tiros'+(team?' · '+team:'')+' · '+sel.length+' tiros</div>'+
+    '<div class="shot-wrap"><div class="court-box">'+courtSVG(sel)+'</div>'+zonePanel+'</div>';
+}
+
+function renderAll(){renderDashboard();renderLideres();renderTiros();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
