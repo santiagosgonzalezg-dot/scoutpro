@@ -582,10 +582,50 @@ async function saveMatch(){
     if(matchId)await client.from('quintetos_log').delete().eq('match_id',matchId);
     const {error}=await client.from('quintetos_log').insert(rows);
     if(error)throw error;
-    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos.');
+    // Box score individual de jugadores (best-effort: si falta la tabla, no rompe el guardado de quintetos)
+    let pmsg='';
+    try{
+      const prows=buildPlayerRows(matchId,fecha,fase,jornada);
+      if(matchId)await client.from('jugadores_log').delete().eq('match_id',matchId);
+      const {error:pe}=await client.from('jugadores_log').insert(prows);
+      if(pe)throw pe;
+      pmsg=' · '+prows.length+' jugadores';
+    }catch(pe){ pmsg=' · (jugadores no guardados: '+(pe.message||pe)+')'; }
+    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+'.');
   }catch(e){
     saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
   }finally{ btn.disabled=false; }
+}
+
+function parseMinStr(m){
+  if(m==null)return 0;
+  if(typeof m==='number')return m;
+  const mm=String(m).trim().match(/^(\d+):(\d{1,2})/);
+  if(mm)return parseInt(mm[1])+parseInt(mm[2])/60;
+  return parseFloat(m)||0;
+}
+function buildPlayerRows(matchId,fecha,fase,jornada){
+  const rows=[];
+  for(const team of [1,2]){
+    const tm=S.data.tm[String(team)];const rival=S.teams[team===1?2:1].name;const pl=tm.pl||{};
+    for(const pno of Object.keys(pl)){
+      const p=pl[pno];const num=String(p.shirtNumber||'').trim();if(!num)continue;
+      const g=(...ks)=>{for(const k of ks){if(p[k]!=null&&p[k]!=='')return Math.round(+p[k]||0);}return 0;};
+      rows.push({match_id:matchId,fecha,fase,jornada,
+        equipo:S.teams[team].name,rival,es_local:team===1,
+        num,nombre:p.name||p.scoreboardName||'',
+        min:+parseMinStr(p.sMinutes).toFixed(2),
+        pts:g('sPoints'),ast:g('sAssists'),rob:g('sSteals'),tap:g('sBlocks'),per:g('sTurnovers'),
+        ro:g('sReboundsOffensive'),rd:g('sReboundsDefensive'),reb:g('sReboundsTotal'),
+        fgm:g('sFieldGoalsMade'),fga:g('sFieldGoalsAttempted'),
+        tpm:g('sThreePointersMade'),tpa:g('sThreePointersAttempted'),
+        ftm:g('sFreeThrowsMade'),fta:g('sFreeThrowsAttempted'),
+        faltas:g('sFoulsPersonal','sFoulsTotal','sFouls'),
+        mas_menos:g('sPlusMinusPoints','sPlusMinus'),
+        ef:g('sEfficiency','eff','sEff')});
+    }
+  }
+  return rows;
 }
 
 function goHome(){
