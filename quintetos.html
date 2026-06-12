@@ -635,11 +635,44 @@ function buildPlayerRows(matchId,fecha,fase,jornada){
   }
   return rows;
 }
+function computeTramos(){
+  // Reconstruye, por equipo y en orden cronológico, el tramo de posesión (1/2/3) de cada tiro
+  const result={'1':[], '2':[]};
+  const byPer={};
+  for(const e of (S.data.pbp||[])){const p=e.period||1;(byPer[p]=byPer[p]||[]).push(e);}
+  const toSec=gt=>{const m=String(gt||'').match(/(\d+):(\d+)/);return m?(+m[1]*60+ +m[2]):null;};
+  const perLen=p=>p<=4?600:300; // 10' por cuarto, 5' suplementario (FIBA)
+  for(const p of Object.keys(byPer).map(Number).sort((a,b)=>a-b)){
+    const evs=byPer[p].slice().reverse(); // a cronológico
+    const lastGain={'1':perLen(p),'2':perLen(p)};
+    for(const e of evs){
+      const sec=toSec(e.gt);if(sec==null)continue;
+      const t=String(e.tno);if(t!=='1'&&t!=='2')continue;
+      const opp=t==='1'?'2':'1';
+      const at=String(e.actionType||'').toLowerCase();
+      if(at==='2pt'||at==='3pt'){
+        const used=Math.max(0,Math.min(24,lastGain[t]-sec));
+        const tramo=used<8?1:used<16?2:3;
+        const made=(e.success===1||e.success===true);
+        result[t].push({num:String(e.shirtNumber||'').trim(),made:!!made,type:at,tramo});
+        if(made)lastGain[opp]=sec; // canasta -> rival saca
+        continue;
+      }
+      if(at==='rebound'){lastGain[t]=sec;continue;}   // def: gana posesión · of: reinicia reloj
+      if(at==='steal'){lastGain[t]=sec;continue;}
+      if(at==='turnover'){lastGain[opp]=sec;continue;}
+      if(at==='freethrow'){if(e.success===1||e.success===true)lastGain[opp]=sec;continue;}
+    }
+  }
+  return result;
+}
 function buildShotRows(matchId,fecha,fase,jornada){
   const rows=[];
+  const tramos=computeTramos();
   for(const team of [1,2]){
     const tm=S.data.tm[String(team)];const rival=S.teams[team===1?2:1].name;
     const shots=tm.shot||tm.shots||[];
+    const queue=(tramos[String(team)]||[]).slice();
     for(const sh of shots){
       const x=+sh.x,y=+sh.y;
       if(!isFinite(x)||!isFinite(y))continue;
@@ -648,13 +681,18 @@ function buildShotRows(matchId,fecha,fase,jornada){
       else if(sh.made!=null)made=(sh.made===true||+sh.made===1);
       else if(sh.success!=null)made=(sh.success===true||+sh.success===1);
       else made=/made|scored|conv/i.test(String(sh.subType||sh.result||''));
+      made=!!made;
       const at=String(sh.actionType||sh.subType||'');
       const tipo=(at.includes('3')||+sh.points===3||+sh.pts===3)?'3pt':'2pt';
+      const num=String(sh.shirtNumber||sh.p||'').trim();
+      // emparejar con el tramo (mismo dorsal + resultado + tipo, en orden)
+      let tramo=null;
+      const qi=queue.findIndex(q=>q.num===num&&q.made===made&&q.type===tipo);
+      if(qi>=0){tramo=queue[qi].tramo;queue.splice(qi,1);}
       rows.push({match_id:matchId,fecha,fase,jornada,
         equipo:S.teams[team].name,rival,
-        num:String(sh.shirtNumber||sh.p||'').trim(),
-        nombre:sh.player||sh.scoreboardName||'',
-        x:+x.toFixed(2),y:+y.toFixed(2),made:!!made,tipo,periodo:+sh.per||null});
+        num,nombre:sh.player||sh.scoreboardName||'',
+        x:+x.toFixed(2),y:+y.toFixed(2),made,tipo,periodo:+sh.per||null,tramo});
     }
   }
   return rows;
