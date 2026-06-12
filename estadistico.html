@@ -97,6 +97,14 @@ table.t tr:hover td{background:var(--bg-hover)}
 .zone-row:last-child{border-bottom:none}
 .zone-lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase}
 .zone-val{font-family:var(--font-disp);font-weight:800;font-size:18px}
+.tramo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3)}
+@media(max-width:600px){.tramo-grid{grid-template-columns:1fr}}
+.tramo-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4)}
+.tramo-card .lbl{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase}
+.tramo-card .big{font-family:var(--font-disp);font-weight:900;font-size:28px;line-height:1;margin:6px 0 3px}
+.tramo-card .sub{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+.tramo-bar{height:6px;background:var(--bg-panel);border-radius:2px;overflow:hidden;margin-top:9px}
+.tramo-fill{height:100%;border-radius:2px}
 .zone-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-left:6px}
 </style>
 </head>
@@ -566,10 +574,10 @@ function courtHeatSVG(shots){
     const arr=buckets[k];if(!arr.length)return;
     const m=arr.filter(f=>f.made).length,a=arr.length,pct=Math.round(m/a*100);
     const pps=(k[0]==='t'?3:2)*pct/100, col=ppsColor(pps);
-    const r=Math.min(25,8.5+Math.sqrt(a)*4), [cx,cy]=HEAT_ZONES[k].c;
-    bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.20" stroke="'+col+'" stroke-width="1.1"/>'+
-      '<text x="'+cx+'" y="'+(cy-0.3)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="11" text-anchor="middle">'+pct+'%</text>'+
-      '<text x="'+cx+'" y="'+(cy+7)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="5.5" text-anchor="middle">'+m+'/'+a+'</text>';
+    const r=Math.min(11,4.5+Math.sqrt(a)*1.4), [cx,cy]=HEAT_ZONES[k].c;
+    bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.22" stroke="'+col+'" stroke-width="0.9"/>'+
+      '<text x="'+cx+'" y="'+(cy-2.2)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="6.5" text-anchor="middle">'+pct+'%</text>'+
+      '<text x="'+cx+'" y="'+(cy+3.5)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="3.8" text-anchor="middle">'+m+'/'+a+'</text>';
   });
   return '<svg class="court-svg" viewBox="0 0 150 141" xmlns="http://www.w3.org/2000/svg">'+halfCourtLines()+dots+bubbles+'</svg>';
 }
@@ -634,8 +642,22 @@ function renderTiros(){
     kpi(p3.pct+'%','Tiros de 3 · '+p3.m+'/'+p3.a)+'</div>';
   const ctx=(tiroMatch?mLabel(tiroMatch):'toda la temporada')+(tiroTeam?' · '+tiroTeam:'')+(tiroPlayer!=='__all__'?' · '+tiroPlayer:'');
   const titulo=heatMode?'Zonas de fortaleza':'Mapa de tiros';
+  // desglose por momento de la posesión (tramo 1/2/3) reconstruido del play-by-play
+  const tr=[1,2,3].map(k=>{const arr=sel.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
+  const totT=tr.reduce((s,x)=>s+x.a,0);
+  const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
+  let tramoPanel;
+  if(totT>0){
+    tramoPanel='<div class="sec">Cuándo tira · momento de la posesión</div><div class="tramo-grid">'+
+      tr.map(x=>{const share=Math.round(x.a/totT*100);return '<div class="tramo-card"><div class="lbl">'+tLbl[x.k]+'</div>'+
+        '<div class="big" style="color:'+tCol[x.k]+'">'+share+'%</div>'+
+        '<div class="sub">'+x.a+' tiros · '+x.pct+'% acierto</div>'+
+        '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>';
+  }else{
+    tramoPanel='<div class="zone-sub" style="margin-top:14px">Para ver cuándo se tira (primeros / segundos / últimos 8" de la posesión), re-guardá los partidos desde Quintetos con la versión nueva.</div>';
+  }
   el.innerHTML=ctl+'<div class="sec">'+titulo+' · '+ctx+' · '+sel.length+' tiros</div>'+
-    '<div class="court-box">'+(heatMode?courtHeatSVG(sel):courtSVGFull(sel))+'</div>'+kpiRow;
+    '<div class="court-box">'+(heatMode?courtHeatSVG(sel):courtSVGFull(sel))+'</div>'+kpiRow+tramoPanel;
 }
 
 function renderAll(){renderDashboard();renderLideres();renderTiros();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
