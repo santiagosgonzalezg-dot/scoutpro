@@ -537,8 +537,8 @@ function setTiroMatch(v){tiroMatch=v;renderTiros();}
 function shotMade(s){return s.made===true||s.made==='true'||+s.made===1;}
 function foldShot(s){let fx=+s.x,fy=+s.y;if(!isFinite(fx)||!isFinite(fy))return null;if(fx>50){fx=100-fx;fy=100-fy;}return{fx,fy,made:shotMade(s),tipo:s.tipo};}
 const HEAT_ZONES={
-  pint:{c:[75,40]}, mizq:{c:[40,64]}, mder:{c:[110,64]},
-  tizq:{c:[19,74]}, tcen:{c:[75,122]}, tder:{c:[131,74]}
+  pint:[44,75], mizq:[60,48], mder:[60,102],
+  tizq:[34,24], tcen:[98,75], tder:[34,126]
 };
 function heatZone(f){
   if(f.tipo==='3pt'){ if(f.fy<40)return 'tizq'; if(f.fy>60)return 'tder'; return 'tcen'; }
@@ -552,44 +552,8 @@ function ppsColor(pps){
   if(pps>=0.80)return '#f97316';
   return '#f05050';
 }
-function halfCourtLines(){
-  return '<rect class="court-fill" x="0.5" y="0.5" width="149" height="140"/>'+
-    '<rect class="court-line" x="0.5" y="0.5" width="149" height="140"/>'+
-    '<rect class="court-line" x="50.5" y="0.5" width="49" height="58"/>'+
-    '<circle class="court-line" cx="75" cy="58" r="18"/>'+
-    '<line class="court-line" x1="66" y1="12" x2="84" y2="12"/>'+
-    '<circle class="court-line" cx="75" cy="16" r="4.5"/>'+
-    '<path class="court-line" d="M9 0.5 L9 30.1 A67.5 67.5 0 0 0 141 30.1 L141 0.5"/>';
-}
-function courtHeatSVG(shots){
-  const folded=shots.map(foldShot).filter(Boolean);
-  const dots=folded.map(f=>{const cx=(f.fy/100*150).toFixed(1),cy=(f.fx/50*141).toFixed(1);
-    return f.made?'<circle cx="'+cx+'" cy="'+cy+'" r="1.9" fill="#34c769" fill-opacity="0.30"/>'
-                 :'<circle cx="'+cx+'" cy="'+cy+'" r="1.9" fill="none" stroke="#f05050" stroke-opacity="0.28" stroke-width="1"/>';
-  }).join('');
-  const buckets={};Object.keys(HEAT_ZONES).forEach(k=>buckets[k]=[]);
-  folded.forEach(f=>{const z=heatZone(f);if(buckets[z])buckets[z].push(f);});
-  let bubbles='';
-  Object.keys(HEAT_ZONES).forEach(k=>{
-    const arr=buckets[k];if(!arr.length)return;
-    const m=arr.filter(f=>f.made).length,a=arr.length,pct=Math.round(m/a*100);
-    const pps=(k[0]==='t'?3:2)*pct/100, col=ppsColor(pps);
-    const r=Math.min(11,4.5+Math.sqrt(a)*1.4), [cx,cy]=HEAT_ZONES[k].c;
-    bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.22" stroke="'+col+'" stroke-width="0.9"/>'+
-      '<text x="'+cx+'" y="'+(cy-2.2)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="6.5" text-anchor="middle">'+pct+'%</text>'+
-      '<text x="'+cx+'" y="'+(cy+3.5)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="3.8" text-anchor="middle">'+m+'/'+a+'</text>';
-  });
-  return '<svg class="court-svg" viewBox="0 0 150 141" xmlns="http://www.w3.org/2000/svg">'+halfCourtLines()+dots+bubbles+'</svg>';
-}
-function courtSVGFull(shots){
-  const dots=shots.map(s=>{
-    const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
-    const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
-    return shotMade(s)?'<circle class="shot-made" cx="'+cx+'" cy="'+cy+'" r="2.2"/>'
-                      :'<circle class="shot-miss" cx="'+cx+'" cy="'+cy+'" r="2.2"/>';
-  }).join('');
-  return '<svg class="court-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'+
-    '<rect class="court-fill" x="0.5" y="0.5" width="279" height="149"/>'+
+function fullCourtLines(){
+  return '<rect class="court-fill" x="0.5" y="0.5" width="279" height="149"/>'+
     '<rect class="court-line" x="0.5" y="0.5" width="279" height="149"/>'+
     '<line class="court-line" x1="140" y1="0.5" x2="140" y2="149.5"/>'+
     '<circle class="court-line" cx="140" cy="75" r="18"/>'+
@@ -602,8 +566,38 @@ function courtSVGFull(shots){
     '<circle class="court-line" cx="222" cy="75" r="18"/>'+
     '<line class="court-line" x1="268" y1="66" x2="268" y2="84"/>'+
     '<circle class="court-line" cx="264.25" cy="75" r="4.5"/>'+
-    '<path class="court-line" d="M279.5 9 L250.1 9 A67.5 67.5 0 0 0 250.1 141 L279.5 141"/>'+
-    dots+'</svg>';
+    '<path class="court-line" d="M279.5 9 L250.1 9 A67.5 67.5 0 0 0 250.1 141 L279.5 141"/>';
+}
+function courtHeatSVG(shots){
+  const dots=shots.map(s=>{const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
+    const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
+    return shotMade(s)?'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="#34c769" fill-opacity="0.26"/>'
+                      :'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="none" stroke="#f05050" stroke-opacity="0.24" stroke-width="0.8"/>';
+  }).join('');
+  const buckets={};Object.keys(HEAT_ZONES).forEach(k=>buckets[k]=[]);
+  shots.map(foldShot).filter(Boolean).forEach(f=>{const z=heatZone(f);if(buckets[z])buckets[z].push(f);});
+  let bubbles='';
+  Object.keys(HEAT_ZONES).forEach(k=>{
+    const arr=buckets[k];if(!arr.length)return;
+    const m=arr.filter(f=>f.made).length,a=arr.length,pct=Math.round(m/a*100);
+    const pps=(k[0]==='t'?3:2)*pct/100, col=ppsColor(pps);
+    const r=Math.min(8,3+Math.sqrt(a)*1.0), z=HEAT_ZONES[k];
+    [[z[0],z[1]],[280-z[0],z[1]]].forEach(c=>{const cx=c[0],cy=c[1];
+      bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.24" stroke="'+col+'" stroke-width="0.7"/>'+
+        '<text x="'+cx+'" y="'+(cy-0.6)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="5" text-anchor="middle">'+pct+'%</text>'+
+        '<text x="'+cx+'" y="'+(cy+3.7)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="3" text-anchor="middle">'+m+'/'+a+'</text>';
+    });
+  });
+  return '<svg class="court-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'+fullCourtLines()+dots+bubbles+'</svg>';
+}
+function courtSVGFull(shots){
+  const dots=shots.map(s=>{
+    const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
+    const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
+    return shotMade(s)?'<circle class="shot-made" cx="'+cx+'" cy="'+cy+'" r="2.2"/>'
+                      :'<circle class="shot-miss" cx="'+cx+'" cy="'+cy+'" r="2.2"/>';
+  }).join('');
+  return '<svg class="court-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'+fullCourtLines()+dots+'</svg>';
 }
 function renderTiros(){
   const el=document.getElementById('view-tiros');
