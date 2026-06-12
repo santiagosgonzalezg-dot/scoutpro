@@ -193,11 +193,12 @@ function buildSelectors(){
 
 // ── agregación ──
 function agg(rows){
-  const a={min:0,ptsF:0,ptsC:0,pos:0,posRiv:0,pt2c:0,pt2i:0,pt3c:0,pt3i:0,ast:0,rob:0,per:0,rd:0,ro:0,matches:new Set()};
+  const a={min:0,ptsF:0,ptsC:0,pos:0,posRiv:0,pt2c:0,pt2i:0,pt3c:0,pt3i:0,tlc:0,tli:0,ast:0,rob:0,per:0,rd:0,ro:0,matches:new Set()};
   for(const r of rows){
     a.min+=num(r.minutos);a.ptsF+=num(r.pts_favor);a.ptsC+=num(r.pts_contra);
     a.pos+=num(r.pos);a.posRiv+=num(r.pos_riv);
     a.pt2c+=num(r.pt2c);a.pt2i+=num(r.pt2i);a.pt3c+=num(r.pt3c);a.pt3i+=num(r.pt3i);
+    a.tlc+=num(r.tlc);a.tli+=num(r.tli);
     a.ast+=num(r.ast);a.rob+=num(r.rob);a.per+=num(r.per);a.rd+=num(r.reb_def);a.ro+=num(r.reb_off);
     if(r.match_id)a.matches.add(r.match_id);
   }
@@ -205,6 +206,9 @@ function agg(rows){
   a.efOff=a.pos>0?a.ptsF/a.pos:0;
   a.efDef=a.posRiv>0?a.ptsC/a.posRiv:0;
   a.pj=a.matches.size;
+  a.fga=a.pt2i+a.pt3i;a.fgm=a.pt2c+a.pt3c;
+  a.efg=a.fga>0?Math.round((a.fgm+0.5*a.pt3c)/a.fga*1000)/10:0;            // eFG%
+  a.ts=(a.fga+0.44*a.tli)>0?Math.round(a.ptsF/(2*(a.fga+0.44*a.tli))*1000)/10:0; // True Shooting %
   return a;
 }
 function teamRows(team){const f=document.getElementById('selFase').value;return DATA.filter(r=>r.equipo===team&&(!f||r.fase===f));}
@@ -295,7 +299,8 @@ function renderDashboard(){
     {key:'net',label:'NET',sortable:true,val:r=>r.a.net,cell:r=>sgn2(r.a.net),color:r=>dc(r.a.net)},
     {key:'orb',label:'REB.OF%',sortable:true,val:r=>r.a.orbPct,cell:r=>r.a.orbPct+'%'},
     {key:'drb',label:'REB.DEF%',sortable:true,val:r=>r.a.drbPct,cell:r=>r.a.drbPct+'%'},
-    {key:'fg',label:'TC%',sortable:true,val:r=>r.a.fgPct,cell:r=>r.a.fgPct+'%'},
+    {key:'fg',label:'eFG%',sortable:true,val:r=>r.a.efg,cell:r=>r.a.efg+'%'},
+    {key:'ts',label:'TS%',sortable:true,val:r=>r.a.ts,cell:r=>r.a.ts+'%'},
     {key:'3v',label:'3VOL',sortable:true,val:r=>r.a.threeVol,cell:r=>r.a.threeVol+'%'},
     {key:'ap',label:'AST/POS',sortable:true,val:r=>r.a.astPos,cell:r=>r.a.astPos.toFixed(2)},
     {key:'at',label:'AST/PÉR',sortable:true,val:r=>r.a.astTo,cell:r=>r.a.astTo.toFixed(2)},
@@ -322,15 +327,15 @@ function renderDashboard(){
   };
   const avg=(f)=>teams.length?teams.reduce((s,t)=>s+f(t),0)/teams.length:0;
   const lgPace=avg(t=>t.a.pace),lgEfo=avg(t=>t.a.efOff),lgEfd=avg(t=>t.a.efDef),
-        lgFg=avg(t=>t.a.fgPct),lg3p=avg(t=>t.a.threePct),lg3v=avg(t=>t.a.threeVol),
+        lgEfg=avg(t=>t.a.efg),lgTs=avg(t=>t.a.ts),lg3v=avg(t=>t.a.threeVol),
         lgAstPos=avg(t=>t.a.astPos),lgAstTo=avg(t=>t.a.astTo),lgAstRob=avg(t=>t.a.astRob),
         lgOrb=avg(t=>t.a.orbPct),lgDrb=avg(t=>t.a.drbPct);
   const ligaKpis='<div class="sec">Promedios de la liga</div><div class="kpis">'+
     kpi(lgPace.toFixed(1),'POS / PARTIDO')+
     kpi(pp(lgEfo),'EF.OF')+
     kpi(pp(lgEfd),'EF.DEF')+
-    kpi(lgFg.toFixed(1)+'%','TIROS DE CANCHA')+
-    kpi(lg3p.toFixed(1)+'%','TRIPLES %')+
+    kpi(lgEfg.toFixed(1)+'%','eFG%')+
+    kpi(lgTs.toFixed(1)+'%','TS%')+
     kpi(lg3v.toFixed(1)+'%','VOLUMEN DE 3')+
     kpi(lgAstPos.toFixed(2),'AST / POS')+
     kpi(lgAstTo.toFixed(2),'AST / PÉR')+
@@ -386,7 +391,8 @@ function renderComparar(){
     {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
     {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)},
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
-    {key:'pt3',label:'3PT%',sortable:true,val:r=>r.a.pt3i?r.a.pt3c/r.a.pt3i*100:0,cell:r=>r.a.pt3i?Math.round(r.a.pt3c/r.a.pt3i*100)+'%':'—'},
+    {key:'efg',label:'eFG%',sortable:true,val:r=>r.a.efg,cell:r=>r.a.efg+'%'},
+    {key:'ts',label:'TS%',sortable:true,val:r=>r.a.ts,cell:r=>r.a.ts+'%'},
     {key:'ast',label:'AST',sortable:true,val:r=>r.a.ast,cell:r=>r.a.ast},
     {key:'rob',label:'ROB',sortable:true,val:r=>r.a.rob,cell:r=>r.a.rob},
     {key:'per',label:'PÉR',sortable:true,val:r=>r.a.per,cell:r=>r.a.per},
@@ -657,11 +663,11 @@ function renderTiros(){
 }
 
 // ── VISTA CORRELACIONES (dispersión + tendencia + r) ──
-let corrLevel='game',corrX='fga',corrY='orbPct';
+let corrLevel='game',corrX='ts',corrY='efOff';
 function setCorr(which,v){if(which==='lvl')corrLevel=v;if(which==='x')corrX=v;if(which==='y')corrY=v;renderCorrel();}
 const CORR_METRICS=[
-  {key:'fga',label:'Tiros intentados',cnt:1},
-  {key:'fgPct',label:'TC% (acierto de cancha)'},
+  {key:'efg',label:'eFG%'},
+  {key:'ts',label:'TS% (True Shooting)'},
   {key:'threeVol',label:'Volumen de 3 (%)'},
   {key:'orbPct',label:'REB.OF%'},
   {key:'drbPct',label:'REB.DEF%'},
