@@ -495,7 +495,8 @@ function calcMetrics(r){
   return{ptsA,ptsR,diff:ptsA-ptsR,efOff,efDef:Math.max(0,100-efDefRaw),efDefRaw,
     posProp,posRiv,mins:r.totalMins||0,
     ast:s.ast||0,rob:s.rob||0,per:s.per||0,rebOff:s.rebOff||0,rebDef:s.rebDef||0,
-    pt2c:s.pt2conv,pt2i:s.pt2conv+s.pt2fail,pt3c:s.pt3conv,pt3i:s.pt3conv+s.pt3fail,raw:s};
+    pt2c:s.pt2conv,pt2i:s.pt2conv+s.pt2fail,pt3c:s.pt3conv,pt3i:s.pt3conv+s.pt3fail,
+    tlc:(s.tlconv||0),tli:(s.tlconv||0)+(s.tlfail||0),raw:s};
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -572,7 +573,7 @@ async function saveMatch(){
         cuartos:r.quarters.slice().sort().join(','),
         minutos:+m.mins.toFixed(2),pts_favor:m.ptsA,pts_contra:m.ptsR,diff:m.diff,
         pos:m.posProp,pos_riv:m.posRiv,ef_off:m.efOff,ef_def:m.efDefRaw,
-        pt2c:m.pt2c,pt2i:m.pt2i,pt3c:m.pt3c,pt3i:m.pt3i,
+        pt2c:m.pt2c,pt2i:m.pt2i,pt3c:m.pt3c,pt3i:m.pt3i,tlc:m.tlc,tli:m.tli,
         ast:m.ast,rob:m.rob,per:m.per,reb_def:m.rebDef,reb_off:m.rebOff});
     }
   }
