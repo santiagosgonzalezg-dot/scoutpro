@@ -127,6 +127,7 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab active" data-v="dashboard" onclick="switchView('dashboard')">Dashboard</button>
     <button class="tab" data-v="lideres" onclick="switchView('lideres')">Líderes</button>
     <button class="tab" data-v="tiros" onclick="switchView('tiros')">Tiros</button>
+    <button class="tab" data-v="correl" onclick="switchView('correl')">Correlaciones</button>
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
@@ -136,6 +137,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view active" id="view-dashboard"></div>
   <div class="view" id="view-lideres"></div>
   <div class="view" id="view-tiros"></div>
+  <div class="view" id="view-correl"></div>
   <div class="view" id="view-equipo"></div>
   <div class="view" id="view-comparar"></div>
   <div class="view" id="view-jugadores"></div>
@@ -654,7 +656,103 @@ function renderTiros(){
     '<div class="court-box">'+(heatMode?courtHeatSVG(sel):courtSVGFull(sel))+'</div>'+kpiRow+tramoPanel;
 }
 
-function renderAll(){renderDashboard();renderLideres();renderTiros();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+// ── VISTA CORRELACIONES (dispersión + tendencia + r) ──
+let corrLevel='game',corrX='fga',corrY='orbPct';
+function setCorr(which,v){if(which==='lvl')corrLevel=v;if(which==='x')corrX=v;if(which==='y')corrY=v;renderCorrel();}
+const CORR_METRICS=[
+  {key:'fga',label:'Tiros intentados',cnt:1},
+  {key:'fgPct',label:'TC% (acierto de cancha)'},
+  {key:'threeVol',label:'Volumen de 3 (%)'},
+  {key:'orbPct',label:'REB.OF%'},
+  {key:'drbPct',label:'REB.DEF%'},
+  {key:'pos',label:'Posesiones',cnt:1},
+  {key:'efOff',label:'EF.OF (pts/pos)'},
+  {key:'efDef',label:'EF.DEF (pts/pos)'},
+  {key:'ast',label:'Asistencias',cnt:1},
+  {key:'astPos',label:'AST / POS'},
+  {key:'astTo',label:'AST / PÉR'},
+  {key:'per',label:'Pérdidas',cnt:1},
+  {key:'rob',label:'Robos',cnt:1},
+  {key:'ptsF',label:'Puntos a favor',cnt:1},
+  {key:'ptsC',label:'Puntos en contra',cnt:1}
+];
+function metricVal(a,key){const meta=CORR_METRICS.find(m=>m.key===key);let v=num(a[key]);if(meta&&meta.cnt)v=v/(a.pj||1);return v;}
+function teamColor(name){const pal=['#f97316','#4f8ef7','#34c769','#a78bfa','#e0a83b','#f05050','#22d3ee','#ec4899','#84cc16','#fb923c'];name=String(name||'');let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;return pal[h%pal.length];}
+function teamGameStats(){
+  const rows=allRowsFiltered();
+  const matches=matchReboundIndex(rows);
+  const g={};
+  for(const r of rows){const k=(r.match_id||'?')+'|'+r.equipo;(g[k]=g[k]||{match_id:r.match_id,equipo:r.equipo,fecha:r.fecha,rows:[]}).rows.push(r);}
+  const out=[];
+  for(const k in g){
+    const e=g[k];const a=agg(e.rows);
+    const mt=matches[e.match_id]||{};const me=mt[e.equipo]||{ro:0,rd:0};
+    let rro=0,rrd=0;for(const rn of Object.keys(mt)){if(rn!==e.equipo){rro+=mt[rn].ro;rrd+=mt[rn].rd;}}
+    a.orbPct=(me.ro+rrd)>0?Math.round(me.ro/(me.ro+rrd)*100):0;
+    a.drbPct=(me.rd+rro)>0?Math.round(me.rd/(me.rd+rro)*100):0;
+    a.fga=a.pt2i+a.pt3i;a.fgm=a.pt2c+a.pt3c;
+    a.fgPct=a.fga>0?Math.round(a.fgm/a.fga*1000)/10:0;
+    a.threeVol=a.fga>0?Math.round(a.pt3i/a.fga*1000)/10:0;
+    a.astPos=a.pos>0?a.ast/a.pos:0;a.astTo=a.per>0?a.ast/a.per:0;a.astRob=a.rob>0?a.ast/a.rob:0;
+    out.push({team:e.equipo,label:e.equipo.slice(0,3).toUpperCase()+(e.fecha?' '+String(e.fecha).slice(5):''),a});
+  }
+  return out;
+}
+function scatterSVG(pts,xlabel,ylabel,showLabels){
+  const W=360,H=262,M={l:46,r:16,t:14,b:42};
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+  if(xmin===xmax){xmin-=1;xmax+=1;}if(ymin===ymax){ymin-=1;ymax+=1;}
+  const xp=(xmax-xmin)*0.08,yp=(ymax-ymin)*0.08;
+  const x0=xmin-xp,x1=xmax+xp,y0=ymin-yp,y1=ymax+yp;
+  const sx=v=>M.l+(v-x0)/(x1-x0)*(W-M.l-M.r);
+  const sy=v=>H-M.b-(v-y0)/(y1-y0)*(H-M.t-M.b);
+  const n=pts.length,mx=xs.reduce((s,v)=>s+v,0)/n,my=ys.reduce((s,v)=>s+v,0)/n;
+  let sxy=0,sxx=0,syy=0;pts.forEach(p=>{sxy+=(p.x-mx)*(p.y-my);sxx+=(p.x-mx)**2;syy+=(p.y-my)**2;});
+  const slope=sxx?sxy/sxx:0,intercept=my-slope*mx,r=(sxx&&syy)?sxy/Math.sqrt(sxx*syy):0;
+  const fmt=v=>Math.abs(v)>=100?Math.round(v):Math.abs(v)>=10?Math.round(v*10)/10:Math.round(v*100)/100;
+  let grid='';
+  for(let i=0;i<=4;i++){
+    const vx=x0+(x1-x0)*i/4,vy=y0+(y1-y0)*i/4;
+    grid+='<line x1="'+sx(vx).toFixed(1)+'" y1="'+M.t+'" x2="'+sx(vx).toFixed(1)+'" y2="'+(H-M.b)+'" stroke="rgba(255,255,255,0.05)"/>'+
+      '<line x1="'+M.l+'" y1="'+sy(vy).toFixed(1)+'" x2="'+(W-M.r)+'" y2="'+sy(vy).toFixed(1)+'" stroke="rgba(255,255,255,0.05)"/>'+
+      '<text x="'+sx(vx).toFixed(1)+'" y="'+(H-M.b+12)+'" fill="#6b7280" font-size="8" text-anchor="middle" font-family="DM Mono,monospace">'+fmt(vx)+'</text>'+
+      '<text x="'+(M.l-5)+'" y="'+(sy(vy)+3).toFixed(1)+'" fill="#6b7280" font-size="8" text-anchor="end" font-family="DM Mono,monospace">'+fmt(vy)+'</text>';
+  }
+  const ty0=intercept+slope*x0,ty1=intercept+slope*x1;
+  const trend='<line x1="'+sx(x0).toFixed(1)+'" y1="'+sy(ty0).toFixed(1)+'" x2="'+sx(x1).toFixed(1)+'" y2="'+sy(ty1).toFixed(1)+'" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="4 3"/>';
+  const dots=pts.map(p=>{const c=teamColor(p.team);return '<circle cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="3.2" fill="'+c+'" fill-opacity="0.9"/>'+(showLabels?'<text x="'+(sx(p.x)+5).toFixed(1)+'" y="'+(sy(p.y)+3).toFixed(1)+'" fill="#aeb4c2" font-size="7.5" font-family="DM Sans,sans-serif">'+p.label+'</text>':'');}).join('');
+  const titles='<text x="'+((M.l+W-M.r)/2)+'" y="'+(H-5)+'" fill="#8891a0" font-size="9" text-anchor="middle" font-family="DM Mono,monospace">'+xlabel+'</text>'+
+    '<text x="13" y="'+((M.t+H-M.b)/2)+'" fill="#8891a0" font-size="9" text-anchor="middle" font-family="DM Mono,monospace" transform="rotate(-90 13 '+((M.t+H-M.b)/2)+')">'+ylabel+'</text>';
+  const frame='<line x1="'+M.l+'" y1="'+M.t+'" x2="'+M.l+'" y2="'+(H-M.b)+'" stroke="rgba(255,255,255,0.18)"/><line x1="'+M.l+'" y1="'+(H-M.b)+'" x2="'+(W-M.r)+'" y2="'+(H-M.b)+'" stroke="rgba(255,255,255,0.18)"/>';
+  return {svg:'<svg class="court-svg" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">'+grid+frame+trend+dots+titles+'</svg>',r,n};
+}
+function renderCorrel(){
+  const el=document.getElementById('view-correl');
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
+  const ents=corrLevel==='team'?leagueTeamStats():teamGameStats();
+  const pts=ents.map(e=>({x:metricVal(e.a,corrX),y:metricVal(e.a,corrY),team:e.team,label:e.label||e.team})).filter(p=>isFinite(p.x)&&isFinite(p.y));
+  const mOpts=sel=>CORR_METRICS.map(m=>'<option value="'+m.key+'"'+(m.key===sel?' selected':'')+'>'+m.label+'</option>').join('');
+  const xlab=(CORR_METRICS.find(m=>m.key===corrX)||{}).label,ylab=(CORR_METRICS.find(m=>m.key===corrY)||{}).label;
+  const ctl='<div class="tiros-ctl">'+
+    '<span class="zone-lbl">Nivel</span><select onchange="setCorr(\'lvl\',this.value)"><option value="game"'+(corrLevel==='game'?' selected':'')+'>Por partido</option><option value="team"'+(corrLevel==='team'?' selected':'')+'>Equipos (temporada)</option></select>'+
+    '<span class="zone-lbl">Eje X</span><select onchange="setCorr(\'x\',this.value)">'+mOpts(corrX)+'</select>'+
+    '<span class="zone-lbl">Eje Y</span><select onchange="setCorr(\'y\',this.value)">'+mOpts(corrY)+'</select></div>';
+  if(pts.length<3){el.innerHTML=ctl+'<div class="empty">Faltan datos para correlacionar (necesito al menos 3 puntos). Guardá más partidos.</div>';return;}
+  const res=scatterSVG(pts,xlab,ylab,corrLevel==='team');
+  const ar=Math.abs(res.r);
+  const fuerza=ar<0.2?'casi nula':ar<0.4?'débil':ar<0.6?'moderada':ar<0.8?'fuerte':'muy fuerte';
+  const signo=res.r>=0?'positiva':'negativa';
+  const interp=ar<0.2?'No se ve una relación clara entre las dos variables.':'Relación '+signo+' '+fuerza+': cuando sube «'+xlab+'», «'+ylab+'» '+(res.r>=0?'tiende a subir.':'tiende a bajar.');
+  const col=ar<0.2?'#8891a0':res.r>=0?'#34c769':'#f05050';
+  const panel='<div class="court-box" style="margin-top:14px">'+
+    '<div class="zone-row"><span class="zone-lbl">Correlación (r)</span><span class="zone-val" style="color:'+col+'">'+res.r.toFixed(2)+'</span></div>'+
+    '<div class="zone-sub" style="margin-top:8px;color:#cfd5e3">'+interp+'</div>'+
+    '<div class="zone-sub" style="margin-top:6px">'+res.n+' puntos · la correlación no implica causa; con pocos partidos tomalo como tendencia.</div></div>';
+  el.innerHTML=ctl+'<div class="sec">'+ylab+' vs '+xlab+'</div><div class="court-box">'+res.svg+'</div>'+panel;
+}
+
+function renderAll(){renderDashboard();renderLideres();renderTiros();renderCorrel();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
