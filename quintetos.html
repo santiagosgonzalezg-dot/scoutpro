@@ -600,7 +600,15 @@ async function saveMatch(){
       if(srows.length){const {error:se}=await client.from('tiros_log').insert(srows);if(se)throw se;}
       smsg=' · '+srows.length+' tiros';
     }catch(se){ smsg=' · (tiros no guardados: '+(se.message||se)+')'; }
-    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+'.');
+    // Totales por cuarto -> cuartos_log (best-effort)
+    let cmsg='';
+    try{
+      const crows=buildQuarterRows(matchId,fecha,fase,jornada);
+      if(matchId)await client.from('cuartos_log').delete().eq('match_id',matchId);
+      if(crows.length){const {error:ce}=await client.from('cuartos_log').insert(crows);if(ce)throw ce;}
+      cmsg=' · '+crows.length+' cuartos';
+    }catch(ce){ cmsg=' · (cuartos no guardados: '+(ce.message||ce)+')'; }
+    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+cmsg+'.');
   }catch(e){
     saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
   }finally{ btn.disabled=false; }
@@ -666,6 +674,27 @@ function computeTramos(){
     }
   }
   return result;
+}
+function buildQuarterRows(matchId,fecha,fase,jornada){
+  const rows=[];const res=S.results||{};
+  for(const team of [1,2]){
+    const rival=S.teams[team===1?2:1].name;
+    for(const q of Object.keys(res)){
+      const lineups=res[q]['lineups'+team]||[];
+      const s=emptyStats();let mins=0;
+      for(const seg of lineups){mins+=segMinutes(seg);for(const k of Object.keys(seg.stats))s[k]=(s[k]||0)+seg.stats[k];}
+      const ptsF=s.pt2conv*2+s.pt3conv*3+(s.tlconv||0);
+      const ptsC=(s.oppPt2conv||0)*2+(s.oppPt3conv||0)*3+(s.oppTlconv||0);
+      rows.push({match_id:matchId,fecha,fase,jornada,
+        equipo:S.teams[team].name,rival,es_local:team===1,cuarto:+q,
+        min:+mins.toFixed(2),pts_favor:ptsF,pts_contra:ptsC,diff:ptsF-ptsC,
+        pos:+estPosProp(s).toFixed(2),pos_riv:+estPosRival(s).toFixed(2),
+        pt2c:s.pt2conv,pt2i:s.pt2conv+s.pt2fail,pt3c:s.pt3conv,pt3i:s.pt3conv+s.pt3fail,
+        tlc:(s.tlconv||0),tli:(s.tlconv||0)+(s.tlfail||0),
+        ast:s.ast||0,rob:s.rob||0,per:s.per||0,reb_off:s.rebOff||0,reb_def:s.rebDef||0});
+    }
+  }
+  return rows;
 }
 function buildShotRows(matchId,fecha,fase,jornada){
   const rows=[];
