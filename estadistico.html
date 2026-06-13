@@ -386,8 +386,7 @@ function kpi(v,k,cls){return '<div class="kpi"><div class="v '+(cls||'')+'">'+v+
 
 // ── VISTA COMPARAR ──
 function renderComparar(){
-  const teams=[...new Set(allRowsFiltered().map(r=>r.equipo))];
-  const data=teams.map(t=>({team:t,a:agg(teamRows(t))}));
+  const data=leagueTeamStats();
   const cols=[
     {key:'rank',label:'#',left:true,cell:(r,i)=>'<span class="rank">'+String(i+1).padStart(2,'0')+'</span>'},
     {key:'team',label:'Equipo',left:true,cell:r=>'<b>'+r.team+'</b>'},
@@ -401,6 +400,8 @@ function renderComparar(){
     {key:'rob',label:'ROB',sortable:true,val:r=>r.a.rob,cell:r=>r.a.rob},
     {key:'per',label:'PÉR',sortable:true,val:r=>r.a.per,cell:r=>r.a.per},
     {key:'reb',label:'REB',sortable:true,val:r=>r.a.rd+r.a.ro,cell:r=>r.a.rd+r.a.ro},
+    {key:'orb',label:'REB.OF%',sortable:true,val:r=>r.a.orbPct,cell:r=>r.a.orbPct+'%'},
+    {key:'drb',label:'REB.DEF%',sortable:true,val:r=>r.a.drbPct,cell:r=>r.a.drbPct+'%'},
   ];
   document.getElementById('view-comparar').innerHTML=sortableTable('view-comparar','Todos los equipos',cols,data,'cmpTeams');
 }
