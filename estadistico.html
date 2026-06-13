@@ -128,6 +128,7 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab" data-v="lideres" onclick="switchView('lideres')">Líderes</button>
     <button class="tab" data-v="tiros" onclick="switchView('tiros')">Tiros</button>
     <button class="tab" data-v="correl" onclick="switchView('correl')">Correlaciones</button>
+    <button class="tab" data-v="cuartos" onclick="switchView('cuartos')">Cuartos</button>
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
@@ -138,6 +139,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view" id="view-lideres"></div>
   <div class="view" id="view-tiros"></div>
   <div class="view" id="view-correl"></div>
+  <div class="view" id="view-cuartos"></div>
   <div class="view" id="view-equipo"></div>
   <div class="view" id="view-comparar"></div>
   <div class="view" id="view-jugadores"></div>
@@ -148,7 +150,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
 <script>
 const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8'};
-let sb=null,DATA=[],PLAYERS=[],SHOTS=[];
+let sb=null,DATA=[],PLAYERS=[],SHOTS=[],QUARTERS=[];
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key);return sb;}
 
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
@@ -167,6 +169,8 @@ async function loadData(){
     catch(_){ PLAYERS=[]; }
     try{ const tr=await c.from('tiros_log').select('*').limit(40000); SHOTS=tr.error?[]:(tr.data||[]); }
     catch(_){ SHOTS=[]; }
+    try{ const cr=await c.from('cuartos_log').select('*').limit(20000); QUARTERS=cr.error?[]:(cr.data||[]); }
+    catch(_){ QUARTERS=[]; }
     if(!DATA.length){
       m.innerHTML='Todavía no hay partidos guardados.<br>Andá a <b>Quintetos</b>, cargá un partido y tocá <b>Guardar partido</b>.<br>Cuando guardes uno, refrescá esta página.';
       document.getElementById('controls').style.display='none';
@@ -795,7 +799,59 @@ function renderCorrel(){
   el.innerHTML=presets+ctl+'<div class="sec">'+ylab+' vs '+xlab+'</div><div class="court-box">'+res.svg+legend+'</div>'+panel;
 }
 
-function renderAll(){renderDashboard();renderLideres();renderTiros();renderCorrel();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+// ── VISTA CUARTOS (análisis por cuarto) ──
+let cuartoTeam='';
+function setCuartoTeam(v){cuartoTeam=v;renderCuartos();}
+function qLabel(q){return q<=4?('Q'+q):('PR'+(q-4));}
+function renderCuartos(){
+  const el=document.getElementById('view-cuartos');
+  const fase=document.getElementById('selFase').value;
+  const rows=QUARTERS.filter(r=>!fase||r.fase===fase);
+  if(!rows.length){
+    el.innerHTML='<div class="empty">Todavía no hay datos por cuarto.<br>Necesitás crear la tabla <b>cuartos_log</b> (te paso el SQL) y <b>re-guardar</b> los partidos desde Quintetos.</div>';
+    return;
+  }
+  const qs=[...new Set(rows.map(r=>num(r.cuarto)))].filter(q=>q>=1).sort((a,b)=>a-b);
+  const cols=Math.min(qs.length,4);
+  // A) promedio de puntos por cuarto (liga)
+  const byQ={};qs.forEach(q=>byQ[q]={pf:0,pc:0,n:0});
+  rows.forEach(r=>{const q=num(r.cuarto);if(byQ[q]){byQ[q].pf+=num(r.pts_favor);byQ[q].pc+=num(r.pts_contra);byQ[q].n++;}});
+  const maxPf=Math.max(1,...qs.map(q=>byQ[q].n?byQ[q].pf/byQ[q].n:0));
+  const aCards=qs.map(q=>{const b=byQ[q],pf=b.n?b.pf/b.n:0,w=Math.round(pf/maxPf*100);
+    return '<div class="tramo-card"><div class="lbl">'+qLabel(q)+'</div><div class="big" style="color:#f97316">'+pf.toFixed(1)+'</div><div class="sub">pts/cuarto · '+(b.n?(b.pc/b.n).toFixed(1):'0')+' en contra</div><div class="tramo-bar"><div class="tramo-fill" style="width:'+w+'%;background:#f97316"></div></div></div>';
+  }).join('');
+  // B) ¿ganar el cuarto = ganar el partido?
+  const g={};
+  rows.forEach(r=>{const k=r.match_id+'|'+r.equipo;if(!g[k])g[k]={byQ:{},gd:0};g[k].byQ[num(r.cuarto)]=num(r.diff);g[k].gd+=num(r.diff);});
+  const ents=Object.values(g);
+  const bCards=qs.map(q=>{
+    const won=ents.filter(e=>e.byQ[q]!==undefined&&e.byQ[q]>0);
+    const pct=won.length?Math.round(won.filter(e=>e.gd>0).length/won.length*100):0;
+    const col=pct>=65?'#34c769':pct>=50?'#e0a83b':'#f05050';
+    return '<div class="tramo-card"><div class="lbl">Gana '+qLabel(q)+'</div><div class="big" style="color:'+col+'">'+pct+'%</div><div class="sub">gana el partido · '+won.length+' casos</div><div class="tramo-bar"><div class="tramo-fill" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
+  }).join('');
+  // C) rendimiento por cuarto de un equipo
+  const teams=[...new Set(rows.map(r=>r.equipo))].sort();
+  if(cuartoTeam&&!teams.includes(cuartoTeam))cuartoTeam='';
+  const teamSel='<div class="tiros-ctl"><span class="zone-lbl">Equipo</span><select onchange="setCuartoTeam(this.value)"><option value="">— Elegí un equipo —</option>'+teams.map(t=>'<option'+(t===cuartoTeam?' selected':'')+'>'+t+'</option>').join('')+'</select></div>';
+  let teamBlock='';
+  if(cuartoTeam){
+    const tr=rows.filter(r=>r.equipo===cuartoTeam);
+    const t={};qs.forEach(q=>t[q]={pf:0,pc:0,diff:0,n:0,w:0,l:0,e:0});
+    tr.forEach(r=>{const q=num(r.cuarto),b=t[q];if(!b)return;b.pf+=num(r.pts_favor);b.pc+=num(r.pts_contra);b.diff+=num(r.diff);b.n++;const d=num(r.diff);if(d>0)b.w++;else if(d<0)b.l++;else b.e++;});
+    const head='<tr><th style="text-align:left">Cuarto</th><th>PJ</th><th>PF</th><th>PC</th><th>DIF</th><th>Récord</th></tr>';
+    const body=qs.map(q=>{const b=t[q];if(!b.n)return'';const dif=b.diff/b.n;
+      return '<tr><td style="text-align:left"><b>'+qLabel(q)+'</b></td><td>'+b.n+'</td><td>'+(b.pf/b.n).toFixed(1)+'</td><td>'+(b.pc/b.n).toFixed(1)+'</td><td style="color:'+dc(dif)+'">'+sgn(Math.round(dif*10)/10)+'</td><td>'+b.w+'-'+b.l+(b.e?'-'+b.e:'')+'</td></tr>';}).join('');
+    teamBlock='<div class="sec">'+cuartoTeam+' · rendimiento por cuarto</div><div class="board"><div class="tblwrap"><table class="t"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';
+  }
+  el.innerHTML='<div class="sec">Promedio de puntos por cuarto (liga)</div>'+
+    '<div class="tramo-grid" style="grid-template-columns:repeat('+cols+',1fr)">'+aCards+'</div>'+
+    '<div class="sec">¿Ganar el cuarto = ganar el partido?</div>'+
+    '<div class="tramo-grid" style="grid-template-columns:repeat('+cols+',1fr)">'+bCards+'</div>'+
+    teamSel+teamBlock;
+}
+
+function renderAll(){renderDashboard();renderLideres();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
