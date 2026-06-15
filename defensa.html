@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScoutPRO · Defensa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg-base:#08090d;--bg-raised:#0f1117;--bg-panel:#161820;--bg-hover:#1e202a;
+  --b1:rgba(255,255,255,.05);--b2:rgba(255,255,255,.09);--b3:rgba(255,255,255,.18);
+  --offense:#f97316;--defense:#4f8ef7;--positive:#34c769;--negative:#f05050;--insight:#a78bfa;
+  --t1:#d8dce8;--t2:#8891a0;--t3:#434b5a;
+  --disp:'Barlow Condensed',sans-serif;--ui:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+  --t:.16s ease;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);font-size:15px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px 60px}
+/* topbar */
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--b2);position:sticky;top:0;background:rgba(8,9,13,.86);backdrop-filter:blur(8px);z-index:20;flex-wrap:wrap}
+.logo{font-family:var(--disp);font-weight:900;font-size:22px;letter-spacing:.5px;cursor:default;display:flex;align-items:baseline;gap:7px}
+.logo .a{color:var(--defense)}.logo .v{color:var(--t1)}
+.tb-spacer{flex:1}
+.tb-nav{background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t2);font-family:var(--mono);font-size:10px;letter-spacing:.5px;padding:7px 12px;text-decoration:none;display:inline-block;transition:all var(--t);white-space:nowrap}
+.tb-nav:hover{border-color:var(--t2);color:var(--t1)}
+.tb-nav.stat:hover{border-color:var(--insight);color:var(--insight)}
+.tb-nav.qt:hover{border-color:var(--offense);color:var(--offense)}
+/* intro */
+.intro{padding:22px 0 6px}
+.intro h1{font-family:var(--disp);font-weight:900;font-size:30px;margin:0 0 4px;letter-spacing:.5px}
+.intro p{color:var(--t2);margin:0;font-size:13.5px;max-width:680px}
+/* setup */
+.setup{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0;padding:14px;background:var(--bg-raised);border:1px solid var(--b1);border-radius:8px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--t2);text-transform:uppercase}
+.fld input{background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t1);font-family:var(--ui);font-size:14px;padding:8px 11px;min-width:130px}
+.fld input:focus{outline:none;border-color:var(--defense)}
+/* section title */
+.sec{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--t1);margin:26px 0 12px;display:flex;align-items:center;gap:10px}
+.sec::before{content:"";width:3px;height:16px;background:var(--defense);border-radius:2px}
+/* tally grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{background:var(--bg-raised);border:1px solid var(--b1);border-radius:8px;padding:13px 14px;transition:border-color var(--t)}
+.card:hover{border-color:var(--b2)}
+.card .name{font-family:var(--ui);font-weight:700;font-size:14px;margin-bottom:2px}
+.card .meta{font-family:var(--mono);font-size:9.5px;color:var(--t2);letter-spacing:.5px}
+.card .pts{font-family:var(--disp);font-weight:900;font-size:34px;line-height:1;color:var(--defense);margin:6px 0 9px}
+.card .pts small{font-family:var(--mono);font-size:10px;color:var(--t3);font-weight:400;margin-left:6px}
+.btns{display:flex;gap:6px}
+.btns button{flex:1;background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t1);font-family:var(--disp);font-weight:800;font-size:15px;padding:8px 0;cursor:pointer;transition:all var(--t)}
+.btns button:hover{border-color:var(--defense);color:var(--defense)}
+.btns button:active{background:var(--bg-hover)}
+.btns .undo{flex:0 0 38px;font-family:var(--mono);font-size:14px;color:var(--t3)}
+.btns .undo:hover{border-color:var(--negative);color:var(--negative)}
+/* summary */
+.panel{background:var(--bg-raised);border:1px solid var(--b1);border-radius:8px;padding:18px}
+.total{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
+.total .n{font-family:var(--disp);font-weight:900;font-size:46px;line-height:1;color:var(--negative)}
+.total .l{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--t2);text-transform:uppercase}
+.brk-row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+.brk-name{width:130px;font-family:var(--ui);font-size:13px;flex-shrink:0}
+.brk-track{flex:1;height:13px;background:var(--bg-panel);border-radius:3px;overflow:hidden}
+.brk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--defense),#6aa3ff)}
+.brk-val{width:120px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--t2);flex-shrink:0}
+.brk-val b{color:var(--t1);font-family:var(--disp);font-size:15px;font-weight:800;margin-right:4px}
+.empty{color:var(--t2);font-size:13.5px;padding:14px 0}
+/* save bar */
+.savebar{display:flex;gap:10px;align-items:center;margin-top:22px;flex-wrap:wrap}
+.btn{border:none;border-radius:6px;font-family:var(--mono);font-size:11px;letter-spacing:.5px;padding:11px 20px;cursor:pointer;transition:all var(--t)}
+.btn-save{background:var(--positive);color:#06210f;font-weight:500}
+.btn-save:hover{filter:brightness(1.1)}
+.btn-reset{background:var(--bg-panel);border:1px solid var(--b2);color:var(--t2)}
+.btn-reset:hover{border-color:var(--negative);color:var(--negative)}
+.status{font-family:var(--mono);font-size:11px}
+.status.ok{color:var(--positive)}.status.err{color:var(--negative)}.status.load{color:var(--t2)}
+.foot{color:var(--t3);font-family:var(--mono);font-size:10px;margin-top:30px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo"><span class="a">SCOUT</span><span class="v">PRO</span> · DEFENSA</div>
+  <div class="tb-spacer"></div>
+  <a class="tb-nav qt" href="quintetos.html">🔄 Quintetos</a>
+  <a class="tb-nav stat" href="estadistico.html">📊 Estadístico</a>
+  <a class="tb-nav" href="index.html">🏠 Menú</a>
+</div>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Cómo nos anotaron</h1>
+    <p>Mientras mirás el partido o el video, tocá el tipo de jugada cada vez que el rival anota. Abajo ves al instante de dónde te hacen más daño. Es para leer tu defensa, nada más.</p>
+  </div>
+
+  <div class="setup">
+    <div class="fld"><label>Nuestro equipo</label><input id="nuestro" placeholder="Ej: COLON"></div>
+    <div class="fld"><label>Rival</label><input id="rival" placeholder="Ej: AGUADA"></div>
+    <div class="fld"><label>Fecha</label><input id="fecha" type="date"></div>
+    <div class="fld"><label>Fase</label><input id="fase" placeholder="Ej: Liga"></div>
+    <div class="fld"><label>Jornada</label><input id="jornada" placeholder="Ej: 5"></div>
+  </div>
+
+  <div class="sec">Registrar anotación del rival</div>
+  <div class="grid" id="grid"></div>
+
+  <div class="sec">De dónde nos anotaron</div>
+  <div class="panel">
+    <div class="total"><span class="n" id="totPts">0</span><span class="l">puntos recibidos · <span id="totJug">0</span> jugadas</span></div>
+    <div id="brk"><div class="empty">Todavía no registraste nada. Tocá una jugada arriba cuando el rival anote.</div></div>
+  </div>
+
+  <div class="savebar">
+    <button class="btn btn-save" onclick="guardar()">Guardar en base</button>
+    <button class="btn btn-reset" onclick="reiniciar()">Reiniciar</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="foot">
+    Tagueo manual · cada toque suma una anotación del rival del tipo elegido.<br>
+    Tirá libre = botón +1 · doble = +2 · triple = +3 · el botón ✕ deshace la última de esa jugada.
+  </div>
+</div>
+
+<script>
+const SB_URL='https://jqudeomgafqilqmqcqzg.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8';
+let sb=null;
+function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_URL,SB_KEY);return sb;}
+
+const TIPOS=[
+  {k:'iso',label:'Aislamiento'},
+  {k:'pnr_c',label:'PnR central'},
+  {k:'pnr_l',label:'PnR lateral'},
+  {k:'pop',label:'Pick & Pop'},
+  {k:'poste',label:'Poste bajo'},
+  {k:'dho',label:'Mano a mano'},
+  {k:'corte',label:'Corte sin balón'},
+  {k:'transicion',label:'Transición'},
+  {k:'segunda',label:'Segunda opción'},
+  {k:'spot',label:'Tiro abierto'},
+  {k:'drive',label:'Penetración 1v1'},
+  {k:'tl',label:'Tiro libre'},
+];
+const state={};TIPOS.forEach(t=>state[t.k]={pts:0,jug:0});
+const hist=[]; // {k,pts}
+
+function add(k,pts){state[k].pts+=pts;state[k].jug++;hist.push({k,pts});render();}
+function undo(k){
+  // deshace la última anotación de ese tipo
+  for(let i=hist.length-1;i>=0;i--){if(hist[i].k===k){state[k].pts-=hist[i].pts;state[k].jug--;hist.splice(i,1);break;}}
+  render();
+}
+function reiniciar(){if(!confirm('¿Borrar todo lo registrado de este partido?'))return;TIPOS.forEach(t=>state[t.k]={pts:0,jug:0});hist.length=0;status('');render();}
+
+function buildGrid(){
+  document.getElementById('grid').innerHTML=TIPOS.map(t=>{
+    const s=state[t.k];
+    return '<div class="card"><div class="name">'+t.label+'</div>'+
+      '<div class="meta" id="m_'+t.k+'">'+s.jug+' jugadas</div>'+
+      '<div class="pts" id="p_'+t.k+'">'+s.pts+'<small>pts</small></div>'+
+      '<div class="btns">'+
+        '<button onclick="add(\''+t.k+'\',2)">+2</button>'+
+        '<button onclick="add(\''+t.k+'\',3)">+3</button>'+
+        '<button onclick="add(\''+t.k+'\',1)">+1</button>'+
+        '<button class="undo" onclick="undo(\''+t.k+'\')" title="Deshacer última">✕</button>'+
+      '</div></div>';
+  }).join('');
+}
+function render(){
+  let totP=0,totJ=0;
+  TIPOS.forEach(t=>{const s=state[t.k];totP+=s.pts;totJ+=s.jug;
+    const pe=document.getElementById('p_'+t.k),me=document.getElementById('m_'+t.k);
+    if(pe)pe.innerHTML=s.pts+'<small>pts</small>';
+    if(me)me.textContent=s.jug+' jugadas';
+  });
+  document.getElementById('totPts').textContent=totP;
+  document.getElementById('totJug').textContent=totJ;
+  // breakdown ordenado por puntos
+  const rows=TIPOS.map(t=>({label:t.label,...state[t.k]})).filter(r=>r.jug>0).sort((a,b)=>b.pts-a.pts);
+  const brk=document.getElementById('brk');
+  if(!rows.length){brk.innerHTML='<div class="empty">Todavía no registraste nada. Tocá una jugada arriba cuando el rival anote.</div>';return;}
+  const max=Math.max(...rows.map(r=>r.pts),1);
+  brk.innerHTML=rows.map(r=>{
+    const w=Math.round(r.pts/max*100);
+    const share=totP?Math.round(r.pts/totP*100):0;
+    const ppj=r.jug?(r.pts/r.jug).toFixed(2):'0';
+    return '<div class="brk-row"><span class="brk-name">'+r.label+'</span>'+
+      '<span class="brk-track"><span class="brk-fill" style="width:'+w+'%"></span></span>'+
+      '<span class="brk-val"><b>'+r.pts+'</b>pts · '+share+'% · '+ppj+' p/j</span></div>';
+  }).join('');
+}
+function status(msg,cls){const e=document.getElementById('status');e.textContent=msg||'';e.className='status '+(cls||'');}
+
+async function guardar(){
+  const totJ=TIPOS.reduce((s,t)=>s+state[t.k].jug,0);
+  if(!totJ){status('No hay nada para guardar todavía.','err');return;}
+  const c=getSB();if(!c){status('No se pudo conectar a la base.','err');return;}
+  const fecha=document.getElementById('fecha').value||null;
+  const fase=document.getElementById('fase').value.trim()||null;
+  const jornada=document.getElementById('jornada').value.trim()||null;
+  const nuestro=document.getElementById('nuestro').value.trim()||null;
+  const rival=document.getElementById('rival').value.trim()||null;
+  const matchKey=(fecha||'s-f')+'__'+(nuestro||'eq')+'__'+(rival||'riv');
+  const rows=TIPOS.filter(t=>state[t.k].jug>0).map(t=>({
+    match_key:matchKey,fecha,fase,jornada,nuestro,rival,
+    tipo:t.label,eventos:state[t.k].jug,puntos:state[t.k].pts
+  }));
+  status('Guardando…','load');
+  try{
+    await c.from('defensa_log').delete().eq('match_key',matchKey);
+    const {error}=await c.from('defensa_log').insert(rows);
+    if(error)throw error;
+    status('✓ Guardado: '+rows.length+' tipos de jugada.','ok');
+  }catch(e){ status('No se pudo guardar: '+(e.message||e),'err'); }
+}
+
+document.getElementById('fecha').value=new Date().toISOString().slice(0,10);
+buildGrid();render();
+</script>
+</body>
+</html>
