@@ -114,8 +114,8 @@ table.t tr:hover td{background:var(--bg-hover)}
 @media(max-width:760px){.ficha-grid{grid-template-columns:1fr}}
 .pbar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .pbar-lbl{width:100px;font-family:var(--font-ui);font-size:12.5px;flex-shrink:0}
-.pbar-track{flex:1;height:11px;background:var(--bg-panel);border-radius:3px;overflow:hidden}
-.pbar-fill{height:100%;border-radius:3px;transition:width .4s}
+.pbar-track{flex:1;height:14px;background:var(--bg-panel);border:1px solid rgba(255,255,255,.07);border-radius:7px;overflow:hidden;display:block}
+.pbar-fill{display:block;height:100%;border-radius:7px;transition:width .45s ease}
 .pbar-pct{width:42px;text-align:right;font-family:var(--font-disp);font-weight:800;font-size:15px}
 .ficha-input{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text);font-family:var(--font-ui);font-size:14px;padding:8px 12px;min-width:260px}
 .ficha-input:focus{outline:none;border-color:var(--offense)}
@@ -913,7 +913,7 @@ function renderFicha(){
   const roles=[['Anotador',pAnot],['Generador',pGen],['Tirador',pTiro],['Reboteador',pReb],['Defensor',pDef]].sort((a,b)=>b[1]-a[1]);
   let rol=roles[0][1]>=40?roles[0][0]:'Rol secundario';if(pVers>=75)rol+=' versátil';
   const kpis='<div class="kpis">'+kpi(cur.g,'PJ')+kpi(pp1(cur.min/g),'MIN')+kpi(pp1(cur.pts/g),'PTS')+kpi(pp1(cur.reb/g),'REB')+kpi(pp1(cur.ast/g),'AST')+kpi(pp1(fichaVal(cur)),'VAL')+'</div>';
-  const bars=dims.map(d=>'<div class="pbar-row"><span class="pbar-lbl">'+d[0]+'</span><span class="pbar-track"><span class="pbar-fill" style="width:'+d[1]+'%;background:'+pctColor(d[1])+'"></span></span><span class="pbar-pct" style="color:'+pctColor(d[1])+'">'+d[1]+'%</span></div>').join('');
+  const bars=dims.map(d=>'<div class="pbar-row"><span class="pbar-lbl">'+d[0]+'</span><span class="pbar-track"><span class="pbar-fill" data-w="'+d[1]+'" style="width:0%;background:'+pctColor(d[1])+'"></span></span><span class="pbar-pct" style="color:'+pctColor(d[1])+'">'+d[1]+'%</span></div>').join('');
   el.innerHTML=bar+
     '<div class="ficha-head"><div class="fh-name">'+cur.nombre+' <span class="fh-num">#'+cur.num+'</span></div><span class="fh-tag">'+rol+'</span></div>'+
     '<div class="fh-team">'+cur.equipo+' · '+cur.g+' partidos</div>'+
@@ -921,6 +921,7 @@ function renderFicha(){
     '<div class="ficha-grid"><div class="court-box">'+radarSVG(dims)+'</div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:14px">Percentil vs la liga</div>'+bars+
     '<div class="zone-sub" style="margin-top:6px">El percentil = % de jugadores con menor valor en esa faceta (por partido). Nota = percentil / 10.</div></div></div>';
+  requestAnimationFrame(()=>document.querySelectorAll('#view-ficha .pbar-fill').forEach(f=>{f.style.width=(f.dataset.w||0)+'%';}));
 }
 function pp1(v){return (Math.round(v*10)/10).toFixed(1);}
 
