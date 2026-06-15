@@ -4366,6 +4366,11 @@ updateClipsBadge();
             '<div style="font-family:var(--font-disp);font-size:23px;font-weight:800">Estadístico</div>' +
             '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);margin-top:6px;line-height:1.7">Dashboard acumulado: ranking de liga, rebotes %, mejores y peores quintetos</div>' +
           '</div>' +
+          '<div onclick="hubGoDefensa()" style="background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:30px 24px;cursor:pointer;transition:all var(--t-base)" onmouseover="this.style.borderColor=\'#4f8ef7\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.borderColor=\'var(--border-light)\';this.style.transform=\'none\'">' +
+            '<div style="font-size:32px;margin-bottom:10px">🛡</div>' +
+            '<div style="font-family:var(--font-disp);font-size:23px;font-weight:800">Defensa</div>' +
+            '<div style="font-family:var(--font-mono);font-size:8px;color:var(--text-3);margin-top:6px;line-height:1.7">Tagueo manual: de qué jugadas nos anota el rival (iso, PnR, transición…)</div>' +
+          '</div>' +
         '</div>' +
       '</div>';
     document.body.appendChild(ov);
@@ -4376,6 +4381,7 @@ updateClipsBadge();
   window.hubGoVideo = function () { hideHub(); if (typeof showScreen === 'function') showScreen('splash'); };
   window.hubGoLineups = function () { window.location.href = 'quintetos.html'; };
   window.hubGoStats = function () { window.location.href = 'estadistico.html'; };
+  window.hubGoDefensa = function () { window.location.href = 'defensa.html'; };
 
   function injectHubButton() {
     const inner = document.querySelector('#screen-splash .splash-inner');
