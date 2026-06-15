@@ -141,6 +141,25 @@ table.t tr:hover td{background:var(--bg-hover)}
 .sim-stats{display:flex;gap:14px}
 .sim-stat{font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;color:var(--text-3);text-transform:uppercase}
 .sim-stat b{font-family:var(--font-disp);font-size:16px;color:var(--text);font-weight:800;display:block}
+.bs-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.bs-dim,.bs-min,.bs-max{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text);font-family:var(--font-ui);font-size:13px;padding:8px 10px}
+.bs-dim:focus,.bs-min:focus,.bs-max:focus{outline:none;border-color:var(--offense)}
+.bs-dim{min-width:150px}
+.bs-min,.bs-max{width:62px;text-align:center}
+.bs-range{font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;color:var(--text-2);text-transform:uppercase;display:flex;align-items:center;gap:7px}
+.bs-del{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text-3);font-family:var(--font-mono);font-size:12px;padding:8px 11px;cursor:pointer;transition:all .16s}
+.bs-del:hover{border-color:var(--negative);color:var(--negative)}
+.bs-add{background:var(--bg-panel);border:1px dashed var(--border-light);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:9px 16px;cursor:pointer;margin-top:2px;transition:all .16s}
+.bs-add:hover{border-color:var(--offense);color:var(--offense)}
+.bs-count{font-family:var(--font-mono);font-size:11px;letter-spacing:.5px;color:var(--text-2);margin:18px 0 10px;text-transform:uppercase}
+.bs-table{width:100%;border-collapse:collapse;font-size:13px}
+.bs-table th{font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;color:var(--text-2);text-transform:uppercase;text-align:right;padding:8px 10px;border-bottom:1px solid var(--border-light);white-space:nowrap}
+.bs-table td{padding:8px 10px;border-bottom:1px solid var(--border-subtle);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bs-table th.l,.bs-table td.l{text-align:left}
+.bs-table td.l{font-weight:600}
+.bs-table tbody tr{cursor:pointer;transition:background .12s}
+.bs-table tbody tr:hover{background:var(--bg-hover)}
+.bs-table .pc{font-family:var(--font-disp);font-weight:800;font-size:14px}
 .ficha-help p{color:var(--text-2);font-size:13.5px;line-height:1.65;margin:0 0 13px}
 .ficha-help b{color:var(--text)}
 .hrow{display:flex;gap:14px;padding:8px 0;border-bottom:1px solid var(--border-subtle);font-size:13.5px;align-items:baseline}
@@ -171,6 +190,7 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab active" data-v="dashboard" onclick="switchView('dashboard')">Dashboard</button>
     <button class="tab" data-v="lideres" onclick="switchView('lideres')">Líderes</button>
     <button class="tab" data-v="ficha" onclick="switchView('ficha')">Ficha</button>
+    <button class="tab" data-v="buscador" onclick="switchView('buscador')">Buscador</button>
     <button class="tab" data-v="tiros" onclick="switchView('tiros')">Tiros</button>
     <button class="tab" data-v="correl" onclick="switchView('correl')">Correlaciones</button>
     <button class="tab" data-v="cuartos" onclick="switchView('cuartos')">Cuartos</button>
@@ -183,6 +203,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view active" id="view-dashboard"></div>
   <div class="view" id="view-lideres"></div>
   <div class="view" id="view-ficha"></div>
+  <div class="view" id="view-buscador"></div>
   <div class="view" id="view-tiros"></div>
   <div class="view" id="view-correl"></div>
   <div class="view" id="view-cuartos"></div>
@@ -989,7 +1010,66 @@ function renderFicha(){
 }
 function pp1(v){return (Math.round(v*10)/10).toFixed(1);}
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+// ── VISTA BUSCADOR (filtro por característica + rango de percentil) ──
+const BS_DIMS=[['anot','Anotación'],['gen','Generación'],['tiro','Tiro ext.'],['reb','Rebote'],['def','Defensa'],['vers','Versatilidad'],['glob','Global']];
+let bsRows=[{dim:'anot',min:70,max:100}];
+function bsLabel(k){const d=BS_DIMS.find(x=>x[0]===k);return d?d[1]:k;}
+function buscadorData(){
+  const pool=fichaList();const pg=(p,k)=>p[k]/(p.g||1);
+  const A={anot:pool.map(p=>pg(p,'pts')),gen:pool.map(p=>pg(p,'ast')),tiro:pool.map(p=>pg(p,'tpm')),reb:pool.map(p=>pg(p,'reb')),def:pool.map(p=>pg(p,'rob')+pg(p,'tap'))};
+  const valArr=pool.map(fichaVal);
+  return pool.map(p=>{
+    const a=pctRank(A.anot,pg(p,'pts')),ge=pctRank(A.gen,pg(p,'ast')),ti=pctRank(A.tiro,pg(p,'tpm')),re=pctRank(A.reb,pg(p,'reb')),de=pctRank(A.def,pg(p,'rob')+pg(p,'tap'));
+    const ve=Math.round((a+ge+ti+re+de)/5),gl=pctRank(valArr,fichaVal(p));
+    return {p,pct:{anot:a,gen:ge,tiro:ti,reb:re,def:de,vers:ve,glob:gl},pts:pg(p,'pts'),reb:pg(p,'reb'),ast:pg(p,'ast'),val:fichaVal(p)};
+  });
+}
+function bsSync(){
+  const rows=[...document.querySelectorAll('#view-buscador .bs-row')];
+  if(rows.length)bsRows=rows.map(row=>{
+    const dim=row.querySelector('.bs-dim').value;
+    let mn=parseInt(row.querySelector('.bs-min').value),mx=parseInt(row.querySelector('.bs-max').value);
+    if(isNaN(mn))mn=0;if(isNaN(mx))mx=100;mn=Math.max(0,Math.min(100,mn));mx=Math.max(0,Math.min(100,mx));if(mn>mx){const t=mn;mn=mx;mx=t;}
+    return {dim,min:mn,max:mx};
+  });
+}
+function bsAdd(){bsSync();const used=bsRows.map(r=>r.dim);const next=(BS_DIMS.find(d=>!used.includes(d[0]))||BS_DIMS[0])[0];bsRows.push({dim:next,min:0,max:100});renderBuscador();}
+function bsDel(i){bsSync();bsRows.splice(i,1);if(!bsRows.length)bsRows=[{dim:'anot',min:70,max:100}];renderBuscador();}
+function openFicha(id){fichaSel=id;if(typeof switchView==='function')switchView('ficha');renderFicha();window.scrollTo({top:0,behavior:'smooth'});}
+function renderBuscador(){
+  const el=document.getElementById('view-buscador');
+  if(!fichaList().length){el.innerHTML='<div class="empty">Todavía no hay stats individuales.<br>Necesitás la tabla <b>jugadores_log</b> y re-guardar partidos desde Quintetos.</div>';return;}
+  const rowsHtml=bsRows.map((r,i)=>'<div class="bs-row">'+
+    '<select class="bs-dim" onchange="bsApply()">'+BS_DIMS.map(d=>'<option value="'+d[0]+'"'+(r.dim===d[0]?' selected':'')+'>'+d[1]+'</option>').join('')+'</select>'+
+    '<span class="bs-range">percentil <input class="bs-min" type="number" min="0" max="100" value="'+r.min+'" onchange="bsApply()"> a <input class="bs-max" type="number" min="0" max="100" value="'+r.max+'" onchange="bsApply()"></span>'+
+    (bsRows.length>1?'<button class="bs-del" onclick="bsDel('+i+')">✕</button>':'')+
+  '</div>').join('');
+  el.innerHTML='<div class="sec">Buscar jugadores por característica</div>'+
+    '<div class="court-box">'+rowsHtml+'<button class="bs-add" onclick="bsAdd()">+ Agregar otra condición</button>'+
+    '<div class="zone-sub" style="margin-top:10px">Elegí una faceta y el rango de percentil (0-100). Sumá condiciones para cruzar características (ej: Anotación 70-100 + Rebote 0-40 = anotadores que no rebotean). Tocá un jugador para abrir su ficha.</div></div>'+
+    '<div id="bs-results"></div>';
+  bsApply();
+}
+function bsApply(){
+  bsSync();
+  const data=buscadorData();
+  const res=data.filter(d=>bsRows.every(r=>d.pct[r.dim]>=r.min&&d.pct[r.dim]<=r.max));
+  const sortDim=bsRows[0].dim;
+  res.sort((a,b)=>b.pct[sortDim]-a.pct[sortDim]);
+  const out=document.getElementById('bs-results');if(!out)return;
+  if(!res.length){out.innerHTML='<div class="bs-count">0 jugadores cumplen</div><div class="empty">Ningún jugador entra en ese rango. Probá ampliando los límites.</div>';return;}
+  const filterDims=[...new Set(bsRows.map(r=>r.dim))];
+  const th='<tr><th>#</th><th class="l">Jugador</th><th class="l">Equipo</th><th>PJ</th>'+
+    filterDims.map(d=>'<th>'+bsLabel(d)+'</th>').join('')+
+    '<th>PTS</th><th>REB</th><th>AST</th><th>VAL</th></tr>';
+  const body=res.map((d,i)=>'<tr onclick="openFicha(\''+escAttr(fichaId(d.p))+'\')">'+
+    '<td>'+(i+1)+'</td><td class="l">'+(d.p.num?'#'+d.p.num+' ':'')+d.p.nombre+'</td><td class="l">'+d.p.equipo+'</td><td>'+d.p.g+'</td>'+
+    filterDims.map(dim=>'<td class="pc" style="color:'+pctColor(d.pct[dim])+'">'+d.pct[dim]+'</td>').join('')+
+    '<td>'+pp1(d.pts)+'</td><td>'+pp1(d.reb)+'</td><td>'+pp1(d.ast)+'</td><td>'+pp1(d.val)+'</td></tr>').join('');
+  out.innerHTML='<div class="bs-count">'+res.length+' jugador'+(res.length>1?'es':'')+' cumplen</div><div class="court-box" style="overflow-x:auto"><table class="bs-table"><thead>'+th+'</thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
