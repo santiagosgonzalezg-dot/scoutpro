@@ -160,6 +160,20 @@ table.t tr:hover td{background:var(--bg-hover)}
 .bs-table tbody tr{cursor:pointer;transition:background .12s}
 .bs-table tbody tr:hover{background:var(--bg-hover)}
 .bs-table .pc{font-family:var(--font-disp);font-weight:800;font-size:14px}
+.sc-tip{position:fixed;z-index:200;pointer-events:none;background:rgba(15,17,23,.97);border:1px solid var(--border-light);border-radius:8px;padding:9px 12px;box-shadow:0 8px 26px rgba(0,0,0,.55);opacity:0;transition:opacity .1s}
+.sc-tip.on{opacity:1}
+.sc-tip .t{font-family:var(--font-disp);font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;margin-bottom:5px;color:var(--text)}
+.sc-tip .t i{width:12px;height:12px;border-radius:50%;display:inline-block}
+.sc-tip .r{font-family:var(--font-mono);font-size:10.5px;color:var(--text-2);letter-spacing:.3px;line-height:1.5}
+.sc-tip .r b{color:var(--text);font-weight:500}
+.scpt{cursor:pointer}
+.rv-item{font-size:13.5px;color:#cfd5e3;line-height:1.5;padding:5px 0}
+.brk-row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+.brk-name{width:150px;font-size:13px;flex-shrink:0}
+.brk-track{flex:1;height:13px;background:var(--bg-panel);border-radius:3px;overflow:hidden}
+.brk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#4f8ef7,#6aa3ff);display:block}
+.brk-val{width:128px;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-2);flex-shrink:0}
+.brk-val b{color:var(--text);font-family:var(--font-disp);font-size:15px;font-weight:800;margin-right:3px}
 .ficha-help p{color:var(--text-2);font-size:13.5px;line-height:1.65;margin:0 0 13px}
 .ficha-help b{color:var(--text)}
 .hrow{display:flex;gap:14px;padding:8px 0;border-bottom:1px solid var(--border-subtle);font-size:13.5px;align-items:baseline}
@@ -196,6 +210,8 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab" data-v="cuartos" onclick="switchView('cuartos')">Cuartos</button>
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
+    <button class="tab" data-v="duplas" onclick="switchView('duplas')">Duplas</button>
+    <button class="tab" data-v="rival" onclick="switchView('rival')">Rival</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
     <button class="tab" data-v="evolucion" onclick="switchView('evolucion')">Evolución</button>
   </div>
@@ -209,6 +225,8 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view" id="view-cuartos"></div>
   <div class="view" id="view-equipo"></div>
   <div class="view" id="view-comparar"></div>
+  <div class="view" id="view-duplas"></div>
+  <div class="view" id="view-rival"></div>
   <div class="view" id="view-jugadores"></div>
   <div class="view" id="view-evolucion"></div>
 
@@ -217,7 +235,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
 <script>
 const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8'};
-let sb=null,DATA=[],PLAYERS=[],SHOTS=[],QUARTERS=[];
+let sb=null,DATA=[],PLAYERS=[],SHOTS=[],QUARTERS=[],DEF=[];
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key);return sb;}
 
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
@@ -238,6 +256,8 @@ async function loadData(){
     catch(_){ SHOTS=[]; }
     try{ const cr=await c.from('cuartos_log').select('*').limit(20000); QUARTERS=cr.error?[]:(cr.data||[]); }
     catch(_){ QUARTERS=[]; }
+    try{ const dr=await c.from('defensa_log').select('*').limit(20000); DEF=dr.error?[]:(dr.data||[]); }
+    catch(_){ DEF=[]; }
     if(!DATA.length){
       m.innerHTML='Todavía no hay partidos guardados.<br>Andá a <b>Quintetos</b>, cargá un partido y tocá <b>Guardar partido</b>.<br>Cuando guardes uno, refrescá esta página.';
       document.getElementById('controls').style.display='none';
@@ -809,7 +829,7 @@ function scatterSVG(pts,xlabel,ylabel,showLabels,hl){
     const op=dim?0.18:0.95;
     const ring=(hl&&p.team===hl)?'<circle cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="'+(R+2.6)+'" fill="none" stroke="'+c+'" stroke-opacity="0.45" stroke-width="1.2"/>':'';
     const lbl=(showLabels&&!dim)?'<text x="'+(sx(p.x)+7).toFixed(1)+'" y="'+(sy(p.y)+3.5).toFixed(1)+'" fill="#dde1ec" font-size="9" font-family="DM Sans,sans-serif" font-weight="600">'+p.label+'</text>':'';
-    return ring+'<circle class="scpt" cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="'+R+'" fill="'+c+'" fill-opacity="'+op+'" stroke="rgba(255,255,255,0.35)" stroke-width="0.6"><title>'+p.label+'\n'+xlabel+': '+fmt(p.x)+'\n'+ylabel+': '+fmt(p.y)+'</title></circle>'+lbl;
+    return ring+'<circle class="scpt" cx="'+sx(p.x).toFixed(1)+'" cy="'+sy(p.y).toFixed(1)+'" r="'+R+'" fill="'+c+'" fill-opacity="'+op+'" stroke="rgba(255,255,255,0.35)" stroke-width="0.6" data-team="'+escAttr(p.label)+'" data-x="'+fmt(p.x)+'" data-y="'+fmt(p.y)+'" data-col="'+c+'"></circle>'+lbl;
   }).join('');
   const titles='<text x="'+((M.l+W-M.r)/2)+'" y="'+(H-7)+'" fill="#d8dce8" font-size="11" text-anchor="middle" font-family="DM Mono,monospace" letter-spacing="0.5">'+xlabel+'</text>'+
     '<text x="15" y="'+((M.t+H-M.b)/2)+'" fill="#d8dce8" font-size="11" text-anchor="middle" font-family="DM Mono,monospace" letter-spacing="0.5" transform="rotate(-90 15 '+((M.t+H-M.b)/2)+')">'+ylabel+'</text>';
@@ -865,6 +885,28 @@ function renderCorrel(){
     '<div class="zone-sub" style="margin-top:8px;color:#cfd5e3">'+interp+'</div>'+
     '<div class="zone-sub" style="margin-top:6px">'+res.n+' puntos · línea punteada violeta = tendencia · pasá el mouse por un punto para ver el detalle.</div></div>';
   el.innerHTML=presets+ctl+'<div class="sec">'+ylab+' vs '+xlab+'</div><div class="court-box">'+res.svg+legend+'</div>'+panel;
+  attachScatterTips(xlab,ylab);
+}
+function attachScatterTips(xlabel,ylabel){
+  let tip=document.getElementById('sc-tip');
+  if(!tip){tip=document.createElement('div');tip.id='sc-tip';tip.className='sc-tip';document.body.appendChild(tip);}
+  const hide=()=>tip.classList.remove('on');
+  const show=(el,cx,cy)=>{
+    tip.innerHTML='<div class="t"><i style="background:'+el.getAttribute('data-col')+'"></i>'+el.getAttribute('data-team')+'</div>'+
+      '<div class="r">'+xlabel+': <b>'+el.getAttribute('data-x')+'</b></div>'+
+      '<div class="r">'+ylabel+': <b>'+el.getAttribute('data-y')+'</b></div>';
+    tip.classList.add('on');
+    const w=tip.offsetWidth,h=tip.offsetHeight;let tx=cx+15,ty=cy+15;
+    if(tx+w>window.innerWidth-8)tx=cx-w-15;if(ty+h>window.innerHeight-8)ty=cy-h-15;
+    tip.style.left=Math.max(8,tx)+'px';tip.style.top=Math.max(8,ty)+'px';
+  };
+  document.querySelectorAll('#view-correl .scpt').forEach(c=>{
+    c.addEventListener('mouseenter',e=>show(c,e.clientX,e.clientY));
+    c.addEventListener('mousemove',e=>show(c,e.clientX,e.clientY));
+    c.addEventListener('mouseleave',hide);
+    c.addEventListener('touchstart',e=>{const t=e.touches[0];show(c,t.clientX,t.clientY);e.stopPropagation();},{passive:true});
+  });
+  if(!window.__scTipBound){document.addEventListener('touchstart',e=>{if(!(e.target&&e.target.classList&&e.target.classList.contains('scpt')))hide();},{passive:true});window.__scTipBound=true;}
 }
 
 // ── VISTA CUARTOS (análisis por cuarto) ──
@@ -932,6 +974,42 @@ function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'
 function roleFromVec(v){const r=[['Anotador',v[0]],['Generador',v[1]],['Tirador',v[2]],['Reboteador',v[3]],['Defensor',v[4]]].sort((a,b)=>b[1]-a[1]);return r[0][1]>=40?r[0][0]:'Rol secundario';}
 function gotoFicha(id){fichaSel=id;renderFicha();const v=document.getElementById('view-ficha');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});}
 function toggleSim(){const p=document.getElementById('simPanel'),b=document.getElementById('simBtn');if(!p||!b)return;const sh=p.style.display==='none';p.style.display=sh?'grid':'none';b.textContent=sh?'Ocultar similares':'🔍 Ver 3 jugadores similares';}
+function fichaShots(cur){return SHOTS.filter(s=>s.equipo===cur.equipo&&String(s.num)===String(cur.num));}
+function fichaGames(cur){
+  return PLAYERS.filter(r=>r.equipo===cur.equipo&&String(r.num)===String(cur.num)).map(r=>({
+    fecha:r.fecha,rival:r.rival,jornada:r.jornada,pts:+r.pts||0,min:+r.min||0,
+    val:(+r.pts||0)+(+r.reb||0)+(+r.ast||0)+(+r.rob||0)+(+r.tap||0)-((+r.fga||0)-(+r.fgm||0))-((+r.fta||0)-(+r.ftm||0))-(+r.per||0)
+  })).sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
+}
+function fichaShotChart(shots){
+  const dots=shots.map(foldShot).filter(Boolean).map(f=>{
+    const cx=(f.fx/100*280).toFixed(1),cy=(f.fy/100*150).toFixed(1);
+    return f.made?'<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="#34c769" fill-opacity="0.9"/>'
+                 :'<circle cx="'+cx+'" cy="'+cy+'" r="2.4" fill="none" stroke="#f05050" stroke-opacity="0.75" stroke-width="1"/>';
+  }).join('');
+  return '<svg class="court-svg" viewBox="0 0 140 150" xmlns="http://www.w3.org/2000/svg">'+fullCourtLines()+dots+'</svg>';
+}
+function evolutionChart(games){
+  const W=480,H=215,M={l:34,r:16,t:18,b:46},n=games.length;
+  const pts=games.map(g=>g.pts),vals=games.map(g=>g.val);
+  const ymax=Math.max(...pts,...vals,1),ymin=Math.min(0,...vals,...pts);
+  const innerW=W-M.l-M.r,cx=i=>M.l+(n===1?innerW/2:(i/(n-1))*innerW),sy=v=>H-M.b-(v-ymin)/((ymax-ymin)||1)*(H-M.t-M.b);
+  let grid='';for(let i=0;i<=4;i++){const v=ymin+(ymax-ymin)*i/4,y=sy(v).toFixed(1);
+    grid+='<line x1="'+M.l+'" y1="'+y+'" x2="'+(W-M.r)+'" y2="'+y+'" stroke="rgba(255,255,255,0.05)"/>'+
+      '<text x="'+(M.l-6)+'" y="'+(+y+3)+'" fill="#8891a0" font-size="8.5" text-anchor="end" font-family="DM Mono,monospace">'+Math.round(v)+'</text>';}
+  const y0=+sy(0).toFixed(1),bw=Math.max(7,Math.min(30,innerW/n*0.45));
+  let bars='';games.forEach((g,i)=>{const x=cx(i),top=sy(g.pts);
+    bars+='<rect x="'+(x-bw/2).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+Math.max(0,y0-top).toFixed(1)+'" rx="2" fill="#34c769" fill-opacity="0.6"/>'+
+      '<text x="'+x.toFixed(1)+'" y="'+(top-3).toFixed(1)+'" fill="#34c769" font-size="9" font-weight="800" text-anchor="middle" font-family="Barlow Condensed,sans-serif">'+g.pts+'</text>';});
+  let path='';games.forEach((g,i)=>{path+=(i?'L':'M')+cx(i).toFixed(1)+' '+sy(g.val).toFixed(1)+' ';});
+  const line=n>1?'<path d="'+path+'" fill="none" stroke="#f97316" stroke-width="2"/>':'';
+  let vdots='';games.forEach((g,i)=>{vdots+='<circle cx="'+cx(i).toFixed(1)+'" cy="'+sy(g.val).toFixed(1)+'" r="3" fill="#f97316"><title>'+escAttr(g.rival||'')+' · VAL '+g.val+' · '+g.pts+' pts</title></circle>';});
+  let xl='';games.forEach((g,i)=>{const lab=String(g.rival||('J'+(i+1))).slice(0,3).toUpperCase();
+    xl+='<text x="'+cx(i).toFixed(1)+'" y="'+(H-M.b+15)+'" fill="#8891a0" font-size="8.5" text-anchor="middle" font-family="DM Mono,monospace">'+lab+'</text>';});
+  const baseline='<line x1="'+M.l+'" y1="'+y0+'" x2="'+(W-M.r)+'" y2="'+y0+'" stroke="rgba(255,255,255,0.22)"/>';
+  const legend='<g font-family="DM Mono,monospace" font-size="9"><rect x="'+M.l+'" y="5" width="9" height="9" rx="2" fill="#34c769" fill-opacity="0.6"/><text x="'+(M.l+13)+'" y="13" fill="#cfd5e3">PTS</text><line x1="'+(M.l+50)+'" y1="10" x2="'+(M.l+66)+'" y2="10" stroke="#f97316" stroke-width="2"/><text x="'+(M.l+70)+'" y="13" fill="#cfd5e3">VAL</text></g>';
+  return '<svg class="court-svg" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">'+grid+bars+baseline+line+vdots+xl+legend+'</svg>';
+}
 function radarSVG(dims){
   const cx=160,cy=152,R=100,N=dims.length;
   const ang=i=>(-90+i*360/N)*Math.PI/180;
@@ -977,6 +1055,21 @@ function renderFicha(){
   const simSection=sims.length?('<div class="sec">Jugadores similares</div>'+
     '<button class="sim-btn" id="simBtn" onclick="toggleSim()">🔍 Ver 3 jugadores similares</button>'+
     '<div class="sim-grid" id="simPanel" style="display:none">'+simCards+'</div>'):'';
+  // cancha de tiro del jugador
+  const pShots=fichaShots(cur),sa=pShots.length,sm=pShots.filter(shotMade).length;
+  const a2=pShots.filter(s=>s.tipo!=='3pt'),a3=pShots.filter(s=>s.tipo==='3pt');
+  const m2=a2.filter(shotMade).length,m3=a3.filter(shotMade).length,pof=(m,a)=>a?Math.round(m/a*100):0;
+  const shotSec=sa?('<div class="sec">Dónde anota</div><div class="ficha-grid">'+
+    '<div class="court-box">'+fichaShotChart(pShots)+'</div>'+
+    '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Tiros de cancha</div>'+
+      '<div class="zone-row"><span class="zone-lbl">Total</span><span class="zone-val">'+sm+'/'+sa+' · '+pof(sm,sa)+'%</span></div>'+
+      '<div class="zone-row"><span class="zone-lbl">Dobles</span><span class="zone-val">'+m2+'/'+a2.length+' · '+pof(m2,a2.length)+'%</span></div>'+
+      '<div class="zone-row"><span class="zone-lbl">Triples</span><span class="zone-val">'+m3+'/'+a3.length+' · '+pof(m3,a3.length)+'%</span></div>'+
+      '<div class="zone-sub" style="margin-top:8px">Verde = anotado · rojo = errado. Todos los tiros llevados a media cancha. No incluye libres.</div></div></div>'):'';
+  // evolución partido a partido
+  const games=fichaGames(cur);
+  const evoSec=games.length>1?('<div class="sec">Evolución partido a partido</div><div class="court-box">'+evolutionChart(games)+
+    '<div class="zone-sub" style="margin-top:8px">Barras verdes = puntos por partido · línea naranja = valoración (VAL). Eje X = rival. Pasá el mouse por los puntos para el detalle.</div></div>'):'';
   // identidad táctica
   const roles=[['Anotador',pAnot],['Generador',pGen],['Tirador',pTiro],['Reboteador',pReb],['Defensor',pDef]].sort((a,b)=>b[1]-a[1]);
   let rol=roles[0][1]>=40?roles[0][0]:'Rol secundario';if(pVers>=75)rol+=' versátil';
@@ -992,6 +1085,8 @@ function renderFicha(){
     '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:6px">Perfil del jugador</div>'+radarSVG(dims)+'</div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:14px">Percentil vs la liga</div>'+bars+
     '<div class="zone-sub" style="margin-top:6px">El percentil = % de jugadores con menor valor en esa faceta (por partido). Nota = percentil / 10.</div></div></div>'+
+    shotSec+
+    evoSec+
     simSection+
     '<div class="sec">Cómo leer esta ficha</div>'+
     '<div class="court-box ficha-help">'+
@@ -1069,7 +1164,114 @@ function bsApply(){
   out.innerHTML='<div class="bs-count">'+res.length+' jugador'+(res.length>1?'es':'')+' cumplen</div><div class="court-box" style="overflow-x:auto"><table class="bs-table"><thead>'+th+'</thead><tbody>'+body+'</tbody></table></div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderJugadores();renderEvolucion();}
+// ── VISTA DUPLAS / TRÍOS ──
+let duplasSize=2;
+function setDuplasSize(n){duplasSize=n;renderDuplas();}
+function combos(arr,k){const res=[];(function go(start,cur){if(cur.length===k){res.push(cur.slice());return;}for(let i=start;i<arr.length;i++){cur.push(arr[i]);go(i+1,cur);cur.pop();}})(0,[]);return res;}
+function leagueCombos(size){
+  const team=document.getElementById('selTeam').value;
+  const rows=allRowsFiltered().filter(r=>!team||r.equipo===team);
+  const groups={};
+  for(const r of rows){const ps=r.jugadores;if(!ps||ps.length!==5)continue;
+    combos(ps,size).forEach(combo=>{const key=r.equipo+'#'+combo.map(pkey).sort().join('|');
+      (groups[key]=groups[key]||{team:r.equipo,players:combo,rows:[]}).rows.push(r);});}
+  let lus=Object.values(groups).map(g=>{const a=agg(g.rows);return {team:g.team,players:g.players,a,net:a.min>0?Math.round(a.diff/a.min*40*10)/10:0};});
+  let f=lus.filter(l=>l.a.min>=10);if(f.length<5)f=lus.filter(l=>l.a.min>=5);if(f.length<5)f=lus.filter(l=>l.a.min>=2);
+  return f;
+}
+function renderDuplas(){
+  const el=document.getElementById('view-duplas');
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay quintetos cargados.</div>';return;}
+  const tog='<div class="lid-toggle"><button class="'+(duplasSize===2?'on':'')+'" onclick="setDuplasSize(2)">Duplas</button><button class="'+(duplasSize===3?'on':'')+'" onclick="setDuplasSize(3)">Tríos</button></div>';
+  const lus=leagueCombos(duplasSize);
+  if(!lus.length){el.innerHTML='<div class="sec">Duplas y tríos</div>'+tog+'<div class="empty">Faltan minutos para armar combinaciones. Guardá más partidos.</div>';return;}
+  const cols=[
+    {key:'combo',label:(duplasSize===2?'Dupla':'Trío'),left:true,cell:r=>chips(r.players)},
+    {key:'team',label:'Equipo',left:true,sortable:true,val:r=>r.team,cell:r=>r.team},
+    {key:'min',label:'MIN',sortable:true,val:r=>r.a.min,cell:r=>r.a.min.toFixed(1)},
+    {key:'diff',label:'DIF',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
+    {key:'net',label:'NET/40',sortable:true,val:r=>r.net,cell:r=>sgn2(r.net),color:r=>dc(r.net)},
+    {key:'efOff',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
+    {key:'efDef',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)}
+  ];
+  if(!sortState['duplas'])sortState['duplas']={key:'min',dir:-1};
+  el.innerHTML='<div class="sec">Duplas y tríos</div>'+tog+
+    '<div class="zone-sub" style="margin:4px 0 12px">Rendimiento del equipo con esa '+(duplasSize===2?'pareja':'terna')+' en cancha (juntos). NET/40 = diferencia de puntos por 40 minutos. Ordená tocando las columnas.</div>'+
+    sortableTable('view-duplas-tbl','',cols,lus,'duplas');
+}
+
+// ── VISTA RIVAL (scouting / próximo partido) ──
+let rivalTeam='';
+function setRival(v){rivalTeam=v;renderRival();}
+function rankPct(arr,v,hb){const n=arr.length;if(!n)return 50;const p=Math.round(arr.filter(x=>x<=v).length/n*100);return hb?p:100-p;}
+function renderRival(){
+  const el=document.getElementById('view-rival');
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
+  const stats=leagueTeamStats();
+  const teams=stats.map(s=>s.team).sort();
+  if(rivalTeam&&!teams.includes(rivalTeam))rivalTeam='';
+  if(!rivalTeam)rivalTeam=teams[0];
+  const sel='<div class="tiros-ctl"><span class="zone-lbl">Rival a analizar</span><select onchange="setRival(this.value)">'+teams.map(t=>'<option'+(t===rivalTeam?' selected':'')+'>'+t+'</option>').join('')+'</select></div>';
+  const me=stats.find(s=>s.team===rivalTeam);if(!me){el.innerHTML=sel+'<div class="empty">Sin datos del equipo.</div>';return;}
+  const a=me.a;
+  const METR=[
+    {k:'efOff',label:'Ataque (pts/pos)',val:a.efOff,fmt:pp,hb:true,arr:stats.map(s=>s.a.efOff)},
+    {k:'efDef',label:'Defensa (recibe/pos)',val:a.efDef,fmt:pp,hb:false,arr:stats.map(s=>s.a.efDef)},
+    {k:'pace',label:'Ritmo (pos/partido)',val:a.pace,fmt:v=>v.toFixed(1),hb:true,arr:stats.map(s=>s.a.pace),neutral:true},
+    {k:'ts',label:'TS%',val:a.ts,fmt:v=>v+'%',hb:true,arr:stats.map(s=>s.a.ts)},
+    {k:'threeVol',label:'Volumen de 3',val:a.threeVol,fmt:v=>v+'%',hb:true,arr:stats.map(s=>s.a.threeVol),neutral:true},
+    {k:'threePct',label:'3P%',val:a.threePct,fmt:v=>v+'%',hb:true,arr:stats.map(s=>s.a.threePct)},
+    {k:'orbPct',label:'Rebote of. %',val:a.orbPct,fmt:v=>v+'%',hb:true,arr:stats.map(s=>s.a.orbPct)},
+    {k:'drbPct',label:'Rebote def. %',val:a.drbPct,fmt:v=>v+'%',hb:true,arr:stats.map(s=>s.a.drbPct)},
+    {k:'astTo',label:'AST / Pérdida',val:a.astTo,fmt:pp,hb:true,arr:stats.map(s=>s.a.astTo)}
+  ];
+  const bar=METR.map(m=>{const pct=rankPct(m.arr,m.val,m.hb),col=m.neutral?'#8891a0':pctColor(pct);
+    return '<div class="pbar-row"><span class="pbar-lbl" style="width:150px">'+m.label+'</span><span class="pbar-track"><span class="pbar-fill" style="width:'+pct+'%;background:'+col+'"></span></span><span class="pbar-pct" style="width:62px;color:'+col+'">'+m.fmt(m.val)+'</span></div>';}).join('');
+  const strong=METR.filter(m=>!m.neutral&&rankPct(m.arr,m.val,m.hb)>=70).map(m=>m.label);
+  const weak=METR.filter(m=>!m.neutral&&rankPct(m.arr,m.val,m.hb)<=30).map(m=>m.label);
+  const R=(k,hb)=>{const m=METR.find(x=>x.k===k);return m?rankPct(m.arr,m.val,hb):50;};
+  const claves=[];
+  if(R('orbPct',true)>=65)claves.push('Bloqueá el rebote: atacan fuerte el rebote ofensivo.');
+  if(R('threeVol',true)>=65)claves.push('Cerrá el perímetro: tiran mucho de tres.');
+  if(R('threePct',true)>=65)claves.push('Ojo con sus tiradores: meten buen porcentaje de 3.');
+  if(R('efDef',false)<=35)claves.push('Su defensa concede: corré la cancha y buscá ritmo alto.');
+  if(R('efDef',false)>=65)claves.push('Defienden bien: paciencia y buena selección de tiro.');
+  if(R('astTo',true)>=65)claves.push('Cortá las líneas de pase: mueven muy bien la pelota.');
+  if(R('pace',true)>=65)claves.push('Controlá el ritmo: les gusta correr.');
+  if(R('pace',true)<=35)claves.push('Te van a frenar el ritmo: generá ventajas temprano.');
+  if(!claves.length)claves.push('Equipo parejo sin un patrón marcado: jugá tu partido y ajustá sobre la marcha.');
+  let resumen='';
+  if(strong.length)resumen+='Fuerte en '+strong.slice(0,2).join(' y ').toLowerCase()+'. ';
+  if(weak.length)resumen+='Flojo en '+weak.slice(0,2).join(' y ').toLowerCase()+'.';
+  if(!resumen)resumen='Equipo parejo, sin fortalezas ni debilidades marcadas en los datos cargados.';
+  const ros=buscadorData().filter(d=>d.p.equipo===rivalTeam).sort((x,y)=>y.val-x.val).slice(0,4);
+  const watch=ros.length?ros.map(d=>{const v=[d.pct.anot,d.pct.gen,d.pct.tiro,d.pct.reb,d.pct.def];
+    return '<div class="sim-card" data-id="'+escAttr(fichaId(d.p))+'" onclick="openFicha(this.dataset.id)">'+
+      '<div class="sim-name">'+d.p.nombre+' <span class="sim-num">#'+d.p.num+'</span></div>'+
+      '<div class="sim-team">'+roleFromVec(v)+'</div>'+
+      '<div class="sim-stats"><span class="sim-stat"><b>'+pp1(d.pts)+'</b>PTS</span><span class="sim-stat"><b>'+pp1(d.reb)+'</b>REB</span><span class="sim-stat"><b>'+pp1(d.ast)+'</b>AST</span><span class="sim-stat"><b>'+pp1(d.val)+'</b>VAL</span></div>'+
+    '</div>';}).join(''):'<div class="zone-sub">Sin box scores individuales de este equipo todavía.</div>';
+  const dRows=DEF.filter(d=>d.rival===rivalTeam);
+  const dmap={};dRows.forEach(d=>{const t=d.tipo||'?';(dmap[t]=dmap[t]||{pts:0,ev:0});dmap[t].pts+=+d.puntos||0;dmap[t].ev+=+d.eventos||0;});
+  const dArr=Object.entries(dmap).map(([t,o])=>({t,pts:o.pts,ev:o.ev})).sort((x,y)=>y.pts-x.pts);
+  const dTot=dArr.reduce((s,o)=>s+o.pts,0);
+  const defSec=dArr.length?(dArr.map(o=>{const w=Math.round(o.pts/(dArr[0].pts||1)*100),sh=dTot?Math.round(o.pts/dTot*100):0;
+      return '<div class="brk-row"><span class="brk-name">'+o.t+'</span><span class="brk-track"><span class="brk-fill" style="width:'+w+'%"></span></span><span class="brk-val"><b>'+o.pts+'</b>pts · '+sh+'%</span></div>';}).join('')+
+      '<div class="zone-sub" style="margin-top:8px">Sale de lo que tagueaste en la herramienta Defensa contra este rival.</div>'):
+      '<div class="zone-sub">Todavía no tagueaste ningún partido contra '+rivalTeam+' en la herramienta Defensa. Cuando lo hagas, vas a ver acá de qué jugadas te anotó.</div>';
+  el.innerHTML=sel+
+    '<div class="ficha-card"><div class="ficha-head"><div class="fh-name">'+rivalTeam+'</div><span class="fh-tag">'+(a.pj||0)+' partidos</span></div>'+
+      '<div class="fh-team" style="text-transform:none;font-size:13.5px;letter-spacing:0;color:#cfd5e3;line-height:1.55;margin-top:10px">'+resumen+'</div></div>'+
+    '<div class="sec">Perfil vs la liga</div><div class="court-box">'+bar+
+      '<div class="zone-sub" style="margin-top:8px">Barra = posición en la liga (más llena = mejor). Gris = neutro (ritmo / volumen). El valor real va a la derecha.</div></div>'+
+    '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#34c769">Fortalezas</div>'+(strong.length?strong.map(s=>'<div class="rv-item">✔ '+s+'</div>').join(''):'<div class="zone-sub">Sin fortalezas marcadas.</div>')+'</div>'+
+      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#f05050">Debilidades</div>'+(weak.length?weak.map(s=>'<div class="rv-item">✘ '+s+'</div>').join(''):'<div class="zone-sub">Sin debilidades marcadas.</div>')+'</div></div>'+
+    '<div class="sec">Jugadores a vigilar</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'+watch+'</div>'+
+    '<div class="sec">Claves del partido</div><div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>'+
+    '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>';
+}
+
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
