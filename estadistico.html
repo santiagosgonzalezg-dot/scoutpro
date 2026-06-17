@@ -296,7 +296,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 
 <script>
 const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8'};
-let sb=null,DATA=[],PLAYERS=[],SHOTS=[],QUARTERS=[],DEF=[];
+let sb=null,DATA=[],PLAYERS=[],SHOTS=[],QUARTERS=[],DEF=[],PBP=[];
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key);return sb;}
 
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
@@ -319,6 +319,8 @@ async function loadData(){
     catch(_){ QUARTERS=[]; }
     try{ const dr=await c.from('defensa_log').select('*').limit(20000); DEF=dr.error?[]:(dr.data||[]); }
     catch(_){ DEF=[]; }
+    try{ const pr=await c.from('pbp_log').select('*').limit(80000); PBP=pr.error?[]:(pr.data||[]); }
+    catch(_){ PBP=[]; }
     if(!DATA.length){
       m.innerHTML='Todavía no hay partidos guardados.<br>Andá a <b>Quintetos</b>, cargá un partido y tocá <b>Guardar partido</b>.<br>Cuando guardes uno, refrescá esta página.';
       document.getElementById('controls').style.display='none';
@@ -1347,6 +1349,19 @@ function teamRecord(team){
   allRowsFiltered().filter(r=>r.equipo===team).forEach(r=>{const id=r.match_id||r.fecha||'?';byMatch[id]=(byMatch[id]||0)+((+r.pts_favor||0)-(+r.pts_contra||0));});
   let w=0,l=0;Object.values(byMatch).forEach(d=>{if(d>0)w++;else if(d<0)l++;});return {w,l};
 }
+function clutchStats(team){
+  const inC=r=>(+r.period>=4)&&r.seg!=null&&(+r.seg<=300)&&Math.abs((+r.s_fav||0)-(+r.s_riv||0))<=5;
+  const off=PBP.filter(r=>r.equipo===team&&inC(r)),def=PBP.filter(r=>r.rival===team&&inC(r));
+  const ptsFor=off.reduce((s,r)=>s+(+r.pts||0),0),ptsAgs=def.reduce((s,r)=>s+(+r.pts||0),0);
+  const mids=new Set([...off,...def].map(r=>r.match_id));
+  let w=0,l=0;teamGames(team).forEach(g=>{if(mids.has(g.mid)){if(g.diff>0)w++;else if(g.diff<0)l++;}});
+  return {ptsFor,ptsAgs,events:off.length+def.length,matches:mids.size,w,l};
+}
+function clutchLine(label,c){
+  if(c.events<4)return '<div class="rv-item"><b>'+label+'</b>: muestra chica ('+c.events+' jugadas de clutch). Cargá más partidos con jugadas.</div>';
+  const net=c.ptsFor-c.ptsAgs;
+  return '<div class="rv-item"><b>'+label+'</b> — finales ajustados: '+c.matches+' · récord '+c.w+'-'+c.l+' · anotó '+c.ptsFor+' · recibió '+c.ptsAgs+' · saldo '+(net>0?'+':'')+net+'</div>';
+}
 
 // ── VISTA RIVAL (scouting / próximo partido) ──
 function tovPct(a){const d=a.fga+0.44*a.tli+a.per;return d>0?Math.round(a.per/d*1000)/10:0;}
@@ -1472,6 +1487,10 @@ function renderRival(){
       ffTable('Defensivos (cómo defienden)',rDef,nDef,FF_DEF)+
     '</div>'+
     '<div class="zone-sub" style="margin:2px 0 4px">Verde = mejor de los dos en ese factor. Comparado contra '+(myTeam?('tu equipo, '+nLabel):'el promedio de la liga')+'. Los 4 factores (Dean Oliver): tiro (eFG%), cuidado del balón (% pérdidas), rebote ofensivo y generación de tiros libres.</div>';
+  const clutchSec='<div class="sec">Clutch · últimos 5 min, diferencia ≤5</div><div class="court-box">'+
+    clutchLine(rivalTeam,clutchStats(rivalTeam))+
+    (myTeam?clutchLine(myTeam+' (vos)',clutchStats(myTeam)):'')+
+    '<div class="zone-sub" style="margin-top:8px">Rendimiento en finales ajustados. Sale del play-by-play: solo cuenta partidos guardados con la versión nueva (los que tienen jugadas).</div></div>';
   el.innerHTML=sel+'<div id="rival-report">'+
     '<div class="ficha-card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
       '<span class="club-badge club-badge-lg" style="background:'+clubColor(rivalTeam)+'">'+clubInitials(rivalTeam)+'</span>'+
@@ -1494,6 +1513,7 @@ function renderRival(){
     '</div>'+
     '<div class="sec">Claves del partido</div><div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>'+
     '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>'+
+    clutchSec+
     '</div>';
 }
 function loadScript(src){return new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('No se pudo cargar la librería (revisá tu conexión).'));document.head.appendChild(sc);});}
