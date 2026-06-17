@@ -530,7 +530,7 @@ function renderEquipo(){
     {key:'ptsF',label:'PTS+',sortable:true,val:r=>r.a.ptsF,cell:r=>r.a.ptsF},
     {key:'ptsC',label:'PTS-',sortable:true,val:r=>r.a.ptsC,cell:r=>r.a.ptsC},
   ];
-  document.getElementById('view-equipo').innerHTML=kpis+'<div class="sec">Quintetos más usados</div>'+sortableTable('view-equipo','Quintetos · '+team,cols,lus,'equipoLU')+splitsBlock(team);
+  document.getElementById('view-equipo').innerHTML=kpis+'<div class="sec">Quintetos más usados</div>'+sortableTable('view-equipo','Quintetos · '+team,cols,lus,'equipoLU')+splitsBlock(team)+onOffBlock(team);
 }
 function teamGames(team){
   const rows=allRowsFiltered().filter(r=>r.equipo===team),g={};
@@ -562,6 +562,34 @@ function splitsBlock(team){
   const pr='<table class="bs-table"><thead><tr><th class="l">Rival</th><th>PJ</th><th class="l">Récord</th><th>PF</th><th>PC</th><th>DIF</th></tr></thead><tbody>'+rivRows+'</tbody></table>';
   return '<div class="sec">Splits · local / visitante</div><div class="court-box" style="overflow-x:auto">'+lv+'<div class="zone-sub" style="margin-top:8px">Promedios por partido. Récord = ganados-perdidos.</div></div>'+
     '<div class="sec">Splits · por rival</div><div class="court-box" style="overflow-x:auto">'+pr+'</div>';
+}
+function onOffBlock(team){
+  const rows=teamRows(team).filter(r=>Array.isArray(r.jugadores)&&r.jugadores.length===5);
+  if(!rows.length)return '';
+  const fmt=v=>(v>0?'+':'')+v.toFixed(1);
+  const pmap={};
+  rows.forEach(r=>r.jugadores.forEach(p=>{const k=pkey(p);if(!pmap[k])pmap[k]={p,on:[]};pmap[k].on.push(r);}));
+  const data=[];
+  Object.values(pmap).forEach(o=>{
+    const onA=agg(o.on);if(onA.min<8)return;
+    const offR=rows.filter(r=>!r.jugadores.some(p=>pkey(p)===pkey(o.p)));
+    const offA=agg(offR);
+    const netOn=onA.pos>0?(onA.efOff-onA.efDef)*100:null;
+    const netOff=offA.pos>0?(offA.efOff-offA.efDef)*100:null;
+    const swing=(netOn!=null&&netOff!=null)?netOn-netOff:null;
+    data.push({num:o.p.num||'·',name:o.p.name||'',minOn:onA.min,netOn,netOff,swing});
+  });
+  if(!data.length)return '';
+  if(!sortState['onoff'])sortState['onoff']={key:'swing',dir:-1};
+  const cols=[
+    {key:'pl',label:'Jugador',left:true,cell:r=>'<span class="pchip"><span class="pn">'+r.num+'</span>'+r.name+'</span>'},
+    {key:'min',label:'Min',sortable:true,val:r=>r.minOn,cell:r=>Math.round(r.minOn)},
+    {key:'on',label:'NET con él',sortable:true,val:r=>r.netOn==null?-9999:r.netOn,cell:r=>r.netOn==null?'—':fmt(r.netOn),color:r=>r.netOn==null?'var(--text-3)':dc(r.netOn)},
+    {key:'off',label:'NET sin él',sortable:true,val:r=>r.netOff==null?-9999:r.netOff,cell:r=>r.netOff==null?'—':fmt(r.netOff),color:r=>r.netOff==null?'var(--text-3)':dc(r.netOff)},
+    {key:'swing',label:'ON/OFF',sortable:true,val:r=>r.swing==null?-9999:r.swing,cell:r=>r.swing==null?'—':fmt(r.swing),color:r=>r.swing==null?'var(--text-3)':dc(r.swing)},
+  ];
+  return '<div class="sec">On / Off por jugador</div>'+sortableTable('view-equipo','Impacto en cancha · '+team,cols,data,'onoff')+
+    '<div class="zone-sub" style="margin-top:6px"><b>NET con él</b> = rendimiento del equipo con el jugador en cancha (puntos por 100 posesiones: ataque − defensa). <b>NET sin él</b> = lo mismo cuando está en el banco. <b>ON/OFF</b> = la diferencia: <span style="color:var(--positive)">verde/positivo</span> significa que el equipo es <b>mejor con él en cancha</b>. Es de toda la temporada; con pocos minutos puede variar mucho.</div>';
 }
 function pkeyArr(arr){return (arr||[]).map(p=>pkey(p)).sort().join('||');}
 function kpi(v,k,cls){return '<div class="kpi"><div class="v '+(cls||'')+'">'+v+'</div><div class="k">'+k+'</div></div>';}
@@ -1474,7 +1502,7 @@ function renderRival(){
   else{nOff=leagueAvgFour(stats,false);nDef=leagueAvgFour(stats,true);nLabel='Liga (prom)';}
   const ffTable=(title,riv,ours,defs)=>{
     return '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px">'+title+'</div>'+
-      '<table class="bs-table"><thead><tr><th class="l">Factor</th><th>Rival</th><th>'+nLabel+'</th></tr></thead><tbody>'+
+      '<table class="bs-table"><thead><tr><th class="l">Factor</th><th>Equipo</th><th>'+nLabel+'</th></tr></thead><tbody>'+
       defs.map(f=>{const rv=riv[f[1]],ov=ours[f[1]],rGood=f[2]?rv>=ov:rv<=ov,unit=f[1]==='ftr'?'':'%';
         return '<tr><td class="l">'+f[0]+'</td><td style="color:'+(rGood?'#34c769':'#8891a0')+'">'+rv+unit+'</td><td style="color:'+(!rGood?'#34c769':'#8891a0')+'">'+ov+unit+'</td></tr>';}).join('')+
       '</tbody></table></div>';
