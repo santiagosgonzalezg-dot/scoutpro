@@ -122,6 +122,12 @@ table.t tr:hover td{background:var(--bg-hover)}
 .pbar-pct{width:42px;text-align:right;font-family:var(--font-disp);font-weight:800;font-size:15px}
 .ficha-input{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text);font-family:var(--font-ui);font-size:14px;padding:8px 12px;min-width:260px}
 .ficha-input:focus{outline:none;border-color:var(--offense)}
+.ficha-team{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text);font-family:var(--font-ui);font-size:13px;padding:8px 10px}
+.ficha-team:focus{outline:none;border-color:var(--offense)}
+.fchips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 4px}
+.fchip{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:20px;color:var(--text-2);font-family:var(--font-ui);font-size:12.5px;padding:6px 13px;cursor:pointer;transition:all .14s}
+.fchip:hover{border-color:var(--offense);color:var(--text)}
+.fchip.on{background:rgba(249,115,22,.14);border-color:var(--offense);color:#fdba74}
 .fh-warn{color:#e0a83b;font-family:var(--font-mono);font-size:11px;margin-top:10px;letter-spacing:.3px;position:relative;z-index:1}
 .ficha-kpis .kpi{position:relative;overflow:hidden}
 .ficha-kpis .kpi::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent)}
@@ -963,6 +969,8 @@ function renderCuartos(){
 
 // ── VISTA FICHA (informe de jugador) ──
 let fichaSel='';
+let fichaTeam='';
+function setFichaTeam(v){fichaTeam=v;renderFicha();}
 function fichaList(){return playersAgg().filter(p=>p.g>0);}
 function fichaId(p){return p.equipo+'|'+p.num+'|'+p.nombre;}
 function fichaTxt(p){return (p.num?'#'+p.num+' ':'')+p.nombre+' · '+p.equipo;}
@@ -974,7 +982,15 @@ function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'
 function roleFromVec(v){const r=[['Anotador',v[0]],['Generador',v[1]],['Tirador',v[2]],['Reboteador',v[3]],['Defensor',v[4]]].sort((a,b)=>b[1]-a[1]);return r[0][1]>=40?r[0][0]:'Rol secundario';}
 function gotoFicha(id){fichaSel=id;renderFicha();const v=document.getElementById('view-ficha');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});}
 function toggleSim(){const p=document.getElementById('simPanel'),b=document.getElementById('simBtn');if(!p||!b)return;const sh=p.style.display==='none';p.style.display=sh?'grid':'none';b.textContent=sh?'Ocultar similares':'🔍 Ver 3 jugadores similares';}
-function fichaShots(cur){return SHOTS.filter(s=>s.equipo===cur.equipo&&String(s.num)===String(cur.num));}
+function normNm(s){return String(s||'').toLowerCase().replace(/[\s.,'´`]/g,'');}
+function fichaShots(cur){
+  const eq=cur.equipo,num=String(cur.num),nm=normNm(cur.nombre);
+  let r=SHOTS.filter(s=>s.equipo===eq&&String(s.num)===num);
+  if(!r.length)r=SHOTS.filter(s=>s.equipo===eq&&normNm(s.nombre)===nm);
+  if(!r.length)r=SHOTS.filter(s=>String(s.num)===num&&normNm(s.nombre)===nm);
+  if(!r.length&&nm)r=SHOTS.filter(s=>normNm(s.nombre)===nm);
+  return r;
+}
 function fichaGames(cur){
   return PLAYERS.filter(r=>r.equipo===cur.equipo&&String(r.num)===String(cur.num)).map(r=>({
     fecha:r.fecha,rival:r.rival,jornada:r.jornada,pts:+r.pts||0,min:+r.min||0,
@@ -1028,13 +1044,18 @@ function renderFicha(){
   const pool=fichaList();
   if(!pool.length){el.innerHTML='<div class="empty">Todavía no hay stats individuales.<br>Necesitás la tabla <b>jugadores_log</b> y re-guardar partidos desde Quintetos.</div>';return;}
   if(fichaSel&&!pool.find(p=>fichaId(p)===fichaSel))fichaSel='';
-  const opts=pool.slice().sort((a,b)=>(a.equipo+a.nombre).localeCompare(b.equipo+b.nombre));
+  const teams=[...new Set(pool.map(p=>p.equipo))].sort();
+  if(fichaTeam&&!teams.includes(fichaTeam))fichaTeam='';
+  const visible=fichaTeam?pool.filter(p=>p.equipo===fichaTeam):pool;
+  const opts=visible.slice().sort((a,b)=>(a.equipo+a.nombre).localeCompare(b.equipo+b.nombre));
   const cur=fichaSel?pool.find(p=>fichaId(p)===fichaSel):null;
-  const bar='<div class="tiros-ctl"><span class="zone-lbl">Jugador</span>'+
+  const teamSel='<span class="zone-lbl">Equipo</span><select class="ficha-team" onchange="setFichaTeam(this.value)"><option value="">— Todos —</option>'+teams.map(t=>'<option'+(t===fichaTeam?' selected':'')+'>'+t+'</option>').join('')+'</select>';
+  const bar='<div class="tiros-ctl">'+teamSel+'<span class="zone-lbl">Jugador</span>'+
     '<input class="ficha-input" list="fichaDL" placeholder="Buscá un jugador…" value="'+(cur?fichaTxt(cur):'')+'" onchange="pickFicha(this.value)">'+
     '<datalist id="fichaDL">'+opts.map(p=>'<option value="'+fichaTxt(p).replace(/"/g,'')+'">').join('')+'</datalist>'+
-    '<span class="zone-sub">'+pool.length+' jugadores en la base</span></div>';
-  if(!cur){el.innerHTML=bar+'<div class="empty">Buscá un jugador para generar su ficha (radar de percentiles vs la liga).</div>';return;}
+    '<span class="zone-sub">'+(fichaTeam?opts.length+' en '+fichaTeam:pool.length+' jugadores')+'</span></div>'+
+    (fichaTeam?'<div class="fchips">'+opts.map(p=>'<button class="fchip'+(cur&&fichaId(p)===fichaSel?' on':'')+'" onclick="gotoFicha(\''+escAttr(fichaId(p))+'\')">'+(p.num?'#'+p.num+' ':'')+p.nombre+'</button>').join('')+'</div>':'');
+  if(!cur){el.innerHTML=bar+'<div class="empty">'+(fichaTeam?'Elegí un jugador de '+fichaTeam+' (tocá un nombre arriba) para ver su ficha.':'Buscá un jugador o filtrá por equipo para ver la lista.')+'</div>';return;}
   const g=cur.g||1,pg=(p,k)=>p[k]/(p.g||1);
   const A={anot:pool.map(p=>pg(p,'pts')),gen:pool.map(p=>pg(p,'ast')),tiro:pool.map(p=>pg(p,'tpm')),reb:pool.map(p=>pg(p,'reb')),def:pool.map(p=>pg(p,'rob')+pg(p,'tap'))};
   const valArr=pool.map(fichaVal);
@@ -1065,7 +1086,8 @@ function renderFicha(){
       '<div class="zone-row"><span class="zone-lbl">Total</span><span class="zone-val">'+sm+'/'+sa+' · '+pof(sm,sa)+'%</span></div>'+
       '<div class="zone-row"><span class="zone-lbl">Dobles</span><span class="zone-val">'+m2+'/'+a2.length+' · '+pof(m2,a2.length)+'%</span></div>'+
       '<div class="zone-row"><span class="zone-lbl">Triples</span><span class="zone-val">'+m3+'/'+a3.length+' · '+pof(m3,a3.length)+'%</span></div>'+
-      '<div class="zone-sub" style="margin-top:8px">Verde = anotado · rojo = errado. Todos los tiros llevados a media cancha. No incluye libres.</div></div></div>'):'';
+      '<div class="zone-sub" style="margin-top:8px">Verde = anotado · rojo = errado. Todos los tiros llevados a media cancha. No incluye libres.</div></div></div>'):
+    ('<div class="sec">Dónde anota</div><div class="court-box"><div class="zone-sub">No hay tiros cargados para este jugador en los partidos guardados. Puede que no haya registrado tiros de cancha, o que el dorsal/nombre del mapa no coincida con el de la planilla. Si otros jugadores sí cargan, re-guardá ese partido desde Quintetos.</div></div>');
   // evolución partido a partido
   const games=fichaGames(cur);
   const evoSec=games.length>1?('<div class="sec">Evolución partido a partido</div><div class="court-box">'+evolutionChart(games)+
@@ -1211,7 +1233,8 @@ function renderRival(){
   const teams=stats.map(s=>s.team).sort();
   if(rivalTeam&&!teams.includes(rivalTeam))rivalTeam='';
   if(!rivalTeam)rivalTeam=teams[0];
-  const sel='<div class="tiros-ctl"><span class="zone-lbl">Rival a analizar</span><select onchange="setRival(this.value)">'+teams.map(t=>'<option'+(t===rivalTeam?' selected':'')+'>'+t+'</option>').join('')+'</select></div>';
+  const sel='<div class="tiros-ctl"><span class="zone-lbl">Rival a analizar</span><select onchange="setRival(this.value)">'+teams.map(t=>'<option'+(t===rivalTeam?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
+    '<button class="sim-btn" id="rivalPdfBtn" onclick="downloadRivalPDF()" style="margin-left:auto">⬇ Descargar PDF</button></div>';
   const me=stats.find(s=>s.team===rivalTeam);if(!me){el.innerHTML=sel+'<div class="empty">Sin datos del equipo.</div>';return;}
   const a=me.a;
   const METR=[
@@ -1259,7 +1282,7 @@ function renderRival(){
       return '<div class="brk-row"><span class="brk-name">'+o.t+'</span><span class="brk-track"><span class="brk-fill" style="width:'+w+'%"></span></span><span class="brk-val"><b>'+o.pts+'</b>pts · '+sh+'%</span></div>';}).join('')+
       '<div class="zone-sub" style="margin-top:8px">Sale de lo que tagueaste en la herramienta Defensa contra este rival.</div>'):
       '<div class="zone-sub">Todavía no tagueaste ningún partido contra '+rivalTeam+' en la herramienta Defensa. Cuando lo hagas, vas a ver acá de qué jugadas te anotó.</div>';
-  el.innerHTML=sel+
+  el.innerHTML=sel+'<div id="rival-report">'+
     '<div class="ficha-card"><div class="ficha-head"><div class="fh-name">'+rivalTeam+'</div><span class="fh-tag">'+(a.pj||0)+' partidos</span></div>'+
       '<div class="fh-team" style="text-transform:none;font-size:13.5px;letter-spacing:0;color:#cfd5e3;line-height:1.55;margin-top:10px">'+resumen+'</div></div>'+
     '<div class="sec">Perfil vs la liga</div><div class="court-box">'+bar+
@@ -1268,7 +1291,28 @@ function renderRival(){
       '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#f05050">Debilidades</div>'+(weak.length?weak.map(s=>'<div class="rv-item">✘ '+s+'</div>').join(''):'<div class="zone-sub">Sin debilidades marcadas.</div>')+'</div></div>'+
     '<div class="sec">Jugadores a vigilar</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'+watch+'</div>'+
     '<div class="sec">Claves del partido</div><div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>'+
-    '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>';
+    '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>'+
+    '</div>';
+}
+function loadScript(src){return new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const sc=document.createElement('script');sc.src=src;sc.onload=res;sc.onerror=()=>rej(new Error('No se pudo cargar la librería (revisá tu conexión).'));document.head.appendChild(sc);});}
+async function downloadRivalPDF(){
+  const btn=document.getElementById('rivalPdfBtn');if(!btn)return;const old=btn.textContent;btn.textContent='Generando…';btn.disabled=true;
+  try{
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const node=document.getElementById('rival-report');
+    const canvas=await html2canvas(node,{backgroundColor:'#08090d',scale:2,useCORS:true});
+    const jsPDF=window.jspdf.jsPDF;
+    const pdf=new jsPDF('p','pt','a4');
+    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+    const imgW=pw,imgH=canvas.height*pw/canvas.width;
+    const img=canvas.toDataURL('image/png');
+    let left=imgH,pos=0;
+    pdf.addImage(img,'PNG',0,pos,imgW,imgH);left-=ph;
+    while(left>0){pos-=ph;pdf.addPage();pdf.addImage(img,'PNG',0,pos,imgW,imgH);left-=ph;}
+    pdf.save('Informe_'+String(rivalTeam).replace(/\s+/g,'_')+'.pdf');
+  }catch(e){alert('No se pudo generar el PDF: '+(e.message||e));}
+  btn.textContent=old;btn.disabled=false;
 }
 
 function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderJugadores();renderEvolucion();}
