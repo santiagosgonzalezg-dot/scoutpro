@@ -237,6 +237,16 @@ table.t tr:hover td{background:var(--bg-hover)}
 .hrow .h-v{color:var(--text-2)}
 .ficha-help .warn{color:#e0a83b;margin:13px 0 0;font-size:12.5px;line-height:1.6}
 .zone-sub{font-family:var(--font-mono);font-size:10.5px;color:var(--text-2);margin-left:6px}
+.help{margin:8px 0 2px;border:1px solid var(--border-light);border-radius:var(--r-md);background:var(--bg-raised);overflow:hidden}
+.help>summary{list-style:none;cursor:pointer;padding:8px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--insight);display:flex;align-items:center;gap:7px;user-select:none}
+.help>summary::-webkit-details-marker{display:none}
+.help>summary::before{content:'?';display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:rgba(167,139,250,.16);color:var(--insight);font-weight:700;font-size:10px;flex:0 0 auto}
+.help[open]>summary{border-bottom:1px solid var(--border-light)}
+.help .help-body{padding:11px 13px;font-family:var(--font-body);font-size:13px;line-height:1.6;color:var(--text)}
+.help .help-body b{color:var(--text)}
+.help .help-body .hl-g{color:var(--positive);font-weight:600}
+.help .help-body ul{margin:6px 0 0;padding-left:18px}
+.help .help-body li{margin:3px 0}
 </style>
 </head>
 <body>
@@ -397,6 +407,7 @@ function dc(v){return v>0?'var(--positive)':v<0?'var(--negative)':'var(--text-3)
 function sgn(v){return (v>0?'+':'')+v;}
 function pp(v){return (Number(v)||0).toFixed(2);}
 function sgn2(v){const n=Number(v)||0;return (n>0?'+':'')+n.toFixed(2);}
+function help(titulo,cuerpo){return '<details class="help"><summary>'+titulo+'</summary><div class="help-body">'+cuerpo+'</div></details>';}
 
 // ── VISTA DASHBOARD (LIGA) ──
 function matchReboundIndex(rows){
@@ -588,8 +599,16 @@ function onOffBlock(team){
     {key:'off',label:'NET sin él',sortable:true,val:r=>r.netOff==null?-9999:r.netOff,cell:r=>r.netOff==null?'—':fmt(r.netOff),color:r=>r.netOff==null?'var(--text-3)':dc(r.netOff)},
     {key:'swing',label:'ON/OFF',sortable:true,val:r=>r.swing==null?-9999:r.swing,cell:r=>r.swing==null?'—':fmt(r.swing),color:r=>r.swing==null?'var(--text-3)':dc(r.swing)},
   ];
-  return '<div class="sec">On / Off por jugador</div>'+sortableTable('view-equipo','Impacto en cancha · '+team,cols,data,'onoff')+
-    '<div class="zone-sub" style="margin-top:6px"><b>NET con él</b> = rendimiento del equipo con el jugador en cancha (puntos por 100 posesiones: ataque − defensa). <b>NET sin él</b> = lo mismo cuando está en el banco. <b>ON/OFF</b> = la diferencia: <span style="color:var(--positive)">verde/positivo</span> significa que el equipo es <b>mejor con él en cancha</b>. Es de toda la temporada; con pocos minutos puede variar mucho.</div>';
+  return '<div class="sec">On / Off por jugador</div>'+
+    help('¿Cómo leer el On/Off?',
+      'Mide el <b>impacto real</b> de un jugador, más allá de sus números individuales: cuánto cambia el equipo según esté en cancha o en el banco.'+
+      '<ul>'+
+      '<li><b>NET con él</b> — rendimiento del equipo con el jugador en cancha (puntos por 100 posesiones: ataque − defensa).</li>'+
+      '<li><b>NET sin él</b> — lo mismo cuando está en el banco.</li>'+
+      '<li><b>ON/OFF</b> — la diferencia. <span class="hl-g">Verde/positivo</span> = el equipo es mejor con él en cancha.</li>'+
+      '</ul>'+
+      'Es de toda la temporada; con pocos minutos puede variar mucho, así que tomalo como una <b>señal</b>, no una sentencia. Un "—" significa que no hay minutos suficientes para comparar.')+
+    sortableTable('view-equipo','Impacto en cancha · '+team,cols,data,'onoff');
 }
 function pkeyArr(arr){return (arr||[]).map(p=>pkey(p)).sort().join('||');}
 function kpi(v,k,cls){return '<div class="kpi"><div class="v '+(cls||'')+'">'+v+'</div><div class="k">'+k+'</div></div>';}
@@ -687,15 +706,17 @@ function playersAgg(){
   const rows=PLAYERS.filter(r=>!fase||r.fase===fase);
   const map={};
   for(const r of rows){
-    const k=r.equipo+'|'+r.num+'|'+String(r.nombre||'').toLowerCase();
-    if(!map[k])map[k]={equipo:r.equipo,num:r.num,nombre:r.nombre,g:0,min:0,pts:0,ast:0,rob:0,tap:0,per:0,ro:0,rd:0,reb:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,faltas:0,pm:0};
+    const nu=String(r.num||'').trim(),nm=normNm(r.nombre);
+    const k=nu?(r.equipo+'|#'+nu):(r.equipo+'|'+(nm||'?'));   // número manda; nombre es respaldo
+    if(!map[k])map[k]={equipo:r.equipo,num:r.num,nombre:r.nombre||'',_nmlen:-1,g:0,min:0,pts:0,ast:0,rob:0,tap:0,per:0,ro:0,rd:0,reb:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,faltas:0,pm:0};
     const a=map[k];
-    if(num(r.min)>0)a.g++;
-    a.min+=num(r.min);a.pts+=num(r.pts);a.ast+=num(r.ast);a.rob+=num(r.rob);a.tap+=num(r.tap);a.per+=num(r.per);
+    const ln=String(r.nombre||'').length;if(ln>a._nmlen){a.nombre=r.nombre;a._nmlen=ln;}
+    const mn=num(r.min);if(mn>0)a.g++;
+    a.min+=mn;a.pts+=num(r.pts);a.ast+=num(r.ast);a.rob+=num(r.rob);a.tap+=num(r.tap);a.per+=num(r.per);
     a.ro+=num(r.ro);a.rd+=num(r.rd);a.reb+=num(r.reb);a.fgm+=num(r.fgm);a.fga+=num(r.fga);
     a.tpm+=num(r.tpm);a.tpa+=num(r.tpa);a.ftm+=num(r.ftm);a.fta+=num(r.fta);a.faltas+=num(r.faltas);a.pm+=num(r.mas_menos);
   }
-  return Object.values(map);
+  return Object.values(map).map(a=>{delete a._nmlen;return a;});
 }
 function pv(p,key){const g=p.g||1;const raw=p[key]||0;return lidMode==='pg'?raw/g:raw;}
 function fmtv(v,dec){return dec?(Math.round(v*10)/10).toFixed(1):Math.round(v);}
@@ -879,7 +900,16 @@ function renderTiros(){
   if(dPPS>=0.06)veredicto='Mete más de lo que valen sus tiros: está fino / puntería por encima de la media. Ojo, puede no sostenerse.';
   else if(dPPS<=-0.06)veredicto='Tira de buenos lugares pero está frío: mete menos de lo esperado (debería subir si sigue tirando ahí).';
   else veredicto='Rinde acorde a la calidad de sus tiros.';
-  const sqPanel=xn?('<div class="sec">Calidad de tiro</div><div class="court-box">'+
+  const sqPanel=xn?('<div class="sec">Calidad de tiro</div>'+
+    help('¿Cómo leer la calidad de tiro?',
+      'Compara <b>de dónde tira</b> con <b>cuánto mete</b>, para saber si los puntos vienen de buenas decisiones o de pura puntería.'+
+      '<ul>'+
+      '<li><b>Puntos/tiro real</b> — lo que efectivamente sacó por cada tiro que tomó.</li>'+
+      '<li><b>Esperado por zona</b> — lo que sacaría un tirador promedio de tu liga desde esos mismos lugares.</li>'+
+      '<li><b>Diferencia</b> — si es <span class="hl-g">positiva</span>, mete más de lo esperado (está fino / con puntería); si es negativa, tira de buenos lugares pero está frío.</li>'+
+      '</ul>'+
+      'Sirve para distinguir al que elige bien sus tiros del que se "salva" acertando tiros difíciles. No incluye tiros libres.')+
+    '<div class="court-box">'+
     '<div class="kpis ficha-kpis">'+kpi(rPPS.toFixed(2),'PUNTOS/TIRO REAL')+kpi(xPPS.toFixed(2),'ESPERADO POR ZONA')+kpi((dPPS>0?'+':'')+dPPS.toFixed(2),'DIFERENCIA','val-hl')+'</div>'+
     '<div class="zone-sub" style="margin-top:8px">'+veredicto+' · El <b>esperado</b> es cuánto vale en promedio un tiro desde esas zonas en toda tu liga; el <b>real</b> es lo que efectivamente metió. No incluye libres.</div></div>'):'';
   el.innerHTML=ctl+'<div class="sec">'+titulo+' · '+ctx+' · '+sel.length+' tiros</div>'+
@@ -1108,17 +1138,17 @@ function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'
 function roleFromVec(v){const r=[['Anotador',v[0]],['Generador',v[1]],['Tirador',v[2]],['Reboteador',v[3]],['Defensor',v[4]]].sort((a,b)=>b[1]-a[1]);return r[0][1]>=40?r[0][0]:'Rol secundario';}
 function gotoFicha(id){fichaSel=id;renderFicha();const v=document.getElementById('view-ficha');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});}
 function toggleSim(){const p=document.getElementById('simPanel'),b=document.getElementById('simBtn');if(!p||!b)return;const sh=p.style.display==='none';p.style.display=sh?'grid':'none';b.textContent=sh?'Ocultar similares':'🔍 Ver 3 jugadores similares';}
-function normNm(s){return String(s||'').toLowerCase().replace(/[\s.,'´`]/g,'');}
+function normNm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).sort().join(' ');}
 function fichaShots(cur){
-  const eq=cur.equipo,num=String(cur.num),nm=normNm(cur.nombre);
-  let r=SHOTS.filter(s=>s.equipo===eq&&String(s.num)===num);
-  if(!r.length)r=SHOTS.filter(s=>s.equipo===eq&&normNm(s.nombre)===nm);
-  if(!r.length)r=SHOTS.filter(s=>String(s.num)===num&&normNm(s.nombre)===nm);
+  const eq=cur.equipo,nu=String(cur.num||'').trim(),nm=normNm(cur.nombre);
+  let r=nu?SHOTS.filter(s=>s.equipo===eq&&String(s.num||'').trim()===nu):[];
+  if(!r.length&&nm)r=SHOTS.filter(s=>s.equipo===eq&&normNm(s.nombre)===nm);
   if(!r.length&&nm)r=SHOTS.filter(s=>normNm(s.nombre)===nm);
   return r;
 }
 function fichaGames(cur){
-  return PLAYERS.filter(r=>r.equipo===cur.equipo&&String(r.num)===String(cur.num)).map(r=>({
+  const eq=cur.equipo,nu=String(cur.num||'').trim(),nm=normNm(cur.nombre);
+  return PLAYERS.filter(r=>nu?(r.equipo===eq&&String(r.num||'').trim()===nu):(r.equipo===eq&&normNm(r.nombre)===nm)).map(r=>({
     fecha:r.fecha,rival:r.rival,jornada:r.jornada,pts:+r.pts||0,min:+r.min||0,
     val:(+r.pts||0)+(+r.reb||0)+(+r.ast||0)+(+r.rob||0)+(+r.tap||0)-((+r.fga||0)-(+r.fgm||0))-((+r.fta||0)-(+r.ftm||0))-(+r.per||0)
   })).sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
@@ -1510,12 +1540,32 @@ function renderRival(){
   const FF_OFF=[['eFG%','efg',true],['% Pérdidas','tov',false],['Reb. of. %','orb',true],['TL por 100 tiros','ftr',true]];
   const FF_DEF=[['eFG% que recibe','efg',false],['% Pérd. forzadas','tov',true],['Reb. of. cedido %','orb',false],['TL/100 cedidos','ftr',false]];
   const ffSec='<div class="sec">Four Factors</div>'+
+    help('¿Cómo leer los Four Factors?',
+      'Son los <b>4 números que más explican</b> por qué un equipo gana o pierde (Dean Oliver). En vez de mirar 50 estadísticas, mirás estos 4.'+
+      '<ul>'+
+      '<li><b>eFG%</b> — qué tan bien meten (le da más valor al triple). Más = mejor.</li>'+
+      '<li><b>% Pérdidas</b> — cada cuánto pierden la pelota. <b>Menos = mejor.</b></li>'+
+      '<li><b>Reb. of. %</b> — segundas oportunidades que capturan. Más = mejor.</li>'+
+      '<li><b>TL por 100 tiros</b> — cuántos tiros libres generan. Más = mejor.</li>'+
+      '</ul>'+
+      'La tabla <b>Ofensivos</b> es cómo atacan; la <b>Defensivos</b> es lo mismo pero de lo que le permiten al rival (ahí la lógica se invierte: que te metan poco, robar mucho, no regalar faltas). '+
+      'En cada fila, el número en <span class="hl-g">verde</span> es el mejor de los dos, ya considerando si en ese factor conviene más o menos.')+
     '<div class="ficha-grid">'+
       ffTable('Ofensivos (cómo atacan)',rOff,nOff,FF_OFF)+
       ffTable('Defensivos (cómo defienden)',rDef,nDef,FF_DEF)+
     '</div>'+
     '<div class="zone-sub" style="margin:2px 0 4px">Verde = mejor de los dos en ese factor. Comparado contra '+(myTeam?('tu equipo, '+nLabel):'el promedio de la liga')+'. Los 4 factores (Dean Oliver): tiro (eFG%), cuidado del balón (% pérdidas), rebote ofensivo y generación de tiros libres.</div>';
-  const clutchSec='<div class="sec">Clutch · últimos 5 min, diferencia ≤5</div><div class="court-box">'+
+  const clutchSec='<div class="sec">Clutch · últimos 5 min, diferencia ≤5</div>'+
+    help('¿Qué es el clutch?',
+      'Es el rendimiento en los <b>momentos calientes</b>: los últimos 5 minutos del partido cuando la diferencia es de <b>5 puntos o menos</b>. Ahí muchos partidos se ganan o se pierden.'+
+      '<ul>'+
+      '<li><b>Finales ajustados</b> — cuántos partidos llegaron a ese momento de definición.</li>'+
+      '<li><b>Récord</b> — cuántos de esos finales ganó y perdió.</li>'+
+      '<li><b>Anotó / recibió</b> — puntos a favor y en contra en esos minutos.</li>'+
+      '<li><b>Saldo</b> — la resta: positivo = saca ventaja en los finales; negativo = se le complica.</li>'+
+      '</ul>'+
+      'Sale del play-by-play, así que solo cuenta partidos guardados con jugadas. Con pocas jugadas de clutch avisa "muestra chica" para no sacar conclusiones apuradas.')+
+    '<div class="court-box">'+
     clutchLine(rivalTeam,clutchStats(rivalTeam))+
     (myTeam?clutchLine(myTeam+' (vos)',clutchStats(myTeam)):'')+
     '<div class="zone-sub" style="margin-top:8px">Rendimiento en finales ajustados. Sale del play-by-play: solo cuenta partidos guardados con la versión nueva (los que tienen jugadas).</div></div>';
