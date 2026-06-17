@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1225,6 +1224,19 @@ function renderDuplas(){
 }
 
 // ── VISTA RIVAL (scouting / próximo partido) ──
+function topShare(team,key){
+  const pool=playersAgg().filter(p=>p.equipo===team&&(+p[key]||0)>0).map(p=>({name:p.nombre,num:p.num,val:+p[key]||0})).sort((a,b)=>b.val-a.val);
+  if(!pool.length)return null;const total=pool.reduce((s,p)=>s+p.val,0);
+  return {name:pool[0].name,num:pool[0].num,share:Math.round(pool[0].val/total*100)};
+}
+function rivalShareBars(team,key,c1,c2){
+  const pool=playersAgg().filter(p=>p.equipo===team&&(+p[key]||0)>0).map(p=>({name:p.nombre,num:p.num,val:+p[key]||0})).sort((a,b)=>b.val-a.val);
+  if(!pool.length)return '<div class="zone-sub">Sin datos cargados.</div>';
+  const total=pool.reduce((s,p)=>s+p.val,0),max=pool[0].val;
+  return pool.map(p=>{const share=Math.round(p.val/total*100),w=Math.round(p.val/max*100);
+    return '<div class="brk-row"><span class="brk-name" style="width:118px">'+(p.num?'#'+p.num+' ':'')+p.name+'</span><span class="brk-track"><span class="brk-fill" style="width:'+w+'%;background:linear-gradient(90deg,'+c1+','+c2+')"></span></span><span class="brk-val"><b>'+p.val+'</b> · '+share+'%</span></div>';}).join('')+
+    '<div class="zone-sub" style="margin-top:6px">Total del equipo: '+total+'.</div>';
+}
 let rivalTeam='';
 function setRival(v){rivalTeam=v;renderRival();}
 function rankPct(arr,v,hb){const n=arr.length;if(!n)return 50;const p=Math.round(arr.filter(x=>x<=v).length/n*100);return hb?p:100-p;}
@@ -1265,6 +1277,10 @@ function renderRival(){
   if(R('pace',true)>=65)claves.push('Controlá el ritmo: les gusta correr.');
   if(R('pace',true)<=35)claves.push('Te van a frenar el ritmo: generá ventajas temprano.');
   if(!claves.length)claves.push('Equipo parejo sin un patrón marcado: jugá tu partido y ajustá sobre la marcha.');
+  const tRb=topShare(rivalTeam,'ro');
+  if(tRb&&tRb.share>=30)claves.unshift((tRb.num?'#'+tRb.num+' ':'')+tRb.name+' concentra el '+tRb.share+'% del rebote ofensivo del equipo: bloqueálo en el tiro.');
+  const tSh=topShare(rivalTeam,'fga');
+  if(tSh&&tSh.share>=25)claves.unshift((tSh.num?'#'+tSh.num+' ':'')+tSh.name+' es el que más dispara ('+tSh.share+'% de los tiros del equipo): no lo dejes cómodo.');
   let resumen='';
   if(strong.length)resumen+='Fuerte en '+strong.slice(0,2).join(' y ').toLowerCase()+'. ';
   if(weak.length)resumen+='Flojo en '+weak.slice(0,2).join(' y ').toLowerCase()+'.';
@@ -1292,6 +1308,11 @@ function renderRival(){
     '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#34c769">Fortalezas</div>'+(strong.length?strong.map(s=>'<div class="rv-item">✔ '+s+'</div>').join(''):'<div class="zone-sub">Sin fortalezas marcadas.</div>')+'</div>'+
       '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#f05050">Debilidades</div>'+(weak.length?weak.map(s=>'<div class="rv-item">✘ '+s+'</div>').join(''):'<div class="zone-sub">Sin debilidades marcadas.</div>')+'</div></div>'+
     '<div class="sec">Jugadores a vigilar</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'+watch+'</div>'+
+    '<div class="sec">Volumen de tiro y rebote (reparto del equipo)</div>'+
+    '<div class="ficha-grid">'+
+      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Tiros tomados por jugador</div>'+rivalShareBars(rivalTeam,'fga','#34c769','#5fd98a')+'</div>'+
+      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Rebote ofensivo por jugador</div>'+rivalShareBars(rivalTeam,'ro','#f97316','#fb923c')+'</div>'+
+    '</div>'+
     '<div class="sec">Claves del partido</div><div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>'+
     '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>'+
     '</div>';
