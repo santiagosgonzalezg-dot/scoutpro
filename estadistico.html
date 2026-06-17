@@ -467,7 +467,7 @@ function leagueTeamStats(){
 function leagueLineups(){
   const rows=allRowsFiltered();const groups={};
   for(const r of rows){if(!r.jugadores||r.jugadores.length!==5)continue;const key=r.equipo+'#'+(r.jugadores_key||pkeyArr(r.jugadores));(groups[key]=groups[key]||{team:r.equipo,players:r.jugadores,rows:[]}).rows.push(r);}
-  let lus=Object.values(groups).map(g=>{const a=agg(g.rows);return {team:g.team,players:g.players,a,net:a.min>0?Math.round(a.diff/a.min*40*10)/10:0};});
+  let lus=Object.values(groups).map(g=>{const a=agg(g.rows);return {team:g.team,players:g.players,a,net:(a.efOff||0)-(a.efDef||0)};});
   let f=lus.filter(l=>l.a.min>=10);
   if(f.length<5)f=lus.filter(l=>l.a.min>=4);
   if(f.length<5)f=lus;
@@ -507,10 +507,10 @@ function renderDashboard(){
       '<td class="l">'+chips(l.players)+'</td>'+
       '<td>'+Math.round(l.a.min)+'</td>'+
       '<td style="color:'+dc(l.a.diff)+'">'+sgn(l.a.diff)+'</td>'+
-      '<td style="color:'+dc(l.net)+'">'+sgn(l.net)+'</td>'+
+      '<td style="color:'+dc(l.net)+'">'+l.net.toFixed(2)+'</td>'+
       '<td>'+pp(l.a.efOff)+'</td><td>'+pp(l.a.efDef)+'</td></tr>').join('');
     return '<div class="board"><div class="board-title">'+title+'</div><div class="tblwrap"><table class="t"><thead><tr>'+
-      '<th class="l">#</th><th class="l">Cuadro</th><th class="l">Quinteto</th><th>Min</th><th>+/-</th><th>NET/40</th><th>EF.OF</th><th>EF.DEF</th>'+
+      '<th class="l">#</th><th class="l">Cuadro</th><th class="l">Quinteto</th><th>Min</th><th>+/-</th><th>NET</th><th>EF.OF</th><th>EF.DEF</th>'+
       '</tr></thead><tbody>'+body+'</tbody></table></div></div>';
   };
   const avg=(f)=>teams.length?teams.reduce((s,t)=>s+f(t),0)/teams.length:0;
