@@ -1153,6 +1153,8 @@ function renderFicha(){
   const kpis='<div class="kpis ficha-kpis">'+kpi(cur.g,'PJ')+kpi(pp1(cur.min/g),'MIN')+kpi(pp1(cur.pts/g),'PTS')+kpi(pp1(cur.reb/g),'REB')+kpi(pp1(cur.ast/g),'AST')+kpi(pp1(fichaVal(cur)),'VAL','val-hl')+'</div>';
   const bars=dims.map(d=>'<div class="pbar-row"><span class="pbar-lbl">'+d[0]+'</span><span class="pbar-track"><span class="pbar-fill" data-w="'+d[1]+'" style="width:0%;background:'+pctColor(d[1])+'"></span></span><span class="pbar-pct" style="color:'+pctColor(d[1])+'">'+d[1]+'%</span></div>').join('');
   el.innerHTML=bar+
+    '<div style="display:flex;justify-content:flex-end;margin:2px 0 -4px"><button class="sim-btn" id="fichaPdfBtn" onclick="shareFicha()">⬇ Descargar / compartir ficha</button></div>'+
+    '<div id="ficha-report">'+
     '<div class="ficha-card">'+
       '<div class="ficha-head"><div class="fh-name">'+cur.nombre+' <span class="fh-num">#'+cur.num+'</span></div><span class="fh-tag">'+rol+'</span></div>'+
       '<div class="fh-team">'+cur.equipo+' · '+cur.g+' partido'+(cur.g>1?'s':'')+'</div>'+
@@ -1177,8 +1179,30 @@ function renderFicha(){
       '<div class="hrow"><span class="h-k">Global</span><span class="h-v">Su valoración (VAL) por partido comparada con la liga.</span></div>'+
       '<div class="hrow"><span class="h-k">VAL</span><span class="h-v">Puntos + rebotes + asistencias + robos + tapones − tiros errados − libres errados − pérdidas.</span></div>'+
       '<p class="warn">⚠ Con pocos partidos los números son orientativos: un solo partido bueno o malo mueve mucho el percentil. Cuantos más juegos cargues, más confiable se vuelve la ficha.</p>'+
+    '</div>'+
     '</div>';
   requestAnimationFrame(()=>document.querySelectorAll('#view-ficha .pbar-fill').forEach(f=>{f.style.width=(f.dataset.w||0)+'%';}));
+}
+async function shareFicha(){
+  const btn=document.getElementById('fichaPdfBtn');if(!btn)return;const old=btn.textContent;btn.textContent='Generando…';btn.disabled=true;
+  try{
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    const node=document.getElementById('ficha-report');
+    node.querySelectorAll('.pbar-fill').forEach(f=>{if(f.dataset.w)f.style.width=f.dataset.w+'%';});
+    const cur=fichaList().find(p=>fichaId(p)===fichaSel);
+    const nombre='Ficha_'+String(cur?cur.nombre:'jugador').replace(/\s+/g,'_');
+    const canvas=await html2canvas(node,{backgroundColor:'#08090d',scale:2,useCORS:true});
+    await new Promise(res=>canvas.toBlob(async(blob)=>{
+      const file=new File([blob],nombre+'.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        try{await navigator.share({files:[file],title:nombre});}catch(e){}
+      }else{
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nombre+'.png';a.click();URL.revokeObjectURL(url);
+      }
+      res();
+    },'image/png'));
+  }catch(e){alert('No se pudo generar la ficha: '+(e.message||e));}
+  btn.textContent=old;btn.disabled=false;
 }
 function pp1(v){return (Math.round(v*10)/10).toFixed(1);}
 
