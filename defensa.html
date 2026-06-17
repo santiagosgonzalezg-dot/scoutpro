@@ -21,8 +21,8 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 .wrap{max-width:1080px;margin:0 auto;padding:0 18px 60px}
 /* topbar */
 .topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--b2);position:sticky;top:0;background:rgba(8,9,13,.86);backdrop-filter:blur(8px);z-index:20;flex-wrap:wrap}
-.logo{font-family:var(--disp);font-weight:900;font-size:22px;letter-spacing:.5px;cursor:default;display:flex;align-items:baseline;gap:7px}
-.logo .a{color:var(--defense)}.logo .v{color:var(--t1)}
+.logo{font-family:var(--disp);font-weight:900;font-size:22px;letter-spacing:2px;line-height:1;cursor:default;flex-shrink:0}
+.logo .a{color:var(--offense)}.logo .v{font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:2px;margin-left:6px;border:1px solid var(--b2);border-radius:4px;padding:2px 6px;vertical-align:middle}
 .tb-spacer{flex:1}
 .tb-nav{background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t2);font-family:var(--mono);font-size:10px;letter-spacing:.5px;padding:7px 12px;text-decoration:none;display:inline-block;transition:all var(--t);white-space:nowrap}
 .tb-nav:hover{border-color:var(--t2);color:var(--t1)}
@@ -37,21 +37,21 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 .fld{display:flex;flex-direction:column;gap:4px}
 .fld label{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--t2);text-transform:uppercase}
 .fld input{background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t1);font-family:var(--ui);font-size:14px;padding:8px 11px;min-width:130px}
-.fld input:focus{outline:none;border-color:var(--defense)}
+.fld input:focus{outline:none;border-color:var(--offense)}
 /* section title */
 .sec{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--t1);margin:26px 0 12px;display:flex;align-items:center;gap:10px}
-.sec::before{content:"";width:3px;height:16px;background:var(--defense);border-radius:2px}
+.sec::before{content:"";width:3px;height:16px;background:var(--offense);border-radius:2px}
 /* tally grid */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .card{background:var(--bg-raised);border:1px solid var(--b1);border-radius:8px;padding:13px 14px;transition:border-color var(--t)}
 .card:hover{border-color:var(--b2)}
 .card .name{font-family:var(--ui);font-weight:700;font-size:14px;margin-bottom:2px}
 .card .meta{font-family:var(--mono);font-size:9.5px;color:var(--t2);letter-spacing:.5px}
-.card .pts{font-family:var(--disp);font-weight:900;font-size:34px;line-height:1;color:var(--defense);margin:6px 0 9px}
+.card .pts{font-family:var(--disp);font-weight:900;font-size:34px;line-height:1;color:var(--offense);margin:6px 0 9px}
 .card .pts small{font-family:var(--mono);font-size:10px;color:var(--t3);font-weight:400;margin-left:6px}
 .btns{display:flex;gap:6px}
 .btns button{flex:1;background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t1);font-family:var(--disp);font-weight:800;font-size:15px;padding:8px 0;cursor:pointer;transition:all var(--t)}
-.btns button:hover{border-color:var(--defense);color:var(--defense)}
+.btns button:hover{border-color:var(--offense);color:var(--offense)}
 .btns button:active{background:var(--bg-hover)}
 .btns .undo{flex:0 0 38px;font-family:var(--mono);font-size:14px;color:var(--t3)}
 .btns .undo:hover{border-color:var(--negative);color:var(--negative)}
@@ -63,7 +63,7 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 .brk-row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
 .brk-name{width:130px;font-family:var(--ui);font-size:13px;flex-shrink:0}
 .brk-track{flex:1;height:13px;background:var(--bg-panel);border-radius:3px;overflow:hidden}
-.brk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--defense),#6aa3ff)}
+.brk-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--offense),#ffb15c)}
 .brk-val{width:120px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--t2);flex-shrink:0}
 .brk-val b{color:var(--t1);font-family:var(--disp);font-size:15px;font-weight:800;margin-right:4px}
 .empty{color:var(--t2);font-size:13.5px;padding:14px 0}
@@ -81,7 +81,7 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 </head>
 <body>
 <div class="topbar">
-  <div class="logo"><span class="a">SCOUT</span><span class="v">PRO</span> · DEFENSA</div>
+  <div class="logo"><span class="a">DEFENSA</span><span class="v">SCOUTPRO</span></div>
   <div class="tb-spacer"></div>
   <a class="tb-nav qt" href="quintetos.html">🔄 Quintetos</a>
   <a class="tb-nav stat" href="estadistico.html">📊 Estadístico</a>
