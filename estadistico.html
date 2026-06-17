@@ -104,6 +104,10 @@ table.t tr:hover td{background:var(--bg-hover)}
 .pchip .pn{font-family:var(--font-mono);font-size:8px;font-weight:500;color:#000;background:var(--offense);border-radius:2px;padding:0 3px}
 .rank{color:var(--text-3)}
 .empty{text-align:center;color:var(--text-2);font-family:var(--font-mono);font-size:12px;line-height:1.8;padding:60px 20px}
+.loadbox{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:80px 20px;color:var(--text-2);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--border-strong);border-top-color:var(--offense);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loadbox .ldsub{font-size:9px;letter-spacing:.5px;color:var(--text-3);text-transform:none}
 .empty b{color:var(--offense)}
 .chartbox{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-4);margin-bottom:var(--sp-4)}
 .legend{display:flex;gap:var(--sp-4);font-family:var(--font-mono);font-size:9px;color:var(--text-2);margin-top:var(--sp-2)}
@@ -271,7 +275,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <a class="tb-btn" href="defensa.html">🛡 Defensa</a>
   <a class="tb-btn" href="index.html">🏠 Menú</a>
   <button class="tb-btn tb-admin" onclick="adminOpen()" title="Panel de administración">· admin</button>
-  <button class="tb-btn" onclick="loadData()">↻ Actualizar</button>
+  <button class="tb-btn" id="btnReload" onclick="loadData()">↻ Actualizar</button>
 </div>
 <div id="coachOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)coachClose()"><div class="adm-box" style="max-width:420px"><div class="adm-head"><span class="adm-title">Ingresar como coach</span><button class="adm-close" onclick="coachClose()">✕</button></div><div id="coachBody"></div></div></div>
 <div id="adminOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)adminClose()"><div class="adm-box"><div class="adm-head"><span class="adm-title" id="admTitle">Estado de la base</span><button class="adm-close" onclick="adminClose()">✕ Cerrar</button></div><div id="adminBody"></div></div></div>
@@ -314,7 +318,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view" id="view-jugadores"></div>
   <div class="view" id="view-evolucion"></div>
 
-  <div id="msg" class="empty">Cargando datos…</div>
+  <div id="msg" class="empty"><div class="loadbox"><div class="spinner"></div><div>Cargando datos…</div></div></div>
 </div>
 
 <script>
@@ -326,9 +330,13 @@ function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace
 function num(x){return +x||0;}
 
 async function loadData(){
-  const m=document.getElementById('msg');m.style.display='block';m.textContent='Cargando datos…';
+  const m=document.getElementById('msg');
+  const firstLoad=!DATA.length;
+  const btn=document.getElementById('btnReload');
+  if(btn){if(!btn.dataset.t)btn.dataset.t=btn.textContent;btn.disabled=true;btn.textContent='Actualizando…';}
+  if(firstLoad){m.style.display='block';m.innerHTML='<div class="loadbox"><div class="spinner"></div><div>Cargando datos…</div></div>';}
   const c=getSB();
-  if(!c){m.innerHTML='No se pudo conectar a la base.';return;}
+  if(!c){m.innerHTML='No se pudo conectar a la base.';if(btn){btn.disabled=false;btn.textContent=btn.dataset.t;}return;}
   try{
     const {data,error}=await c.from('quintetos_log').select('*').limit(8000);
     if(error)throw error;
@@ -356,7 +364,8 @@ async function loadData(){
     buildSelectors();
     renderAll();
     if(typeof coachTrySelectTeam==='function')coachTrySelectTeam();
-  }catch(e){ m.innerHTML='Error al leer la base: '+(e.message||e); }
+  }catch(e){ m.style.display='block';m.innerHTML='Error al leer la base: '+(e.message||e); }
+  finally{ if(btn){btn.disabled=false;btn.textContent=btn.dataset.t||'↻ Actualizar';} }
 }
 
 function buildSelectors(){
@@ -729,13 +738,14 @@ let lidMode='pg';
 function setLidMode(m){lidMode=m;renderLideres();}
 let MERGES=(function(){try{return JSON.parse(localStorage.getItem('sp_merges')||'[]');}catch(_){return[];}})();
 function saveMerges(){try{localStorage.setItem('sp_merges',JSON.stringify(MERGES));}catch(_){}}
+function refreshAfterMerge(){renderAll();const ov=document.getElementById('adminOverlay');if(ov&&ov.style.display!=='none')renderAdmin();}
 function isMerged(equipo,nu){return MERGES.indexOf(equipo+'|'+nu)>=0;}
-function confirmMerge(equipo,nu){if(!isMerged(equipo,nu))MERGES.push(equipo+'|'+nu);saveMerges();renderAll();}
-function undoMerge(equipo,nu){MERGES=MERGES.filter(x=>x!==equipo+'|'+nu);saveMerges();renderAll();}
+function confirmMerge(equipo,nu){if(!isMerged(equipo,nu))MERGES.push(equipo+'|'+nu);saveMerges();refreshAfterMerge();}
+function undoMerge(equipo,nu){MERGES=MERGES.filter(x=>x!==equipo+'|'+nu);saveMerges();refreshAfterMerge();}
 let MERGE_DISMISS=(function(){try{return JSON.parse(localStorage.getItem('sp_merge_dismiss')||'[]');}catch(_){return[];}})();
 function saveDismiss(){try{localStorage.setItem('sp_merge_dismiss',JSON.stringify(MERGE_DISMISS));}catch(_){}}
 function isDismissed(equipo,nu){return MERGE_DISMISS.indexOf(equipo+'|'+nu)>=0;}
-function dismissMerge(equipo,nu){if(!isDismissed(equipo,nu))MERGE_DISMISS.push(equipo+'|'+nu);saveDismiss();renderAll();}
+function dismissMerge(equipo,nu){if(!isDismissed(equipo,nu))MERGE_DISMISS.push(equipo+'|'+nu);saveDismiss();refreshAfterMerge();}
 function mergeTokens(v){return v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(t=>t.length>=3);}
 function mergeSuggestions(team){
   const sug=[],byNum={};
