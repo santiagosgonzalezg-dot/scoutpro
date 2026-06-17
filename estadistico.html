@@ -57,6 +57,8 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .adm-nav button{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
 .adm-nav button:hover{color:var(--text)}
 .adm-nav button.on{background:rgba(249,115,22,.13);border-color:var(--offense);color:var(--offense)}
+.adm-badge{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--offense);color:#fff;font-size:9px;font-weight:700;margin-left:3px}
+.tb-admin .tb-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--offense);margin-left:4px;vertical-align:middle}
 .adm-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;max-width:520px}
 @media(max-width:560px){.adm-formgrid{grid-template-columns:1fr}}
 .adm-formgrid .adm-inp{margin-bottom:0}
@@ -257,7 +259,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <a class="tb-btn qtos" href="quintetos.html">🔄 Quintetos</a>
   <a class="tb-btn" href="defensa.html">🛡 Defensa</a>
   <a class="tb-btn" href="index.html">🏠 Menú</a>
-  <button class="tb-btn tb-admin" onclick="adminOpen()" title="Panel de administración">· admin</button>
+  <button class="tb-btn tb-admin" id="tbAdmin" onclick="adminOpen()" title="Panel de administración">· admin</button>
   <button class="tb-btn" onclick="loadData()">↻ Actualizar</button>
 </div>
 <div id="coachOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)coachClose()"><div class="adm-box" style="max-width:420px"><div class="adm-head"><span class="adm-title">Ingresar como coach</span><button class="adm-close" onclick="coachClose()">✕</button></div><div id="coachBody"></div></div></div>
@@ -1663,7 +1665,8 @@ function renderPareto(){
     rows.map(r=>'<tr><td>'+r.i+'</td><td class="l">'+(r.num?'#'+r.num+' ':'')+r.name+'</td><td>'+r.val+'</td><td class="pc" style="color:#34c769">'+r.share+'%</td><td>'+r.acum+'%</td></tr>').join('')+'</tbody></table></div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();}
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();updateAdminDot();}
+function updateAdminDot(){const b=document.getElementById('tbAdmin');if(!b)return;const n=(PLAYERS&&PLAYERS.length)?playerAlerts().length:0;b.innerHTML='· admin'+(n?'<span class="tb-dot" title="'+n+' para revisar"></span>':'');}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
@@ -1739,14 +1742,49 @@ function dbStatus(){
   return Object.values(M).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
 }
 let adminTab='estado',PERFILES=[];
+function playerAlerts(){
+  const alerts=[],rows=PLAYERS;
+  // (1) mismo equipo + mismo número, nombres que NO comparten apellido → posible jugador distinto con igual número
+  const byNum={};
+  rows.forEach(r=>{const nu=String(r.num||'').trim();if(!nu)return;const k=r.equipo+'|'+nu;(byNum[k]=byNum[k]||{equipo:r.equipo,num:nu,names:{}});const nm=String(r.nombre||'').trim();if(nm)byNum[k].names[nm]=(byNum[k].names[nm]||0)+1;});
+  Object.values(byNum).forEach(g=>{
+    const variants=Object.keys(g.names);if(variants.length<2)return;
+    const tok=variants.map(v=>new Set(normNm(v).split(' ').filter(t=>t.length>=3)));
+    let compat=true;
+    for(let i=0;i<tok.length;i++)for(let j=i+1;j<tok.length;j++){let sh=false;tok[i].forEach(t=>{if(tok[j].has(t))sh=true;});if(!sh)compat=false;}
+    if(!compat)alerts.push({tipo:'num',equipo:g.equipo,clave:'#'+g.num,detalle:variants});
+  });
+  // (2) mismo equipo + mismo nombre, distintos números → posible mismo jugador con número cambiado (hoy aparece separado)
+  const byName={};
+  rows.forEach(r=>{const nm=normNm(r.nombre);if(!nm)return;const k=r.equipo+'|'+nm;(byName[k]=byName[k]||{equipo:r.equipo,nombre:r.nombre,nums:new Set()});byName[k].nums.add(String(r.num||'').trim());});
+  Object.values(byName).forEach(g=>{const nums=[...g.nums].filter(Boolean);if(nums.length>=2)alerts.push({tipo:'name',equipo:g.equipo,clave:g.nombre,detalle:nums.map(n=>'#'+n)});});
+  return alerts;
+}
 function adminShow(t){adminTab=t;renderAdmin();}
 function renderAdmin(){
   document.getElementById('admTitle').textContent='Administración';
+  const nAlert=playerAlerts().length;
   const nav='<div class="adm-nav"><button class="'+(adminTab==='estado'?'on':'')+'" onclick="adminShow(\'estado\')">📊 Estado de la base</button>'+
     '<button class="'+(adminTab==='perfiles'?'on':'')+'" onclick="adminShow(\'perfiles\')">👤 Perfiles</button>'+
+    '<button class="'+(adminTab==='revisar'?'on':'')+'" onclick="adminShow(\'revisar\')">⚠ Revisar'+(nAlert?' <span class="adm-badge">'+nAlert+'</span>':'')+'</button>'+
     '<button class="adm-logout" style="margin-left:auto" onclick="adminLogout()">Cerrar sesión</button></div>';
   document.getElementById('adminBody').innerHTML=nav+'<div id="admSub"></div>';
-  if(adminTab==='perfiles')renderAdminPerfiles();else renderAdminEstado();
+  if(adminTab==='perfiles')renderAdminPerfiles();else if(adminTab==='revisar')renderAdminRevisar();else renderAdminEstado();
+}
+function renderAdminRevisar(){
+  const sub=document.getElementById('admSub'),al=playerAlerts();
+  if(!al.length){sub.innerHTML='<div class="empty">✓ Todo en orden. No hay jugadores dudosos para revisar.</div>';return;}
+  const card=a=>{
+    const esNum=a.tipo==='num';
+    const titulo=esNum?(a.equipo+' · número '+a.clave):(a.equipo+' · '+a.clave);
+    const txt=esNum
+      ?'Con el número '+a.clave+' aparecen nombres muy distintos: <b>'+a.detalle.join('</b> · <b>')+'</b>. Hoy se cuentan como el mismo jugador (porque el número manda). Si en realidad son <b>dos personas distintas</b> (por ejemplo, cambió el extranjero), avisá y lo separamos.'
+      :'El jugador <b>'+a.clave+'</b> aparece con números distintos: <b>'+a.detalle.join('</b> · <b>')+'</b>. Hoy se cuentan <b>separados</b> (uno por número). Si es <b>la misma persona</b> que cambió de camiseta, avisá y lo unimos.';
+    return '<div class="court-box" style="margin-bottom:10px"><div class="zone-lbl" style="margin-bottom:6px;color:var(--offense)">'+(esNum?'⚠ Mismo número, nombres distintos':'ℹ Mismo nombre, números distintos')+'</div>'+
+      '<div style="font-family:var(--font-body);font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">'+titulo+'</div>'+
+      '<div style="font-family:var(--font-body);font-size:13px;line-height:1.6;color:var(--text-2)">'+txt+'</div></div>';
+  };
+  sub.innerHTML='<div class="zone-sub" style="margin:4px 0 12px">Casos donde el número y el nombre no coinciden del todo. La app ya decidió por su cuenta (junta por número), pero te los muestra para que confirmes. Si algo está mal, avisá y se corrige a mano en la base.</div>'+al.map(card).join('');
 }
 function renderAdminEstado(){
   const rows=dbStatus(),sub=document.getElementById('admSub');
