@@ -211,6 +211,17 @@ table.t tr:hover td{background:var(--bg-hover)}
 .sc-tip .r{font-family:var(--font-mono);font-size:10.5px;color:var(--text-2);letter-spacing:.3px;line-height:1.5}
 .sc-tip .r b{color:var(--text);font-weight:500}
 .scpt{cursor:pointer}
+.coach-chip{display:flex;align-items:center;gap:9px;margin-left:14px}
+.coach-chip.on{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:30px;padding:4px 10px 4px 5px}
+.club-badge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-disp);font-weight:900;font-size:13px;color:#fff;letter-spacing:.3px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);flex-shrink:0}
+.coach-meta{display:flex;flex-direction:column;line-height:1.15}
+.coach-meta b{font-family:var(--font-disp);font-weight:800;font-size:14px;letter-spacing:.3px}
+.coach-meta span{font-family:var(--font-mono);font-size:9px;color:var(--text-2);text-transform:uppercase;letter-spacing:.4px}
+.coach-out{background:none;border:none;color:var(--text-3);cursor:pointer;font-family:var(--font-mono);font-size:11px;padding:2px 4px;transition:color var(--t-fast)}
+.coach-out:hover{color:var(--negative)}
+.coach-in{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:30px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 14px;cursor:pointer;transition:all var(--t-fast)}
+.coach-in:hover{border-color:var(--offense);color:var(--offense)}
+.club-badge-lg{width:64px;height:64px;font-size:26px;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
 .rv-item{font-size:13.5px;color:#cfd5e3;line-height:1.5;padding:5px 0}
 .brk-row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
 .brk-name{width:150px;font-size:13px;flex-shrink:0}
@@ -231,6 +242,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 <body>
 <div class="topbar">
   <div class="logo"><span class="a">ESTADÍSTICO</span><span class="v">EQUIPOS</span></div>
+  <div id="coachChip" class="coach-chip"></div>
   <div class="tb-spacer"></div>
   <a class="tb-btn qtos" href="quintetos.html">🔄 Quintetos</a>
   <a class="tb-btn" href="defensa.html">🛡 Defensa</a>
@@ -238,6 +250,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <button class="tb-btn tb-admin" onclick="adminOpen()" title="Panel de administración">· admin</button>
   <button class="tb-btn" onclick="loadData()">↻ Actualizar</button>
 </div>
+<div id="coachOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)coachClose()"><div class="adm-box" style="max-width:420px"><div class="adm-head"><span class="adm-title">Ingresar como coach</span><button class="adm-close" onclick="coachClose()">✕</button></div><div id="coachBody"></div></div></div>
 <div id="adminOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)adminClose()"><div class="adm-box"><div class="adm-head"><span class="adm-title" id="admTitle">Estado de la base</span><button class="adm-close" onclick="adminClose()">✕ Cerrar</button></div><div id="adminBody"></div></div></div>
 
 <div class="wrap">
@@ -317,6 +330,7 @@ async function loadData(){
     document.getElementById('tabs').style.display='flex';
     buildSelectors();
     renderAll();
+    if(typeof coachTrySelectTeam==='function')coachTrySelectTeam();
   }catch(e){ m.innerHTML='Error al leer la base: '+(e.message||e); }
 }
 
@@ -1586,6 +1600,75 @@ async function borrarPerfil(id){
   const c=getSB();try{await c.from('perfiles').delete().eq('id',id);}catch(e){}
   renderAdminPerfiles();
 }
+// ── COACH (login estético por club) ──
+let COACH=null;
+try{const s=localStorage.getItem('sp_coach');if(s)COACH=JSON.parse(s);}catch(e){}
+function saveCoach(){try{COACH?localStorage.setItem('sp_coach',JSON.stringify(COACH)):localStorage.removeItem('sp_coach');}catch(e){}}
+function clubInitials(club){const w=String(club||'').trim().split(/\s+/).filter(Boolean);if(!w.length)return '?';if(w.length===1)return w[0].slice(0,2).toUpperCase();return (w[0][0]+w[1][0]).toUpperCase();}
+function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',52%,46%)';}
+function renderCoachChip(){
+  const el=document.getElementById('coachChip');if(!el)return;
+  if(COACH&&COACH.club){
+    el.className='coach-chip on';
+    el.innerHTML='<span class="club-badge" style="background:'+clubColor(COACH.club)+'">'+clubInitials(COACH.club)+'</span>'+
+      '<span class="coach-meta"><b>'+COACH.club+'</b><span>'+((COACH.nombre||'')+' '+(COACH.apellido||'')).trim()+'</span></span>'+
+      '<button class="coach-out" onclick="coachLogout()" title="Cerrar sesión">✕</button>';
+  }else{
+    el.className='coach-chip';
+    el.innerHTML='<button class="coach-in" onclick="coachOpen()">👤 Ingresar</button>';
+  }
+}
+function coachOpen(){renderCoachLogin('');document.getElementById('coachOverlay').style.display='flex';}
+function coachClose(){document.getElementById('coachOverlay').style.display='none';}
+function renderCoachLogin(msg){
+  document.getElementById('coachBody').innerHTML=
+    '<div class="adm-login">'+
+      '<p class="zone-sub" style="margin-bottom:14px">Ingresá con el correo de tu perfil (el que aprobó el admin).</p>'+
+      '<input id="coEmail" class="adm-inp" type="email" placeholder="Tu correo" autocomplete="username" onkeydown="if(event.key===\'Enter\')coachLogin()">'+
+      '<button class="adm-btn" onclick="coachLogin()">Entrar</button>'+
+      (msg?'<div class="adm-msg" style="text-align:left">'+msg+'</div>':'')+
+      '<div class="adm-altlink">¿No tenés perfil? <a onclick="renderCoachSignup(\'\')">Creá el tuyo</a></div>'+
+    '</div>';
+  const e=document.getElementById('coEmail');if(e)e.focus();
+}
+async function coachLogin(){
+  const email=(document.getElementById('coEmail').value||'').trim();
+  if(!email){renderCoachLogin('Ingresá tu correo.');return;}
+  const c=getSB();let data=[];
+  try{const r=await c.from('perfiles').select('*').ilike('correo',email);data=r.error?[]:(r.data||[]);}catch(e){}
+  const p=data[0];
+  if(!p){renderCoachLogin('No encontramos un perfil con ese correo. Pedile al admin que te cree o apruebe uno.');return;}
+  if((p.estado||'aprobado')!=='aprobado'){renderCoachLogin('Tu perfil todavía está pendiente de aprobación del admin.');return;}
+  COACH={nombre:p.nombre,apellido:p.apellido,correo:p.correo,club:p.club};saveCoach();
+  coachClose();renderCoachChip();coachTrySelectTeam();
+}
+function coachLogout(){COACH=null;saveCoach();renderCoachChip();}
+function renderCoachSignup(msg){
+  document.getElementById('coachBody').innerHTML=
+    '<div class="adm-login">'+
+      '<p class="zone-sub" style="margin-bottom:14px">Cargá tus datos. El perfil queda <b>pendiente</b> hasta que el admin lo apruebe.</p>'+
+      '<div class="adm-formgrid"><input id="csNombre" class="adm-inp" placeholder="Nombre"><input id="csApellido" class="adm-inp" placeholder="Apellido"><input id="csCorreo" class="adm-inp" type="email" placeholder="Correo"><input id="csClub" class="adm-inp" placeholder="Club al que pertenece"></div>'+
+      '<button class="adm-btn" onclick="enviarSolicitudCoach()">Enviar solicitud</button>'+
+      '<div class="adm-msg" id="csMsg" style="text-align:left">'+(msg||'')+'</div>'+
+      '<div class="adm-altlink"><a onclick="renderCoachLogin(\'\')">← Volver</a></div>'+
+    '</div>';
+}
+async function enviarSolicitudCoach(){
+  const g=id=>(document.getElementById(id).value||'').trim(),msg=document.getElementById('csMsg');
+  const nombre=g('csNombre'),apellido=g('csApellido'),correo=g('csCorreo'),club=g('csClub');
+  if(!nombre||!apellido||!correo||!club){msg.style.color='var(--negative)';msg.textContent='Completá los 4 campos.';return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)){msg.style.color='var(--negative)';msg.textContent='El correo no parece válido.';return;}
+  const c=getSB();
+  try{const r=await c.from('perfiles').insert([{nombre,apellido,correo,club,estado:'pendiente'}]);if(r.error)throw r.error;}
+  catch(e){msg.style.color='var(--negative)';msg.textContent='No se pudo enviar: '+(e.message||e);return;}
+  document.getElementById('coachBody').innerHTML='<div class="adm-login" style="text-align:center"><div style="font-size:38px;margin-bottom:8px">✅</div><p style="color:var(--text);font-size:15px;margin:0 0 6px">¡Solicitud enviada!</p><p class="zone-sub">El administrador la va a revisar y aprobar.</p><div class="adm-altlink"><a onclick="coachClose()">Cerrar</a></div></div>';
+}
+function coachTrySelectTeam(){
+  if(!COACH||!COACH.club)return;const st=document.getElementById('selTeam');if(!st)return;
+  const norm=s=>String(s||'').toLowerCase().replace(/[\s.]/g,'');const t=norm(COACH.club);
+  for(const o of st.options){if(o.value&&(norm(o.value)===t||norm(o.textContent)===t)){st.value=o.value;renderAll();break;}}
+}
+renderCoachChip();
 loadData();
 </script>
 </body>
