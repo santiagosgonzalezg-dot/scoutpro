@@ -528,7 +528,38 @@ function renderEquipo(){
     {key:'ptsF',label:'PTS+',sortable:true,val:r=>r.a.ptsF,cell:r=>r.a.ptsF},
     {key:'ptsC',label:'PTS-',sortable:true,val:r=>r.a.ptsC,cell:r=>r.a.ptsC},
   ];
-  document.getElementById('view-equipo').innerHTML=kpis+'<div class="sec">Quintetos más usados</div>'+sortableTable('view-equipo','Quintetos · '+team,cols,lus,'equipoLU');
+  document.getElementById('view-equipo').innerHTML=kpis+'<div class="sec">Quintetos más usados</div>'+sortableTable('view-equipo','Quintetos · '+team,cols,lus,'equipoLU')+splitsBlock(team);
+}
+function teamGames(team){
+  const rows=allRowsFiltered().filter(r=>r.equipo===team),g={};
+  rows.forEach(r=>{const id=r.match_id||r.fecha||'?';const o=g[id]||(g[id]={mid:id,fecha:r.fecha,rival:r.rival,es_local:r.es_local,ptsF:0,ptsC:0,pos:0,posRiv:0});
+    o.ptsF+=num(r.pts_favor);o.ptsC+=num(r.pts_contra);o.pos+=num(r.pos);o.posRiv+=num(r.pos_riv);
+    if(r.rival&&!o.rival)o.rival=r.rival;if(r.es_local!=null)o.es_local=r.es_local;});
+  return Object.values(g).map(o=>({...o,diff:o.ptsF-o.ptsC,efOff:o.pos>0?o.ptsF/o.pos:0,efDef:o.posRiv>0?o.ptsC/o.posRiv:0}));
+}
+function splitAgg(games){
+  const n=games.length;if(!n)return null;
+  let w=0,l=0,pf=0,pc=0,eo=0,ed=0,ne=0;
+  games.forEach(x=>{if(x.diff>0)w++;else if(x.diff<0)l++;pf+=x.ptsF;pc+=x.ptsC;if(x.efOff){eo+=x.efOff;ed+=x.efDef;ne++;}});
+  return {n,w,l,pf:pf/n,pc:pc/n,dif:(pf-pc)/n,efo:ne?eo/ne:0,efd:ne?ed/ne:0};
+}
+function splitRow(lbl,s){
+  if(!s)return '';
+  return '<tr><td class="l">'+lbl+'</td><td>'+s.n+'</td><td class="l">'+s.w+'-'+s.l+'</td><td>'+s.pf.toFixed(1)+'</td><td>'+s.pc.toFixed(1)+'</td><td style="color:'+dc(s.dif)+'">'+(s.dif>0?'+':'')+s.dif.toFixed(1)+'</td><td>'+pp(s.efo)+'</td><td>'+pp(s.efd)+'</td></tr>';
+}
+function splitsBlock(team){
+  const games=teamGames(team);
+  if(!games.length)return '';
+  const loc=games.filter(g=>g.es_local===true||g.es_local==='true'||g.es_local==='t');
+  const vis=games.filter(g=>!(g.es_local===true||g.es_local==='true'||g.es_local==='t'));
+  const lv='<table class="bs-table"><thead><tr><th class="l">Condición</th><th>PJ</th><th class="l">Récord</th><th>PF</th><th>PC</th><th>DIF</th><th>EF.OF</th><th>EF.DEF</th></tr></thead><tbody>'+
+    splitRow('Local',splitAgg(loc))+splitRow('Visitante',splitAgg(vis))+splitRow('Total',splitAgg(games))+'</tbody></table>';
+  // por rival
+  const byRiv={};games.forEach(g=>{const r=g.rival||'?';(byRiv[r]=byRiv[r]||[]).push(g);});
+  const rivRows=Object.keys(byRiv).sort().map(r=>{const s=splitAgg(byRiv[r]);return '<tr><td class="l">'+r+'</td><td>'+s.n+'</td><td class="l">'+s.w+'-'+s.l+'</td><td>'+s.pf.toFixed(1)+'</td><td>'+s.pc.toFixed(1)+'</td><td style="color:'+dc(s.dif)+'">'+(s.dif>0?'+':'')+s.dif.toFixed(1)+'</td></tr>';}).join('');
+  const pr='<table class="bs-table"><thead><tr><th class="l">Rival</th><th>PJ</th><th class="l">Récord</th><th>PF</th><th>PC</th><th>DIF</th></tr></thead><tbody>'+rivRows+'</tbody></table>';
+  return '<div class="sec">Splits · local / visitante</div><div class="court-box" style="overflow-x:auto">'+lv+'<div class="zone-sub" style="margin-top:8px">Promedios por partido. Récord = ganados-perdidos.</div></div>'+
+    '<div class="sec">Splits · por rival</div><div class="court-box" style="overflow-x:auto">'+pr+'</div>';
 }
 function pkeyArr(arr){return (arr||[]).map(p=>pkey(p)).sort().join('||');}
 function kpi(v,k,cls){return '<div class="kpi"><div class="v '+(cls||'')+'">'+v+'</div><div class="k">'+k+'</div></div>';}
@@ -812,8 +843,22 @@ function renderTiros(){
   }else{
     tramoPanel='<div class="zone-sub" style="margin-top:14px">Para ver cuándo se tira (primeros / segundos / últimos 8" de la posesión), re-guardá los partidos desde Quintetos con la versión nueva.</div>';
   }
+  // calidad de tiro: puntos por tiro esperado (por zona, según la liga) vs real
+  const zb={};Object.keys(HEAT_ZONES).forEach(k=>zb[k]={m2:0,m3:0,a:0});
+  poolFase.map(foldShot).filter(Boolean).forEach(f=>{const zk=heatZone(f);if(!zb[zk])return;zb[zk].a++;if(f.made){if(f.tipo==='3pt')zb[zk].m3++;else zb[zk].m2++;}});
+  const zonePPS={};Object.keys(zb).forEach(k=>{const b=zb[k];zonePPS[k]=b.a?(b.m2*2+b.m3*3)/b.a:0;});
+  let xp=0,xn=0,realPts=0;
+  sel.map(foldShot).filter(Boolean).forEach(f=>{const zk=heatZone(f);if(zonePPS[zk]!=null){xp+=zonePPS[zk];xn++;if(f.made)realPts+=(f.tipo==='3pt'?3:2);}});
+  const xPPS=xn?xp/xn:0,rPPS=xn?realPts/xn:0,dPPS=rPPS-xPPS;
+  let veredicto;
+  if(dPPS>=0.06)veredicto='Mete más de lo que valen sus tiros: está fino / puntería por encima de la media. Ojo, puede no sostenerse.';
+  else if(dPPS<=-0.06)veredicto='Tira de buenos lugares pero está frío: mete menos de lo esperado (debería subir si sigue tirando ahí).';
+  else veredicto='Rinde acorde a la calidad de sus tiros.';
+  const sqPanel=xn?('<div class="sec">Calidad de tiro</div><div class="court-box">'+
+    '<div class="kpis ficha-kpis">'+kpi(rPPS.toFixed(2),'PUNTOS/TIRO REAL')+kpi(xPPS.toFixed(2),'ESPERADO POR ZONA')+kpi((dPPS>0?'+':'')+dPPS.toFixed(2),'DIFERENCIA','val-hl')+'</div>'+
+    '<div class="zone-sub" style="margin-top:8px">'+veredicto+' · El <b>esperado</b> es cuánto vale en promedio un tiro desde esas zonas en toda tu liga; el <b>real</b> es lo que efectivamente metió. No incluye libres.</div></div>'):'';
   el.innerHTML=ctl+'<div class="sec">'+titulo+' · '+ctx+' · '+sel.length+' tiros</div>'+
-    '<div class="court-box">'+(heatMode?courtHeatSVG(sel):courtSVGFull(sel))+'</div>'+kpiRow+tramoPanel;
+    '<div class="court-box">'+(heatMode?courtHeatSVG(sel):courtSVGFull(sel))+'</div>'+kpiRow+sqPanel+tramoPanel;
 }
 
 // ── VISTA CORRELACIONES (dispersión + tendencia + r) ──
@@ -1309,6 +1354,19 @@ function teamRecord(team){
 }
 
 // ── VISTA RIVAL (scouting / próximo partido) ──
+function tovPct(a){const d=a.fga+0.44*a.tli+a.per;return d>0?Math.round(a.per/d*1000)/10:0;}
+function ftRate(a){return a.fga>0?Math.round(a.tlc/a.fga*1000)/10:0;}
+function fourOff(a){return {efg:a.efg,tov:tovPct(a),orb:a.orbPct,ftr:ftRate(a)};}
+function oppAggOf(team){
+  const rows=allRowsFiltered();const mids=new Set(rows.filter(r=>r.equipo===team).map(r=>r.match_id));
+  return agg(rows.filter(r=>r.equipo!==team&&mids.has(r.match_id)));
+}
+function fourDef(team,a){const od=oppAggOf(team);return {efg:od.efg,tov:tovPct(od),orb:100-(a.drbPct||0),ftr:ftRate(od)};}
+function leagueAvgFour(stats,def){
+  const acc={efg:0,tov:0,orb:0,ftr:0};let n=0;
+  stats.forEach(s=>{const f=def?fourDef(s.team,s.a):fourOff(s.a);acc.efg+=f.efg;acc.tov+=f.tov;acc.orb+=f.orb;acc.ftr+=f.ftr;n++;});
+  if(!n)return acc;return {efg:+(acc.efg/n).toFixed(1),tov:+(acc.tov/n).toFixed(1),orb:Math.round(acc.orb/n),ftr:+(acc.ftr/n).toFixed(1)};
+}
 function topShare(team,key){
   const pool=playersAgg().filter(p=>p.equipo===team&&(+p[key]||0)>0).map(p=>({name:p.nombre,num:p.num,val:+p[key]||0})).sort((a,b)=>b.val-a.val);
   if(!pool.length)return null;const total=pool.reduce((s,p)=>s+p.val,0);
@@ -1398,6 +1456,27 @@ function renderRival(){
   if(pTi>=70)estilo.push('buen tiro');
   if(pRe>=70)estilo.push('dominio del rebote');
   const estiloTxt=estilo.length?estilo.join(' · '):'perfil parejo';
+  // ── FOUR FACTORS (rival vs nosotros / liga) ──
+  const myTeam=(COACH&&COACH.club)?(teams.find(t=>String(t).toLowerCase().replace(/[\s.]/g,'')===String(COACH.club).toLowerCase().replace(/[\s.]/g,''))||null):null;
+  const rOff=fourOff(a),rDef=fourDef(rivalTeam,a);
+  let nOff,nDef,nLabel;
+  if(myTeam){const ma=stats.find(s=>s.team===myTeam).a;nOff=fourOff(ma);nDef=fourDef(myTeam,ma);nLabel=myTeam;}
+  else{nOff=leagueAvgFour(stats,false);nDef=leagueAvgFour(stats,true);nLabel='Liga (prom)';}
+  const ffTable=(title,riv,ours,defs)=>{
+    return '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px">'+title+'</div>'+
+      '<table class="bs-table"><thead><tr><th class="l">Factor</th><th>Rival</th><th>'+nLabel+'</th></tr></thead><tbody>'+
+      defs.map(f=>{const rv=riv[f[1]],ov=ours[f[1]],rGood=f[2]?rv>=ov:rv<=ov,unit=f[1]==='ftr'?'':'%';
+        return '<tr><td class="l">'+f[0]+'</td><td style="color:'+(rGood?'#34c769':'#8891a0')+'">'+rv+unit+'</td><td style="color:'+(!rGood?'#34c769':'#8891a0')+'">'+ov+unit+'</td></tr>';}).join('')+
+      '</tbody></table></div>';
+  };
+  const FF_OFF=[['eFG%','efg',true],['% Pérdidas','tov',false],['Reb. of. %','orb',true],['TL por 100 tiros','ftr',true]];
+  const FF_DEF=[['eFG% que recibe','efg',false],['% Pérd. forzadas','tov',true],['Reb. of. cedido %','orb',false],['TL/100 cedidos','ftr',false]];
+  const ffSec='<div class="sec">Four Factors</div>'+
+    '<div class="ficha-grid">'+
+      ffTable('Ofensivos (cómo atacan)',rOff,nOff,FF_OFF)+
+      ffTable('Defensivos (cómo defienden)',rDef,nDef,FF_DEF)+
+    '</div>'+
+    '<div class="zone-sub" style="margin:2px 0 4px">Verde = mejor de los dos en ese factor. Comparado contra '+(myTeam?('tu equipo, '+nLabel):'el promedio de la liga')+'. Los 4 factores (Dean Oliver): tiro (eFG%), cuidado del balón (% pérdidas), rebote ofensivo y generación de tiros libres.</div>';
   el.innerHTML=sel+'<div id="rival-report">'+
     '<div class="ficha-card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
       '<span class="club-badge club-badge-lg" style="background:'+clubColor(rivalTeam)+'">'+clubInitials(rivalTeam)+'</span>'+
@@ -1409,6 +1488,7 @@ function renderRival(){
     '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:6px">Perfil del equipo</div>'+radarSVG(dims)+'</div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:14px">Perfil vs la liga</div>'+bar+
       '<div class="zone-sub" style="margin-top:8px">Barra = posición en la liga (más llena = mejor). Gris = neutro (ritmo / volumen). El valor real va a la derecha.</div></div></div>'+
+    ffSec+
     '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#34c769">Fortalezas</div>'+(strong.length?strong.map(s=>'<div class="rv-item">✔ '+s+'</div>').join(''):'<div class="zone-sub">Sin fortalezas marcadas.</div>')+'</div>'+
       '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#f05050">Debilidades</div>'+(weak.length?weak.map(s=>'<div class="rv-item">✘ '+s+'</div>').join(''):'<div class="zone-sub">Sin debilidades marcadas.</div>')+'</div></div>'+
     '<div class="sec">Jugadores a vigilar</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'+watch+'</div>'+
