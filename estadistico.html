@@ -268,6 +268,7 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab" data-v="correl" onclick="switchView('correl')">Correlaciones</button>
     <button class="tab" data-v="cuartos" onclick="switchView('cuartos')">Cuartos</button>
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
+    <button class="tab" data-v="identidad" onclick="switchView('identidad')">Identidad</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="duplas" onclick="switchView('duplas')">Duplas</button>
     <button class="tab" data-v="rival" onclick="switchView('rival')">Rival</button>
@@ -284,6 +285,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view" id="view-correl"></div>
   <div class="view" id="view-cuartos"></div>
   <div class="view" id="view-equipo"></div>
+  <div class="view" id="view-identidad"></div>
   <div class="view" id="view-comparar"></div>
   <div class="view" id="view-duplas"></div>
   <div class="view" id="view-rival"></div>
@@ -1301,6 +1303,65 @@ function renderDuplas(){
     sortableTable('view-duplas-tbl','',cols,lus,'duplas');
 }
 
+// ── VISTA IDENTIDAD (tarjeta de equipo) ──
+let identTeam='';
+function setIdentTeam(v){identTeam=v;renderIdentidad();}
+function teamRecord(team){
+  const byMatch={};
+  allRowsFiltered().filter(r=>r.equipo===team).forEach(r=>{const id=r.match_id||r.fecha||'?';byMatch[id]=(byMatch[id]||0)+((+r.pts_favor||0)-(+r.pts_contra||0));});
+  let w=0,l=0;Object.values(byMatch).forEach(d=>{if(d>0)w++;else if(d<0)l++;});return {w,l};
+}
+function renderIdentidad(){
+  const el=document.getElementById('view-identidad');
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
+  const stats=leagueTeamStats(),teams=stats.map(s=>s.team).sort();
+  if(identTeam&&!teams.includes(identTeam))identTeam='';
+  if(!identTeam)identTeam=teams[0];
+  const sel='<div class="tiros-ctl"><span class="zone-lbl">Equipo</span><select onchange="setIdentTeam(this.value)">'+teams.map(t=>'<option'+(t===identTeam?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
+    '<button class="sim-btn" id="identPdfBtn" onclick="shareIdentidad()" style="margin-left:auto">⬇ Descargar / compartir</button></div>';
+  const me=stats.find(s=>s.team===identTeam);if(!me){el.innerHTML=sel+'<div class="empty">Sin datos del equipo.</div>';return;}
+  const a=me.a,arr=k=>stats.map(s=>s.a[k]);
+  const pAt=rankPct(arr('efOff'),a.efOff,true),pDf=rankPct(arr('efDef'),a.efDef,false),pRi=rankPct(arr('pace'),a.pace,true),pTi=rankPct(arr('ts'),a.ts,true);
+  const orb=rankPct(arr('orbPct'),a.orbPct,true),drb=rankPct(arr('drbPct'),a.drbPct,true),pRe=Math.round((orb+drb)/2);
+  const dims=[['Ataque',pAt],['Defensa',pDf],['Ritmo',pRi],['Tiro',pTi],['Rebote',pRe]];
+  const rec=teamRecord(identTeam),pj=a.pj||1;
+  const kpis='<div class="kpis ficha-kpis">'+kpi(a.pj,'PJ')+kpi(rec.w+'-'+rec.l,'RÉCORD')+kpi(pp1(a.ptsF/pj),'PF')+kpi(pp1(a.ptsC/pj),'PC')+kpi((a.diff>0?'+':'')+pp1(a.diff/pj),'DIF','val-hl')+kpi(pp(a.efOff),'EF.OF')+'</div>';
+  const bars=dims.map(d=>'<div class="pbar-row"><span class="pbar-lbl">'+d[0]+'</span><span class="pbar-track"><span class="pbar-fill" style="width:'+d[1]+'%;background:'+pctColor(d[1])+'"></span></span><span class="pbar-pct" style="color:'+pctColor(d[1])+'">'+d[1]+'%</span></div>').join('');
+  const estilo=[];
+  if(pRi>=70)estilo.push('ritmo alto');else if(pRi<=30)estilo.push('ritmo lento');
+  if(pAt>=70)estilo.push('ataque potente');
+  if(pDf>=70)estilo.push('defensa sólida');else if(pDf<=30)estilo.push('defensa floja');
+  if(pTi>=70)estilo.push('buen tiro');
+  if(pRe>=70)estilo.push('dominio del rebote');
+  const estiloTxt=estilo.length?estilo.join(' · '):'perfil parejo';
+  el.innerHTML=sel+'<div id="ident-report">'+
+    '<div class="ficha-card" style="display:flex;align-items:center;gap:16px">'+
+      '<span class="club-badge club-badge-lg" style="background:'+clubColor(identTeam)+'">'+clubInitials(identTeam)+'</span>'+
+      '<div><div class="fh-name">'+identTeam+'</div><div class="fh-team" style="margin-top:6px">'+a.pj+' partidos · récord '+rec.w+'-'+rec.l+'</div><div style="margin-top:9px"><span class="fh-tag">'+estiloTxt+'</span></div></div>'+
+    '</div>'+
+    kpis+
+    '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:6px">Perfil del equipo</div>'+radarSVG(dims)+'</div>'+
+    '<div class="court-box"><div class="zone-lbl" style="margin-bottom:14px">Percentil vs la liga</div>'+bars+
+    '<div class="zone-sub" style="margin-top:6px">Cada faceta es la posición del equipo en la liga (más lleno = mejor). En Defensa, mejor = recibe menos.</div></div></div>'+
+    '</div>';
+}
+async function shareIdentidad(){
+  const btn=document.getElementById('identPdfBtn');if(!btn)return;const old=btn.textContent;btn.textContent='Generando…';btn.disabled=true;
+  try{
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    const node=document.getElementById('ident-report');
+    const canvas=await html2canvas(node,{backgroundColor:'#08090d',scale:2,useCORS:true});
+    const nombre='Equipo_'+String(identTeam).replace(/\s+/g,'_');
+    await new Promise(res=>canvas.toBlob(async(blob)=>{
+      const file=new File([blob],nombre+'.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:nombre});}catch(e){}}
+      else{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=nombre+'.png';a.click();URL.revokeObjectURL(url);}
+      res();
+    },'image/png'));
+  }catch(e){alert('No se pudo generar la tarjeta: '+(e.message||e));}
+  btn.textContent=old;btn.disabled=false;
+}
+
 // ── VISTA RIVAL (scouting / próximo partido) ──
 function topShare(team,key){
   const pool=playersAgg().filter(p=>p.equipo===team&&(+p[key]||0)>0).map(p=>({name:p.nombre,num:p.num,val:+p[key]||0})).sort((a,b)=>b.val-a.val);
@@ -1465,7 +1526,7 @@ function renderPareto(){
     rows.map(r=>'<tr><td>'+r.i+'</td><td class="l">'+(r.num?'#'+r.num+' ':'')+r.name+'</td><td>'+r.val+'</td><td class="pc" style="color:#34c769">'+r.share+'%</td><td>'+r.acum+'%</td></tr>').join('')+'</tbody></table></div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();}
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderIdentidad();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
