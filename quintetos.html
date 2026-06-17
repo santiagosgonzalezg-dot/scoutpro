@@ -803,6 +803,7 @@ function pgMatchLineups(teamNo){
   }catch(e){return [];}
 }
 function pgLuKey(players){return (players||[]).map(p=>p.num).sort((a,b)=>(+a)-(+b)).join('-');}
+function pgLuNames(players){return (players||[]).slice().sort((a,b)=>(+a.num||0)-(+b.num||0)).map(p=>{const n=String(p.name||'').trim();const parts=n.split(/\s+/);return parts.length>1?parts[parts.length-1]:(n||('#'+p.num));}).join(' · ');}
 function pgDestacados(fno,ono){
   const flt=arr=>{const f=arr.filter(x=>x.min>=1.5);return f.length?f:arr;};
   const my=flt(pgMatchLineups(fno)),rv=flt(pgMatchLineups(ono));
@@ -810,8 +811,8 @@ function pgDestacados(fno,ono){
   const myS=byDiff(my),rvS=byDiff(rv);
   const best=myS.slice(0,3),worst=myS.slice(-3).reverse();
   const mostDmg=rvS.slice(0,3),leastDmg=rvS.slice(-3).reverse();
-  const rowMine=arr=>arr.map(x=>'<tr><td class="cmb">'+pgLuKey(x.players)+'</td><td>'+(x.min).toFixed(1)+'</td><td class="'+(x.diff>=0?'pos':'neg')+'">'+(x.diff>=0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
-  const rowRiv=arr=>arr.map(x=>'<tr><td class="cmb">'+pgLuKey(x.players)+'</td><td>'+(x.min).toFixed(1)+'</td><td class="'+(x.diff>0?'neg':'pos')+'">'+(x.diff>0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
+  const rowMine=arr=>arr.map(x=>'<tr><td class="cmb" style="font-size:9px;line-height:1.3">'+pgLuNames(x.players)+'</td><td>'+(x.min).toFixed(1)+'</td><td class="'+(x.diff>=0?'pos':'neg')+'">'+(x.diff>=0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
+  const rowRiv=arr=>arr.map(x=>'<tr><td class="cmb" style="font-size:9px;line-height:1.3">'+pgLuNames(x.players)+'</td><td>'+(x.min).toFixed(1)+'</td><td class="'+(x.diff>0?'neg':'pos')+'">'+(x.diff>0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
   return '<div class="grid2">'+
     '<div class="card tight"><div class="cap">🟢 Tus quintetos que más lastimaron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+rowMine(best)+'</tbody></table></div>'+
     '<div class="card tight"><div class="cap">🔴 Tus quintetos que menos rindieron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+rowMine(worst)+'</tbody></table></div></div>'+
