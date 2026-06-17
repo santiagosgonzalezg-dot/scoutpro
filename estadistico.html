@@ -1269,8 +1269,9 @@ function renderRival(){
   const R=(k,hb)=>{const m=METR.find(x=>x.k===k);return m?rankPct(m.arr,m.val,hb):50;};
   const claves=[];
   if(R('orbPct',true)>=65)claves.push('Bloqueá el rebote: atacan fuerte el rebote ofensivo.');
-  if(R('threeVol',true)>=65)claves.push('Cerrá el perímetro: tiran mucho de tres.');
-  if(R('threePct',true)>=65)claves.push('Ojo con sus tiradores: meten buen porcentaje de 3.');
+  if(R('threeVol',true)>=65)claves.push('Cerrá el perímetro: el '+a.threeVol+'% de sus tiros son triples.');
+  if(R('threePct',true)>=60)claves.push('Ojo con sus tiradores: meten el '+a.threePct+'% de tres.');
+  if(R('ts',true)>=65)claves.push('Equipo muy eficiente al tiro: TS% del '+a.ts+'%.');
   if(R('efDef',false)<=35)claves.push('Su defensa concede: corré la cancha y buscá ritmo alto.');
   if(R('efDef',false)>=65)claves.push('Defienden bien: paciencia y buena selección de tiro.');
   if(R('astTo',true)>=65)claves.push('Cortá las líneas de pase: mueven muy bien la pelota.');
