@@ -28,6 +28,31 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .tb-btn{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);white-space:nowrap;text-decoration:none;display:inline-block}
 .tb-btn:hover{border-color:var(--offense);color:var(--offense)}
 .tb-btn.qtos:hover{border-color:var(--insight);color:var(--insight)}
+.tb-admin{border-color:transparent!important;color:var(--text-3)!important;opacity:.5;font-size:9px!important;padding:7px 8px!important}
+.tb-admin:hover{opacity:1;color:var(--text-2)!important;border-color:var(--border-subtle)!important}
+.adm-overlay{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.74);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.adm-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:14px;width:100%;max-width:880px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.adm-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.adm-title{font-family:var(--font-disp);font-weight:900;font-size:24px;letter-spacing:.5px}
+.adm-close{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:11px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
+.adm-close:hover{border-color:var(--negative);color:var(--negative)}
+.adm-kpis{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.adm-kpi{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:8px;padding:11px 16px;min-width:96px}
+.adm-kpi .n{font-family:var(--font-disp);font-weight:900;font-size:24px;line-height:1}
+.adm-kpi .l{font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;color:var(--text-2);text-transform:uppercase;margin-top:3px}
+.adm-table{width:100%;border-collapse:collapse;font-size:13px}
+.adm-table th{font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;color:var(--text-2);text-transform:uppercase;text-align:right;padding:8px 9px;border-bottom:1px solid var(--border-light);white-space:nowrap}
+.adm-table th.l,.adm-table td.l{text-align:left}
+.adm-table td{padding:8px 9px;border-bottom:1px solid var(--border-subtle);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.adm-ok{color:var(--positive)}.adm-warn{color:#e0a83b}.adm-bad{color:var(--negative)}
+.adm-login{max-width:340px;margin:6px auto 10px}
+.adm-inp{display:block;width:100%;background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text);font-family:var(--font-ui);font-size:14px;padding:10px 12px;margin-bottom:10px}
+.adm-inp:focus{outline:none;border-color:var(--offense)}
+.adm-btn{width:100%;background:var(--offense);border:none;border-radius:6px;color:#1a1205;font-family:var(--font-mono);font-size:12px;letter-spacing:.5px;padding:11px;cursor:pointer;font-weight:500;transition:filter var(--t-fast)}
+.adm-btn:hover{filter:brightness(1.08)}
+.adm-msg{margin-top:12px;color:var(--negative);font-family:var(--font-mono);font-size:11px;text-align:center}
+.adm-logout{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
+.adm-logout:hover{border-color:var(--negative);color:var(--negative)}
 .wrap{max-width:1280px;margin:0 auto;padding:20px}
 .controls{display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .field{display:flex;flex-direction:column;gap:5px}
@@ -197,8 +222,10 @@ table.t tr:hover td{background:var(--bg-hover)}
   <a class="tb-btn qtos" href="quintetos.html">🔄 Quintetos</a>
   <a class="tb-btn" href="defensa.html">🛡 Defensa</a>
   <a class="tb-btn" href="index.html">🏠 Menú</a>
+  <button class="tb-btn tb-admin" onclick="adminOpen()" title="Panel de administración">· admin</button>
   <button class="tb-btn" onclick="loadData()">↻ Actualizar</button>
 </div>
+<div id="adminOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)adminClose()"><div class="adm-box"><div class="adm-head"><span class="adm-title" id="admTitle">Estado de la base</span><button class="adm-close" onclick="adminClose()">✕ Cerrar</button></div><div id="adminBody"></div></div></div>
 
 <div class="wrap">
   <div class="controls" id="controls" style="display:none">
@@ -1392,6 +1419,66 @@ function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
+}
+// ── PANEL ADMIN (estado de la base) · solo cuenta admin ──
+const ADMIN_EMAIL='admin@scoutpro.app';
+async function adminOpen(){
+  const c=getSB();document.getElementById('adminOverlay').style.display='flex';
+  let email=null;
+  try{const {data}=await c.auth.getSession();email=data&&data.session&&data.session.user?data.session.user.email:null;}catch(e){}
+  if(email&&email.toLowerCase()===ADMIN_EMAIL)renderAdmin();else renderAdminLogin('');
+}
+function adminClose(){document.getElementById('adminOverlay').style.display='none';}
+function renderAdminLogin(msg){
+  document.getElementById('admTitle').textContent='Acceso de administrador';
+  document.getElementById('adminBody').innerHTML=
+    '<div class="adm-login">'+
+      '<p class="zone-sub" style="margin-bottom:14px">Sección exclusiva del administrador. Iniciá sesión con la cuenta autorizada.</p>'+
+      '<input id="admEmail" class="adm-inp" type="email" placeholder="Email" autocomplete="username">'+
+      '<input id="admPass" class="adm-inp" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')adminLogin()">'+
+      '<button class="adm-btn" onclick="adminLogin()">Entrar</button>'+
+      (msg?'<div class="adm-msg">'+msg+'</div>':'')+
+    '</div>';
+  const e=document.getElementById('admEmail');if(e)e.focus();
+}
+async function adminLogin(){
+  const c=getSB();
+  const email=(document.getElementById('admEmail').value||'').trim();
+  const pass=document.getElementById('admPass').value||'';
+  if(!email||!pass){renderAdminLogin('Completá email y contraseña.');return;}
+  let r;try{r=await c.auth.signInWithPassword({email,password:pass});}catch(e){renderAdminLogin('Error de conexión.');return;}
+  if(r.error){renderAdminLogin('Email o contraseña incorrectos.');return;}
+  const userEmail=(r.data&&r.data.user?r.data.user.email:email).toLowerCase();
+  if(userEmail!==ADMIN_EMAIL){try{await c.auth.signOut();}catch(e){}renderAdminLogin('Esta cuenta no tiene acceso de administrador.');return;}
+  renderAdmin();
+}
+async function adminLogout(){const c=getSB();try{await c.auth.signOut();}catch(e){}renderAdminLogin('Sesión cerrada.');}
+function dbStatus(){
+  const M={};
+  const add=(arr,key)=>{(arr||[]).forEach(r=>{const id=r.match_id||'?';const m=M[id]||(M[id]={id,fecha:r.fecha||'',teams:new Set(),q:0,j:0,t:0,c:0});if(r.equipo)m.teams.add(r.equipo);if(r.rival)m.teams.add(r.rival);if(r.fecha&&!m.fecha)m.fecha=r.fecha;m[key]++;});};
+  add(DATA,'q');add(PLAYERS,'j');add(SHOTS,'t');add(QUARTERS,'c');
+  return Object.values(M).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+}
+function renderAdmin(){
+  const rows=dbStatus(),body=document.getElementById('adminBody');
+  document.getElementById('admTitle').textContent='Estado de la base';
+  const kpis='<div class="adm-kpis">'+
+    '<div class="adm-kpi"><div class="n">'+rows.length+'</div><div class="l">Partidos</div></div>'+
+    '<div class="adm-kpi"><div class="n">'+DATA.length+'</div><div class="l">Quintetos</div></div>'+
+    '<div class="adm-kpi"><div class="n">'+PLAYERS.length+'</div><div class="l">Jugadores</div></div>'+
+    '<div class="adm-kpi"><div class="n">'+SHOTS.length+'</div><div class="l">Tiros</div></div>'+
+    '<div class="adm-kpi"><div class="n">'+QUARTERS.length+'</div><div class="l">Cuartos</div></div>'+
+    '<div class="adm-kpi"><div class="n">'+DEF.length+'</div><div class="l">Defensa</div></div></div>';
+  if(!rows.length){body.innerHTML=kpis+'<div class="empty">No hay partidos cargados todavía.</div>';return;}
+  const ck=v=>v>0?'<span class="adm-ok">'+v+'</span>':'<span class="adm-bad">0</span>';
+  const trs=rows.map(m=>{
+    const faltan=[];if(!m.q)faltan.push('quintetos');if(!m.j)faltan.push('jugadores');if(!m.t)faltan.push('tiros');if(!m.c)faltan.push('cuartos');
+    const estado=faltan.length?'<span class="adm-warn">⚠ falta '+faltan.join(', ')+'</span>':'<span class="adm-ok">✓ completo</span>';
+    return '<tr><td class="l">'+(m.fecha||'s/f')+'</td><td class="l">'+([...m.teams].join(' vs ')||m.id)+'</td><td>'+ck(m.q)+'</td><td>'+ck(m.j)+'</td><td>'+ck(m.t)+'</td><td>'+ck(m.c)+'</td><td class="l">'+estado+'</td></tr>';
+  }).join('');
+  body.innerHTML=kpis+'<div style="overflow-x:auto"><table class="adm-table"><thead><tr><th class="l">Fecha</th><th class="l">Partido</th><th>Quint.</th><th>Jug.</th><th>Tiros</th><th>Cuartos</th><th class="l">Estado</th></tr></thead><tbody>'+trs+'</tbody></table></div>'+
+    '<div class="zone-sub" style="margin-top:12px">Si a un partido le falta <b>tiros</b> o <b>cuartos</b>, re-guardalo desde Quintetos (cargá ese partido y tocá «Guardar en base»): completa todo de una.</div>'+
+    '<div style="margin-top:16px;text-align:right"><button class="adm-logout" onclick="adminLogout()">Cerrar sesión</button></div>';
 }
 loadData();
 </script>
