@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -928,12 +929,39 @@ async function postGameReport(){
     '<div class="sec" style="margin-top:11px">Glosario</div><div class="card tight"><div class="gloss"><b>eFG%</b> — tiro ajustado (el triple vale más). <b>TS%</b> — eficiencia real, incluye libres. <b>Ritmo</b> — posesiones. <b>Reb.of%</b> — rebotes ofensivos capturados. <b>% Pérdidas</b> — pérdidas cada 100 ataques. <b>+/-</b> — diferencia con el jugador en cancha. <b>Net Points</b> — aporte estimado de cada jugador (of+def). <b>VAL</b> — valoración.</div></div>'+
     '<div class="ft">ScoutPRO · Informe post-partido · '+focus+' vs '+opp+' · '+fecha+' · Página 2/2</div></div>'+
     '</body></html>';
-  const w=window.open('','_blank');
-  if(!w){alert('Permití las ventanas emergentes para generar el informe.');btn.textContent=old;btn.disabled=false;return;}
-  w.document.write(html);w.document.close();w.focus();
-  setTimeout(function(){try{w.print();}catch(e){}},600);
+  const safe=s=>String(s||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
+  const fname='Informe_'+safe(focus)+'_vs_'+safe(opp)+'_'+safe(fecha)+'.pdf';
+  // Cargar librerías de PDF (una sola vez)
+  await pgLoadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  await pgLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  // Render aislado en un iframe (no choca con los estilos de la app)
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;left:-10000px;top:0;width:210mm;height:650mm;border:0;background:#fff';
+  document.body.appendChild(iframe);
+  iframe.srcdoc=html;
+  await new Promise(res=>{iframe.onload=res;setTimeout(res,1200);});
+  await new Promise(r=>setTimeout(r,350));
+  const idoc=iframe.contentDocument||iframe.contentWindow.document;
+  const pages=idoc.querySelectorAll('.page');
+  const jsPDF=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+  const pdf=new jsPDF('p','mm','a4');
+  for(let i=0;i<pages.length;i++){
+    const canvas=await html2canvas(pages[i],{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false,windowWidth:pages[i].scrollWidth,windowHeight:pages[i].scrollHeight});
+    const img=canvas.toDataURL('image/jpeg',0.94);
+    if(i>0)pdf.addPage();
+    pdf.addImage(img,'JPEG',0,0,210,297);
+  }
+  pdf.save(fname);
+  try{document.body.removeChild(iframe);}catch(e){}
+  saveStatusMsg('ok','✓ PDF descargado: '+fname);
   }catch(e){alert('No se pudo generar el informe: '+(e.message||e));}
   btn.textContent=old;btn.disabled=false;
+}
+let _pgScripts={};
+function pgLoadScript(src){
+  if(_pgScripts[src])return _pgScripts[src];
+  _pgScripts[src]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('No se pudo cargar '+src));document.head.appendChild(s);});
+  return _pgScripts[src];
 }
 
 function goHome(){
