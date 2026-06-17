@@ -53,6 +53,19 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .adm-msg{margin-top:12px;color:var(--negative);font-family:var(--font-mono);font-size:11px;text-align:center}
 .adm-logout{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
 .adm-logout:hover{border-color:var(--negative);color:var(--negative)}
+.adm-nav{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.adm-nav button{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
+.adm-nav button:hover{color:var(--text)}
+.adm-nav button.on{background:rgba(249,115,22,.13);border-color:var(--offense);color:var(--offense)}
+.adm-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;max-width:520px}
+@media(max-width:560px){.adm-formgrid{grid-template-columns:1fr}}
+.adm-formgrid .adm-inp{margin-bottom:0}
+.adm-del{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;color:var(--text-3);font-family:var(--font-mono);font-size:11px;padding:5px 9px;cursor:pointer;transition:all var(--t-fast)}
+.adm-del:hover{border-color:var(--negative);color:var(--negative)}
+.adm-ap{background:rgba(52,199,105,.13);border:1px solid rgba(52,199,105,.4);border-radius:5px;color:var(--positive);font-family:var(--font-mono);font-size:10px;letter-spacing:.4px;padding:5px 10px;cursor:pointer;transition:all var(--t-fast)}
+.adm-ap:hover{background:rgba(52,199,105,.22)}
+.adm-altlink{margin-top:16px;font-family:var(--font-ui);font-size:12.5px;color:var(--text-2);text-align:center}
+.adm-altlink a{color:var(--offense);cursor:pointer;text-decoration:underline}
 .wrap{max-width:1280px;margin:0 auto;padding:20px}
 .controls{display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .field{display:flex;flex-direction:column;gap:5px}
@@ -1430,16 +1443,46 @@ async function adminOpen(){
 }
 function adminClose(){document.getElementById('adminOverlay').style.display='none';}
 function renderAdminLogin(msg){
-  document.getElementById('admTitle').textContent='Acceso de administrador';
+  document.getElementById('admTitle').textContent='Acceso';
   document.getElementById('adminBody').innerHTML=
     '<div class="adm-login">'+
-      '<p class="zone-sub" style="margin-bottom:14px">Sección exclusiva del administrador. Iniciá sesión con la cuenta autorizada.</p>'+
+      '<p class="zone-sub" style="margin-bottom:14px">Panel del administrador. Iniciá sesión con la cuenta autorizada.</p>'+
       '<input id="admEmail" class="adm-inp" type="email" placeholder="Email" autocomplete="username">'+
       '<input id="admPass" class="adm-inp" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')adminLogin()">'+
       '<button class="adm-btn" onclick="adminLogin()">Entrar</button>'+
       (msg?'<div class="adm-msg">'+msg+'</div>':'')+
+      '<div class="adm-altlink">¿No tenés perfil? <a onclick="renderSelfSignup(\'\')">Creá el tuyo</a> (queda pendiente de aprobación del admin).</div>'+
     '</div>';
   const e=document.getElementById('admEmail');if(e)e.focus();
+}
+function renderSelfSignup(msg){
+  document.getElementById('admTitle').textContent='Crear mi perfil';
+  document.getElementById('adminBody').innerHTML=
+    '<div class="adm-login" style="max-width:520px">'+
+      '<p class="zone-sub" style="margin-bottom:14px">Cargá tus datos. El perfil queda <b>pendiente</b> hasta que el administrador lo apruebe.</p>'+
+      '<div class="adm-formgrid">'+
+        '<input id="ssNombre" class="adm-inp" placeholder="Nombre">'+
+        '<input id="ssApellido" class="adm-inp" placeholder="Apellido">'+
+        '<input id="ssCorreo" class="adm-inp" type="email" placeholder="Correo">'+
+        '<input id="ssClub" class="adm-inp" placeholder="Club al que pertenece">'+
+      '</div>'+
+      '<button class="adm-btn" onclick="enviarSolicitud()">Enviar solicitud</button>'+
+      (msg?'<div class="adm-msg" id="ssMsg">'+msg+'</div>':'<div class="adm-msg" id="ssMsg" style="text-align:left"></div>')+
+      '<div class="adm-altlink"><a onclick="renderAdminLogin(\'\')">← Volver al acceso del admin</a></div>'+
+    '</div>';
+}
+async function enviarSolicitud(){
+  const msg=document.getElementById('ssMsg');
+  const nombre=(document.getElementById('ssNombre').value||'').trim();
+  const apellido=(document.getElementById('ssApellido').value||'').trim();
+  const correo=(document.getElementById('ssCorreo').value||'').trim();
+  const club=(document.getElementById('ssClub').value||'').trim();
+  if(!nombre||!apellido||!correo||!club){if(msg){msg.style.color='var(--negative)';msg.textContent='Completá los 4 campos.';}return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)){if(msg){msg.style.color='var(--negative)';msg.textContent='El correo no parece válido.';}return;}
+  const c=getSB();
+  try{const r=await c.from('perfiles').insert([{nombre,apellido,correo,club,estado:'pendiente'}]);if(r.error)throw r.error;}
+  catch(e){if(msg){msg.style.color='var(--negative)';msg.textContent='No se pudo enviar: '+(e.message||e);}return;}
+  document.getElementById('adminBody').innerHTML='<div class="adm-login" style="text-align:center"><div style="font-size:38px;margin-bottom:8px">✅</div><p style="color:var(--text);font-size:15px;margin:0 0 6px">¡Solicitud enviada!</p><p class="zone-sub">Tu perfil quedó pendiente. El administrador lo va a revisar y aprobar.</p><div class="adm-altlink"><a onclick="adminClose()">Cerrar</a></div></div>';
 }
 async function adminLogin(){
   const c=getSB();
@@ -1459,9 +1502,18 @@ function dbStatus(){
   add(DATA,'q');add(PLAYERS,'j');add(SHOTS,'t');add(QUARTERS,'c');
   return Object.values(M).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
 }
+let adminTab='estado',PERFILES=[];
+function adminShow(t){adminTab=t;renderAdmin();}
 function renderAdmin(){
-  const rows=dbStatus(),body=document.getElementById('adminBody');
-  document.getElementById('admTitle').textContent='Estado de la base';
+  document.getElementById('admTitle').textContent='Administración';
+  const nav='<div class="adm-nav"><button class="'+(adminTab==='estado'?'on':'')+'" onclick="adminShow(\'estado\')">📊 Estado de la base</button>'+
+    '<button class="'+(adminTab==='perfiles'?'on':'')+'" onclick="adminShow(\'perfiles\')">👤 Perfiles</button>'+
+    '<button class="adm-logout" style="margin-left:auto" onclick="adminLogout()">Cerrar sesión</button></div>';
+  document.getElementById('adminBody').innerHTML=nav+'<div id="admSub"></div>';
+  if(adminTab==='perfiles')renderAdminPerfiles();else renderAdminEstado();
+}
+function renderAdminEstado(){
+  const rows=dbStatus(),sub=document.getElementById('admSub');
   const kpis='<div class="adm-kpis">'+
     '<div class="adm-kpi"><div class="n">'+rows.length+'</div><div class="l">Partidos</div></div>'+
     '<div class="adm-kpi"><div class="n">'+DATA.length+'</div><div class="l">Quintetos</div></div>'+
@@ -1469,16 +1521,70 @@ function renderAdmin(){
     '<div class="adm-kpi"><div class="n">'+SHOTS.length+'</div><div class="l">Tiros</div></div>'+
     '<div class="adm-kpi"><div class="n">'+QUARTERS.length+'</div><div class="l">Cuartos</div></div>'+
     '<div class="adm-kpi"><div class="n">'+DEF.length+'</div><div class="l">Defensa</div></div></div>';
-  if(!rows.length){body.innerHTML=kpis+'<div class="empty">No hay partidos cargados todavía.</div>';return;}
+  if(!rows.length){sub.innerHTML=kpis+'<div class="empty">No hay partidos cargados todavía.</div>';return;}
   const ck=v=>v>0?'<span class="adm-ok">'+v+'</span>':'<span class="adm-bad">0</span>';
   const trs=rows.map(m=>{
     const faltan=[];if(!m.q)faltan.push('quintetos');if(!m.j)faltan.push('jugadores');if(!m.t)faltan.push('tiros');if(!m.c)faltan.push('cuartos');
     const estado=faltan.length?'<span class="adm-warn">⚠ falta '+faltan.join(', ')+'</span>':'<span class="adm-ok">✓ completo</span>';
     return '<tr><td class="l">'+(m.fecha||'s/f')+'</td><td class="l">'+([...m.teams].join(' vs ')||m.id)+'</td><td>'+ck(m.q)+'</td><td>'+ck(m.j)+'</td><td>'+ck(m.t)+'</td><td>'+ck(m.c)+'</td><td class="l">'+estado+'</td></tr>';
   }).join('');
-  body.innerHTML=kpis+'<div style="overflow-x:auto"><table class="adm-table"><thead><tr><th class="l">Fecha</th><th class="l">Partido</th><th>Quint.</th><th>Jug.</th><th>Tiros</th><th>Cuartos</th><th class="l">Estado</th></tr></thead><tbody>'+trs+'</tbody></table></div>'+
-    '<div class="zone-sub" style="margin-top:12px">Si a un partido le falta <b>tiros</b> o <b>cuartos</b>, re-guardalo desde Quintetos (cargá ese partido y tocá «Guardar en base»): completa todo de una.</div>'+
-    '<div style="margin-top:16px;text-align:right"><button class="adm-logout" onclick="adminLogout()">Cerrar sesión</button></div>';
+  sub.innerHTML=kpis+'<div style="overflow-x:auto"><table class="adm-table"><thead><tr><th class="l">Fecha</th><th class="l">Partido</th><th>Quint.</th><th>Jug.</th><th>Tiros</th><th>Cuartos</th><th class="l">Estado</th></tr></thead><tbody>'+trs+'</tbody></table></div>'+
+    '<div class="zone-sub" style="margin-top:12px">Si a un partido le falta <b>tiros</b> o <b>cuartos</b>, re-guardalo desde Quintetos (cargá ese partido y tocá «Guardar en base»): completa todo de una.</div>';
+}
+async function loadPerfiles(){const c=getSB();try{const r=await c.from('perfiles').select('*').order('created_at',{ascending:true});PERFILES=r.error?[]:(r.data||[]);}catch(e){PERFILES=[];}}
+function esAprobado(p){return (p.estado||'aprobado')==='aprobado';}
+async function renderAdminPerfiles(){
+  const sub=document.getElementById('admSub');
+  sub.innerHTML='<div class="zone-sub">Cargando perfiles…</div>';
+  await loadPerfiles();
+  const pend=PERFILES.filter(p=>!esAprobado(p)),aprob=PERFILES.filter(esAprobado);
+  let html='<div class="adm-kpis">'+
+    '<div class="adm-kpi"><div class="n">'+aprob.length+'</div><div class="l">Aprobados</div></div>'+
+    '<div class="adm-kpi"><div class="n adm-warn">'+pend.length+'</div><div class="l">Pendientes</div></div></div>';
+  // pendientes
+  if(pend.length){
+    html+='<div style="font-family:var(--font-disp);font-weight:800;font-size:15px;margin:6px 0 10px;text-transform:uppercase;color:#e0a83b">Pendientes de aprobación</div>'+
+      '<table class="adm-table" style="margin-bottom:20px"><thead><tr><th class="l">Nombre</th><th class="l">Correo</th><th class="l">Club</th><th></th></tr></thead><tbody>'+
+      pend.map(p=>'<tr><td class="l">'+(p.nombre||'')+' '+(p.apellido||'')+'</td><td class="l">'+(p.correo||'')+'</td><td class="l">'+(p.club||'')+'</td>'+
+        '<td style="white-space:nowrap"><button class="adm-ap" onclick="aprobarPerfil('+p.id+')">✓ Aprobar</button> <button class="adm-del" onclick="borrarPerfil('+p.id+')">✕</button></td></tr>').join('')+
+      '</tbody></table>';
+  }
+  // aprobados
+  html+='<div style="font-family:var(--font-disp);font-weight:800;font-size:15px;margin:6px 0 10px;text-transform:uppercase">Perfiles aprobados</div>';
+  html+=aprob.length?('<table class="adm-table" style="margin-bottom:18px"><thead><tr><th class="l">Nombre</th><th class="l">Correo</th><th class="l">Club</th><th></th></tr></thead><tbody>'+
+    aprob.map(p=>'<tr><td class="l">'+(p.nombre||'')+' '+(p.apellido||'')+'</td><td class="l">'+(p.correo||'')+'</td><td class="l">'+(p.club||'')+'</td><td><button class="adm-del" onclick="borrarPerfil('+p.id+')">✕</button></td></tr>').join('')+
+    '</tbody></table>'):'<div class="zone-sub" style="margin-bottom:16px">Todavía no hay perfiles aprobados.</div>';
+  // alta directa por admin (queda aprobado)
+  html+='<div style="font-family:var(--font-disp);font-weight:800;font-size:15px;margin:14px 0 12px;text-transform:uppercase">Crear perfil (queda aprobado)</div>'+
+    '<div class="adm-formgrid">'+
+      '<input id="pfNombre" class="adm-inp" placeholder="Nombre">'+
+      '<input id="pfApellido" class="adm-inp" placeholder="Apellido">'+
+      '<input id="pfCorreo" class="adm-inp" type="email" placeholder="Correo">'+
+      '<input id="pfClub" class="adm-inp" placeholder="Club al que pertenece">'+
+    '</div><button class="adm-btn" style="max-width:220px" onclick="crearPerfil()">+ Crear perfil</button><div id="pfMsg" class="adm-msg" style="text-align:left"></div>';
+  sub.innerHTML=html;
+}
+async function crearPerfil(){
+  const msg=document.getElementById('pfMsg');
+  const nombre=(document.getElementById('pfNombre').value||'').trim();
+  const apellido=(document.getElementById('pfApellido').value||'').trim();
+  const correo=(document.getElementById('pfCorreo').value||'').trim();
+  const club=(document.getElementById('pfClub').value||'').trim();
+  if(!nombre||!apellido||!correo||!club){if(msg){msg.style.color='var(--negative)';msg.textContent='Completá los 4 campos.';}return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(correo)){if(msg){msg.style.color='var(--negative)';msg.textContent='El correo no parece válido.';}return;}
+  const c=getSB();
+  try{const r=await c.from('perfiles').insert([{nombre,apellido,correo,club,estado:'aprobado'}]);if(r.error)throw r.error;}
+  catch(e){if(msg){msg.style.color='var(--negative)';msg.textContent='No se pudo guardar: '+(e.message||e);}return;}
+  renderAdminPerfiles();
+}
+async function aprobarPerfil(id){
+  const c=getSB();try{await c.from('perfiles').update({estado:'aprobado'}).eq('id',id);}catch(e){}
+  renderAdminPerfiles();
+}
+async function borrarPerfil(id){
+  if(!confirm('¿Borrar este perfil?'))return;
+  const c=getSB();try{await c.from('perfiles').delete().eq('id',id);}catch(e){}
+  renderAdminPerfiles();
 }
 loadData();
 </script>
