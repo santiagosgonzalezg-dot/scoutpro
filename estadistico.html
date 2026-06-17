@@ -801,8 +801,7 @@ function renderTiros(){
   const mLabel=mid=>{const r=poolFase.filter(s=>s.match_id===mid);const eqs=[...new Set(r.map(s=>s.equipo))];const f=(r[0]&&r[0].fecha)||'';return (f?f+' · ':'')+eqs.join(' vs ');};
   const mObjs=mids.map(mid=>({mid,lbl:mLabel(mid),fecha:(poolFase.find(s=>s.match_id===mid)||{}).fecha||''}))
                   .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
-  if(tiroMatch&&!mids.includes(tiroMatch))tiroMatch='';
-  const pool=tiroMatch?poolFase.filter(s=>s.match_id===tiroMatch):poolFase;
+  const pool=poolFase;
   const teams=[...new Set(pool.map(s=>s.equipo))].sort();
   if(tiroTeam&&!teams.includes(tiroTeam))tiroTeam='';
   const rows=pool.filter(s=>!tiroTeam||s.equipo===tiroTeam);
@@ -811,15 +810,11 @@ function renderTiros(){
   const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>((s.num||'')+' '+(s.nombre||'')).trim()===tiroPlayer);
   const z=arr=>{const m=arr.filter(shotMade).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
   const all=z(sel),p2=z(sel.filter(s=>s.tipo!=='3pt')),p3=z(sel.filter(s=>s.tipo==='3pt'));
-  const heatMode=!tiroMatch;   // temporada => zonas de fortaleza; partido => mapa de puntos
-  const matchOpts='<option value="">Toda la temporada</option>'+mObjs.map(m=>'<option value="'+m.mid+'"'+(m.mid===tiroMatch?' selected':'')+'>'+m.lbl+'</option>').join('');
+  const heatMode=true;
   const teamOpts='<option value="">Todos los equipos</option>'+teams.map(t=>'<option'+(t===tiroTeam?' selected':'')+'>'+t+'</option>').join('');
   const plOpts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
-  const legend=heatMode
-    ?'<span class="zone-sub">Zonas de fortaleza · color = puntos por tiro (rojo→verde) · tamaño = volumen</span>'
-    :'<span class="zone-sub">● verde = encestado · ○ rojo = errado</span>';
+  const legend='<span class="zone-sub">Zonas de fortaleza · color = puntos por tiro (rojo→verde) · tamaño = volumen</span>';
   const ctl='<div class="tiros-ctl">'+
-    '<span class="zone-lbl">Partido</span><select onchange="setTiroMatch(this.value)">'+matchOpts+'</select>'+
     '<span class="zone-lbl">Equipo</span><select onchange="setTiroTeam(this.value)">'+teamOpts+'</select>'+
     '<span class="zone-lbl">Jugador</span><select onchange="setTiroPlayer(this.value)">'+plOpts+'</select>'+
     legend+'</div>';
@@ -827,7 +822,7 @@ function renderTiros(){
     kpi(all.pct+'%','Total · '+all.m+'/'+all.a)+
     kpi(p2.pct+'%','Tiros de 2 · '+p2.m+'/'+p2.a)+
     kpi(p3.pct+'%','Tiros de 3 · '+p3.m+'/'+p3.a)+'</div>';
-  const ctx=(tiroMatch?mLabel(tiroMatch):'toda la temporada')+(tiroTeam?' · '+tiroTeam:'')+(tiroPlayer!=='__all__'?' · '+tiroPlayer:'');
+  const ctx='toda la temporada'+(tiroTeam?' · '+tiroTeam:'')+(tiroPlayer!=='__all__'?' · '+tiroPlayer:'');
   const titulo=heatMode?'Zonas de fortaleza':'Mapa de tiros';
   // desglose por momento de la posesión (tramo 1/2/3) reconstruido del play-by-play
   const tr=[1,2,3].map(k=>{const arr=sel.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
