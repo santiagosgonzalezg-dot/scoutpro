@@ -795,6 +795,30 @@ function pgCourt(shots,col){
     '<circle cx="'+(W/2)+'" cy="'+(H-6)+'" r="9" fill="none" stroke="#dfe3e8"/><rect x="'+(W/2-30)+'" y="'+(H-60)+'" width="60" height="60" fill="none" stroke="#e6e9ee"/>'+
     '<path d="M '+(W/2-78)+' '+H+' A 78 78 0 0 1 '+(W/2+78)+' '+H+'" fill="none" stroke="#e6e9ee"/>'+dots+'</svg>';
 }
+function pgMatchLineups(teamNo){
+  try{
+    const acc=buildConsolidatedData(S.results);const out=[];
+    for(const r of Object.values(acc[teamNo]||{})){const m=calcMetrics(r);out.push({players:r.players||[],min:m.mins||0,diff:m.diff||0,net:(m.efOff||0)-(m.efDefRaw||0)});}
+    return out;
+  }catch(e){return [];}
+}
+function pgLuKey(players){return (players||[]).map(p=>p.num).sort((a,b)=>(+a)-(+b)).join('-');}
+function pgDestacados(fno,ono){
+  const flt=arr=>{const f=arr.filter(x=>x.min>=1.5);return f.length?f:arr;};
+  const my=flt(pgMatchLineups(fno)),rv=flt(pgMatchLineups(ono));
+  const byDiff=a=>a.slice().sort((x,y)=>y.diff-x.diff);
+  const myS=byDiff(my),rvS=byDiff(rv);
+  const best=myS.slice(0,3),worst=myS.slice(-3).reverse();
+  const mostDmg=rvS.slice(0,3),leastDmg=rvS.slice(-3).reverse();
+  const rowMine=arr=>arr.map(x=>'<tr><td class="cmb">'+pgLuKey(x.players)+'</td><td>'+(x.min).toFixed(1)+'</td><td class="'+(x.diff>=0?'pos':'neg')+'">'+(x.diff>=0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
+  const rowRiv=arr=>arr.map(x=>'<tr><td class="cmb">'+pgLuKey(x.players)+'</td><td>'+(x.min).toFixed(1)+'</td><td class="'+(x.diff>0?'neg':'pos')+'">'+(x.diff>0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
+  return '<div class="grid2">'+
+    '<div class="card tight"><div class="cap">🟢 Tus quintetos que más lastimaron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+rowMine(best)+'</tbody></table></div>'+
+    '<div class="card tight"><div class="cap">🔴 Tus quintetos que menos rindieron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+rowMine(worst)+'</tbody></table></div></div>'+
+    '<div class="grid2" style="margin-top:8px">'+
+    '<div class="card tight"><div class="cap">🛡 Quintetos del rival que más nos lastimaron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+rowRiv(mostDmg)+'</tbody></table></div>'+
+    '<div class="card tight"><div class="cap">✅ Los que menos nos lastimaron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+rowRiv(leastDmg)+'</tbody></table></div></div>';
+}
 async function postGameReport(){
   if(!S.data||!S.data.tm){alert('Cargá un partido primero.');return;}
   const btn=document.getElementById('pgBtn');const old=btn.textContent;btn.textContent='Generando…';btn.disabled=true;
@@ -847,37 +871,14 @@ async function postGameReport(){
   const defp=fp.slice().sort((a,b)=>(1.4*b.rob+1.6*b.tap+0.4*b.rd)-(1.4*a.rob+1.6*a.tap+0.4*a.rd))[0];
   const scorers=fp.slice().sort((a,b)=>(+b.pts)-(+a.pts));
   const bench=fp.filter(p=>(+p.min||0)<15).sort((a,b)=>(+b.pts)-(+a.pts))[0];
-  // ── temporada (Supabase) ──
-  let comboHtml='<div class="ks2" style="font-size:9px;color:#9aa0ac">Sin datos de temporada (guardá partidos para verlo).</div>';
+  // ── Quintetos destacados: del PARTIDO cargado (siempre disponible) ──
+  const comboHtml=pgDestacados(fno,ono);
+  // ── temporada (Supabase) solo para la comparativa de promedios ──
   let seasonBars='';
   try{
     const sb=getSB();
     if(sb){
-      const ql=(await sb.from('quintetos_log').select('*').eq('equipo',focus).limit(8000)).data||[];
       const jl=(await sb.from('jugadores_log').select('*').eq('equipo',focus).limit(20000)).data||[];
-      // combinaciones / destacados de temporada
-      const parse=j=>Array.isArray(j)?j:(j?JSON.parse(j):[]);
-      // tus quintetos: mejores y peores por NET
-      const accQ={};
-      ql.forEach(r=>{const js=parse(r.jugadores);if(js.length!==5)return;const nums=js.map(p=>p.num).sort((a,b)=>(+a)-(+b));const key=nums.join('-');const o=accQ[key]||(accQ[key]={k:key,min:0,ptsF:0,ptsC:0,pos:0,posRiv:0});o.min+=(+r.minutos||0);o.ptsF+=(+r.pts_favor||0);o.ptsC+=(+r.pts_contra||0);o.pos+=(+r.pos||0);o.posRiv+=(+r.pos_riv||0);});
-      const mineL=Object.values(accQ).map(v=>({...v,net:(v.pos>0?v.ptsF/v.pos:0)-(v.posRiv>0?v.ptsC/v.posRiv:0),diff:v.ptsF-v.ptsC})).filter(x=>x.min>=4);
-      const byNet=mineL.slice().sort((a,b)=>b.net-a.net);
-      const best=byNet.slice(0,3),worst=byNet.slice(-3).reverse();
-      // quintetos rivales enfrentados (filas donde el rival sos vos)
-      const ql2=(await sb.from('quintetos_log').select('*').eq('rival',focus).limit(8000)).data||[];
-      const accR={};
-      ql2.forEach(r=>{const js=parse(r.jugadores);if(js.length!==5)return;const nums=js.map(p=>p.num).sort((a,b)=>(+a)-(+b));const key=(r.equipo||'')+'|'+nums.join('-');const o=accR[key]||(accR[key]={team:r.equipo||'',k:nums.join('-'),min:0,diff:0});o.min+=(+r.minutos||0);o.diff+=((+r.pts_favor||0)-(+r.pts_contra||0));});
-      const rivL=Object.values(accR).filter(x=>x.min>=4);
-      const byDmg=rivL.slice().sort((a,b)=>b.diff-a.diff);
-      const mostDmg=byDmg.slice(0,3),leastDmg=byDmg.slice(-3).reverse();
-      const luRowsNet=arr=>arr.map(x=>'<tr><td class="cmb">'+x.k+'</td><td>'+Math.round(x.min)+'</td><td class="'+(x.net>=0?'pos':'neg')+'">'+(x.net>=0?'+':'')+x.net.toFixed(2)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
-      const luRowsRiv=arr=>arr.map(x=>'<tr><td class="cmb">'+x.team+' · '+x.k+'</td><td>'+Math.round(x.min)+'</td><td class="'+(x.diff>0?'neg':'pos')+'">'+(x.diff>0?'+':'')+Math.round(x.diff)+'</td></tr>').join('')||'<tr><td colspan="3" class="ks2">—</td></tr>';
-      if(ql.length||ql2.length){comboHtml='<div class="grid2">'+
-        '<div class="card tight"><div class="cap">🟢 Tus mejores quintetos</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>NET</th></tr></thead><tbody>'+luRowsNet(best)+'</tbody></table></div>'+
-        '<div class="card tight"><div class="cap">🔴 Tus peores quintetos</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>NET</th></tr></thead><tbody>'+luRowsNet(worst)+'</tbody></table></div></div>'+
-        '<div class="grid2" style="margin-top:8px">'+
-        '<div class="card tight"><div class="cap">🛡 Quintetos rivales que más daño te hicieron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+luRowsRiv(mostDmg)+'</tbody></table></div>'+
-        '<div class="card tight"><div class="cap">✅ Los que menos daño te hicieron</div><table><thead><tr><th>Cuadro</th><th>Min</th><th>+/-</th></tr></thead><tbody>'+luRowsRiv(leastDmg)+'</tbody></table></div></div>';}
       // promedios temporada (por partido)
       if(jl.length){
         const mids={};jl.forEach(r=>{const id=r.match_id||r.fecha;(mids[id]=mids[id]||[]).push(r);});
@@ -934,7 +935,7 @@ async function postGameReport(){
     '<div class="sec">Mapas de tiro</div><div class="grid2"><div class="card tight"><div class="cap" style="text-align:center">'+focus+'</div>'+pgCourt(shotsArr(fno),col)+'</div><div class="card tight"><div class="cap" style="text-align:center">'+opp+'</div>'+pgCourt(shotsArr(ono),'#7a7f8a')+'</div></div><div class="legend" style="margin:-6px 0 10px">● relleno = encestado · ○ contorno = errado</div>'+
     '<div class="grid2"><div><div class="sec">Net Points por jugador · '+focus+'</div><div class="card tight"><table><thead><tr><th>#</th><th>Jugador</th><th>MIN</th><th>OF</th><th>DEF</th><th>TOT</th></tr></thead><tbody>'+npRows+'</tbody></table><div class="legend" style="text-align:left;margin-top:4px">Aporte estimado al resultado (ofensivo + defensivo).</div></div></div>'+
     '<div><div class="sec">Premios del partido</div><div class="grid2" style="gap:8px;margin:0">'+premCards+'</div></div></div>'+
-    '<div class="sec" style="margin-top:11px">Quintetos destacados · temporada</div>'+comboHtml+
+    '<div class="sec" style="margin-top:11px">Quintetos destacados · este partido</div>'+comboHtml+
     '<div class="sec" style="margin-top:11px">Glosario</div><div class="card tight"><div class="gloss"><b>eFG%</b> — tiro ajustado (el triple vale más). <b>TS%</b> — eficiencia real, incluye libres. <b>Ritmo</b> — posesiones. <b>Reb.of%</b> — rebotes ofensivos capturados. <b>% Pérdidas</b> — pérdidas cada 100 ataques. <b>+/-</b> — diferencia con el jugador en cancha. <b>Net Points</b> — aporte estimado de cada jugador (of+def). <b>VAL</b> — valoración.</div></div>'+
     '<div class="ft">ScoutPRO · Informe post-partido · '+focus+' vs '+opp+' · '+fecha+' · Página 2/2</div></div>'+
     '</body></html>';
