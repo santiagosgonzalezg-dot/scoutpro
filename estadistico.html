@@ -57,8 +57,6 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .adm-nav button{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
 .adm-nav button:hover{color:var(--text)}
 .adm-nav button.on{background:rgba(249,115,22,.13);border-color:var(--offense);color:var(--offense)}
-.adm-badge{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--offense);color:#fff;font-size:9px;font-weight:700;margin-left:3px}
-.tb-admin .tb-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--offense);margin-left:4px;vertical-align:middle}
 .adm-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;max-width:520px}
 @media(max-width:560px){.adm-formgrid{grid-template-columns:1fr}}
 .adm-formgrid .adm-inp{margin-bottom:0}
@@ -249,6 +247,18 @@ table.t tr:hover td{background:var(--bg-hover)}
 .help .help-body .hl-g{color:var(--positive);font-weight:600}
 .help .help-body ul{margin:6px 0 0;padding-left:18px}
 .help .help-body li{margin:3px 0}
+.merge-box{border:1px solid var(--offense);background:rgba(249,115,22,.07);border-radius:var(--r-md);padding:11px 13px;margin-bottom:10px}
+.merge-q{font-family:var(--font-body);font-size:13.5px;color:var(--text);margin-bottom:7px}
+.merge-names{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.merge-name{font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;padding:3px 9px}
+.merge-sep{color:var(--text-3)}
+.merge-btns{display:flex;gap:8px;flex-wrap:wrap}
+.merge-yes,.merge-no{font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 13px;border-radius:6px;cursor:pointer;border:1px solid var(--border-subtle);background:var(--bg-panel);transition:all var(--t-fast)}
+.merge-yes{color:var(--positive);border-color:rgba(52,199,105,.4)}.merge-yes:hover{background:rgba(52,199,105,.13)}
+.merge-no{color:var(--text-2)}.merge-no:hover{color:var(--negative);border-color:var(--negative)}
+.merge-done{font-family:var(--font-mono);font-size:10px;color:var(--text-2);margin-bottom:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.merge-tag{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:5px;padding:2px 4px 2px 8px;color:var(--text)}
+.merge-tag button{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;padding:0 3px}.merge-tag button:hover{color:var(--offense)}
 </style>
 </head>
 <body>
@@ -259,7 +269,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <a class="tb-btn qtos" href="quintetos.html">🔄 Quintetos</a>
   <a class="tb-btn" href="defensa.html">🛡 Defensa</a>
   <a class="tb-btn" href="index.html">🏠 Menú</a>
-  <button class="tb-btn tb-admin" id="tbAdmin" onclick="adminOpen()" title="Panel de administración">· admin</button>
+  <button class="tb-btn tb-admin" onclick="adminOpen()" title="Panel de administración">· admin</button>
   <button class="tb-btn" onclick="loadData()">↻ Actualizar</button>
 </div>
 <div id="coachOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)coachClose()"><div class="adm-box" style="max-width:420px"><div class="adm-head"><span class="adm-title">Ingresar como coach</span><button class="adm-close" onclick="coachClose()">✕</button></div><div id="coachBody"></div></div></div>
@@ -660,7 +670,20 @@ function renderJugadores(){
     {key:'efo',label:'EF.OF ON',sortable:true,val:r=>r.on.efOff,cell:r=>pp(r.on.efOff)},
     {key:'efd',label:'EF.DEF ON',sortable:true,val:r=>r.on.efDef,cell:r=>pp(r.on.efDef)},
   ];
+  const sug=mergeSuggestions(team);
+  const merged=MERGES.filter(x=>x.split('|')[0]===team);
+  let banner='';
+  if(sug.length){
+    banner+=sug.map(s=>'<div class="merge-box"><div class="merge-q">¿Es el mismo jugador? <b>#'+s.num+'</b> aparece con nombres distintos:</div>'+
+      '<div class="merge-names">'+s.variants.map(v=>'<span class="merge-name">'+v+'</span>').join('<span class="merge-sep">·</span>')+'</div>'+
+      '<div class="merge-btns"><button class="merge-yes" onclick="confirmMerge(\''+escAttr(s.equipo)+'\',\''+escAttr(s.num)+'\')">✓ Sí, es el mismo (unir)</button>'+
+      '<button class="merge-no" onclick="dismissMerge(\''+escAttr(s.equipo)+'\',\''+escAttr(s.num)+'\')">✕ Son distintos</button></div></div>').join('');
+  }
+  if(merged.length){
+    banner+='<div class="merge-done">Unidos por vos: '+merged.map(x=>{const nu=x.split('|')[1];return '<span class="merge-tag">#'+nu+' <button onclick="undoMerge(\''+escAttr(team)+'\',\''+escAttr(nu)+'\')" title="Deshacer">↺</button></span>';}).join(' ')+'</div>';
+  }
   document.getElementById('view-jugadores').innerHTML=
+    banner+
     '<div class="sec">Rinde cuando está / no está en cancha · '+team+'</div>'+
     sortableTable('view-jugadores','Jugadores',cols,players,'jugadores');
 }
@@ -703,18 +726,42 @@ function evoChart(list){
 // ── VISTA LÍDERES (box score individual) ──
 let lidMode='pg';
 function setLidMode(m){lidMode=m;renderLideres();}
+let MERGES=(function(){try{return JSON.parse(localStorage.getItem('sp_merges')||'[]');}catch(_){return[];}})();
+function saveMerges(){try{localStorage.setItem('sp_merges',JSON.stringify(MERGES));}catch(_){}}
+function isMerged(equipo,nu){return MERGES.indexOf(equipo+'|'+nu)>=0;}
+function confirmMerge(equipo,nu){if(!isMerged(equipo,nu))MERGES.push(equipo+'|'+nu);saveMerges();renderAll();}
+function undoMerge(equipo,nu){MERGES=MERGES.filter(x=>x!==equipo+'|'+nu);saveMerges();renderAll();}
+let MERGE_DISMISS=(function(){try{return JSON.parse(localStorage.getItem('sp_merge_dismiss')||'[]');}catch(_){return[];}})();
+function saveDismiss(){try{localStorage.setItem('sp_merge_dismiss',JSON.stringify(MERGE_DISMISS));}catch(_){}}
+function isDismissed(equipo,nu){return MERGE_DISMISS.indexOf(equipo+'|'+nu)>=0;}
+function dismissMerge(equipo,nu){if(!isDismissed(equipo,nu))MERGE_DISMISS.push(equipo+'|'+nu);saveDismiss();renderAll();}
+function mergeTokens(v){return v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(t=>t.length>=3);}
+function mergeSuggestions(team){
+  const sug=[],byNum={};
+  PLAYERS.forEach(r=>{if(team&&r.equipo!==team)return;const nu=String(r.num||'').trim();if(!nu)return;const k=r.equipo+'|'+nu;(byNum[k]=byNum[k]||{equipo:r.equipo,num:nu,names:{}});const nm=String(r.nombre||'').trim();if(nm)byNum[k].names[nm]=(byNum[k].names[nm]||0)+1;});
+  Object.values(byNum).forEach(g=>{
+    if(isMerged(g.equipo,g.num))return;
+    if(isDismissed(g.equipo,g.num))return;
+    const variants=Object.keys(g.names);if(variants.length<2)return;
+    const tok=variants.map(v=>new Set(mergeTokens(v)));
+    let allShare=true;
+    for(let i=0;i<tok.length;i++)for(let j=i+1;j<tok.length;j++){let sh=false;tok[i].forEach(t=>{if(tok[j].has(t))sh=true;});if(!sh)allShare=false;}
+    if(allShare)sug.push({equipo:g.equipo,num:g.num,variants});
+  });
+  return sug;
+}
 function playersAgg(){
   const fase=document.getElementById('selFase').value;
   const rows=PLAYERS.filter(r=>!fase||r.fase===fase);
   const map={};
   for(const r of rows){
-    const nu=String(r.num||'').trim(),nm=normNm(r.nombre);
-    const k=nu?(r.equipo+'|#'+nu):(r.equipo+'|'+(nm||'?'));   // número manda; nombre es respaldo
-    if(!map[k])map[k]={equipo:r.equipo,num:r.num,nombre:r.nombre||'',_nmlen:-1,g:0,min:0,pts:0,ast:0,rob:0,tap:0,per:0,ro:0,rd:0,reb:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,faltas:0,pm:0};
+    const merged=isMerged(r.equipo,String(r.num||'').trim());
+    const k=merged?(r.equipo+'|#'+r.num):(r.equipo+'|'+r.num+'|'+String(r.nombre||'').toLowerCase());
+    if(!map[k])map[k]={equipo:r.equipo,num:r.num,nombre:r.nombre,_nmlen:-1,g:0,min:0,pts:0,ast:0,rob:0,tap:0,per:0,ro:0,rd:0,reb:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,faltas:0,pm:0};
     const a=map[k];
-    const ln=String(r.nombre||'').length;if(ln>a._nmlen){a.nombre=r.nombre;a._nmlen=ln;}
-    const mn=num(r.min);if(mn>0)a.g++;
-    a.min+=mn;a.pts+=num(r.pts);a.ast+=num(r.ast);a.rob+=num(r.rob);a.tap+=num(r.tap);a.per+=num(r.per);
+    if(merged){const ln=String(r.nombre||'').length;if(ln>a._nmlen){a.nombre=r.nombre;a._nmlen=ln;}}
+    if(num(r.min)>0)a.g++;
+    a.min+=num(r.min);a.pts+=num(r.pts);a.ast+=num(r.ast);a.rob+=num(r.rob);a.tap+=num(r.tap);a.per+=num(r.per);
     a.ro+=num(r.ro);a.rd+=num(r.rd);a.reb+=num(r.reb);a.fgm+=num(r.fgm);a.fga+=num(r.fga);
     a.tpm+=num(r.tpm);a.tpa+=num(r.tpa);a.ftm+=num(r.ftm);a.fta+=num(r.fta);a.faltas+=num(r.faltas);a.pm+=num(r.mas_menos);
   }
@@ -1140,17 +1187,17 @@ function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'
 function roleFromVec(v){const r=[['Anotador',v[0]],['Generador',v[1]],['Tirador',v[2]],['Reboteador',v[3]],['Defensor',v[4]]].sort((a,b)=>b[1]-a[1]);return r[0][1]>=40?r[0][0]:'Rol secundario';}
 function gotoFicha(id){fichaSel=id;renderFicha();const v=document.getElementById('view-ficha');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});}
 function toggleSim(){const p=document.getElementById('simPanel'),b=document.getElementById('simBtn');if(!p||!b)return;const sh=p.style.display==='none';p.style.display=sh?'grid':'none';b.textContent=sh?'Ocultar similares':'🔍 Ver 3 jugadores similares';}
-function normNm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).sort().join(' ');}
+function normNm(s){return String(s||'').toLowerCase().replace(/[\s.,'´`]/g,'');}
 function fichaShots(cur){
-  const eq=cur.equipo,nu=String(cur.num||'').trim(),nm=normNm(cur.nombre);
-  let r=nu?SHOTS.filter(s=>s.equipo===eq&&String(s.num||'').trim()===nu):[];
-  if(!r.length&&nm)r=SHOTS.filter(s=>s.equipo===eq&&normNm(s.nombre)===nm);
+  const eq=cur.equipo,num=String(cur.num),nm=normNm(cur.nombre);
+  let r=SHOTS.filter(s=>s.equipo===eq&&String(s.num)===num);
+  if(!r.length)r=SHOTS.filter(s=>s.equipo===eq&&normNm(s.nombre)===nm);
+  if(!r.length)r=SHOTS.filter(s=>String(s.num)===num&&normNm(s.nombre)===nm);
   if(!r.length&&nm)r=SHOTS.filter(s=>normNm(s.nombre)===nm);
   return r;
 }
 function fichaGames(cur){
-  const eq=cur.equipo,nu=String(cur.num||'').trim(),nm=normNm(cur.nombre);
-  return PLAYERS.filter(r=>nu?(r.equipo===eq&&String(r.num||'').trim()===nu):(r.equipo===eq&&normNm(r.nombre)===nm)).map(r=>({
+  return PLAYERS.filter(r=>r.equipo===cur.equipo&&String(r.num)===String(cur.num)).map(r=>({
     fecha:r.fecha,rival:r.rival,jornada:r.jornada,pts:+r.pts||0,min:+r.min||0,
     val:(+r.pts||0)+(+r.reb||0)+(+r.ast||0)+(+r.rob||0)+(+r.tap||0)-((+r.fga||0)-(+r.fgm||0))-((+r.fta||0)-(+r.ftm||0))-(+r.per||0)
   })).sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')));
@@ -1665,8 +1712,7 @@ function renderPareto(){
     rows.map(r=>'<tr><td>'+r.i+'</td><td class="l">'+(r.num?'#'+r.num+' ':'')+r.name+'</td><td>'+r.val+'</td><td class="pc" style="color:#34c769">'+r.share+'%</td><td>'+r.acum+'%</td></tr>').join('')+'</tbody></table></div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();updateAdminDot();}
-function updateAdminDot(){const b=document.getElementById('tbAdmin');if(!b)return;const n=(PLAYERS&&PLAYERS.length)?playerAlerts().length:0;b.innerHTML='· admin'+(n?'<span class="tb-dot" title="'+n+' para revisar"></span>':'');}
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();}
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
@@ -1742,49 +1788,14 @@ function dbStatus(){
   return Object.values(M).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
 }
 let adminTab='estado',PERFILES=[];
-function playerAlerts(){
-  const alerts=[],rows=PLAYERS;
-  // (1) mismo equipo + mismo número, nombres que NO comparten apellido → posible jugador distinto con igual número
-  const byNum={};
-  rows.forEach(r=>{const nu=String(r.num||'').trim();if(!nu)return;const k=r.equipo+'|'+nu;(byNum[k]=byNum[k]||{equipo:r.equipo,num:nu,names:{}});const nm=String(r.nombre||'').trim();if(nm)byNum[k].names[nm]=(byNum[k].names[nm]||0)+1;});
-  Object.values(byNum).forEach(g=>{
-    const variants=Object.keys(g.names);if(variants.length<2)return;
-    const tok=variants.map(v=>new Set(normNm(v).split(' ').filter(t=>t.length>=3)));
-    let compat=true;
-    for(let i=0;i<tok.length;i++)for(let j=i+1;j<tok.length;j++){let sh=false;tok[i].forEach(t=>{if(tok[j].has(t))sh=true;});if(!sh)compat=false;}
-    if(!compat)alerts.push({tipo:'num',equipo:g.equipo,clave:'#'+g.num,detalle:variants});
-  });
-  // (2) mismo equipo + mismo nombre, distintos números → posible mismo jugador con número cambiado (hoy aparece separado)
-  const byName={};
-  rows.forEach(r=>{const nm=normNm(r.nombre);if(!nm)return;const k=r.equipo+'|'+nm;(byName[k]=byName[k]||{equipo:r.equipo,nombre:r.nombre,nums:new Set()});byName[k].nums.add(String(r.num||'').trim());});
-  Object.values(byName).forEach(g=>{const nums=[...g.nums].filter(Boolean);if(nums.length>=2)alerts.push({tipo:'name',equipo:g.equipo,clave:g.nombre,detalle:nums.map(n=>'#'+n)});});
-  return alerts;
-}
 function adminShow(t){adminTab=t;renderAdmin();}
 function renderAdmin(){
   document.getElementById('admTitle').textContent='Administración';
-  const nAlert=playerAlerts().length;
   const nav='<div class="adm-nav"><button class="'+(adminTab==='estado'?'on':'')+'" onclick="adminShow(\'estado\')">📊 Estado de la base</button>'+
     '<button class="'+(adminTab==='perfiles'?'on':'')+'" onclick="adminShow(\'perfiles\')">👤 Perfiles</button>'+
-    '<button class="'+(adminTab==='revisar'?'on':'')+'" onclick="adminShow(\'revisar\')">⚠ Revisar'+(nAlert?' <span class="adm-badge">'+nAlert+'</span>':'')+'</button>'+
     '<button class="adm-logout" style="margin-left:auto" onclick="adminLogout()">Cerrar sesión</button></div>';
   document.getElementById('adminBody').innerHTML=nav+'<div id="admSub"></div>';
-  if(adminTab==='perfiles')renderAdminPerfiles();else if(adminTab==='revisar')renderAdminRevisar();else renderAdminEstado();
-}
-function renderAdminRevisar(){
-  const sub=document.getElementById('admSub'),al=playerAlerts();
-  if(!al.length){sub.innerHTML='<div class="empty">✓ Todo en orden. No hay jugadores dudosos para revisar.</div>';return;}
-  const card=a=>{
-    const esNum=a.tipo==='num';
-    const titulo=esNum?(a.equipo+' · número '+a.clave):(a.equipo+' · '+a.clave);
-    const txt=esNum
-      ?'Con el número '+a.clave+' aparecen nombres muy distintos: <b>'+a.detalle.join('</b> · <b>')+'</b>. Hoy se cuentan como el mismo jugador (porque el número manda). Si en realidad son <b>dos personas distintas</b> (por ejemplo, cambió el extranjero), avisá y lo separamos.'
-      :'El jugador <b>'+a.clave+'</b> aparece con números distintos: <b>'+a.detalle.join('</b> · <b>')+'</b>. Hoy se cuentan <b>separados</b> (uno por número). Si es <b>la misma persona</b> que cambió de camiseta, avisá y lo unimos.';
-    return '<div class="court-box" style="margin-bottom:10px"><div class="zone-lbl" style="margin-bottom:6px;color:var(--offense)">'+(esNum?'⚠ Mismo número, nombres distintos':'ℹ Mismo nombre, números distintos')+'</div>'+
-      '<div style="font-family:var(--font-body);font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">'+titulo+'</div>'+
-      '<div style="font-family:var(--font-body);font-size:13px;line-height:1.6;color:var(--text-2)">'+txt+'</div></div>';
-  };
-  sub.innerHTML='<div class="zone-sub" style="margin:4px 0 12px">Casos donde el número y el nombre no coinciden del todo. La app ya decidió por su cuenta (junta por número), pero te los muestra para que confirmes. Si algo está mal, avisá y se corrige a mano en la base.</div>'+al.map(card).join('');
+  if(adminTab==='perfiles')renderAdminPerfiles();else renderAdminEstado();
 }
 function renderAdminEstado(){
   const rows=dbStatus(),sub=document.getElementById('admSub');
