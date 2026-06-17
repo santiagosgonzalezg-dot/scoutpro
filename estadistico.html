@@ -57,6 +57,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .adm-nav button{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:6px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:8px 14px;cursor:pointer;transition:all var(--t-fast)}
 .adm-nav button:hover{color:var(--text)}
 .adm-nav button.on{background:rgba(249,115,22,.13);border-color:var(--offense);color:var(--offense)}
+.adm-badge{display:inline-flex;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--offense);color:#fff;font-size:9px;font-weight:700;margin-left:3px}
 .adm-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;max-width:520px}
 @media(max-width:560px){.adm-formgrid{grid-template-columns:1fr}}
 .adm-formgrid .adm-inp{margin-bottom:0}
@@ -1791,11 +1792,31 @@ let adminTab='estado',PERFILES=[];
 function adminShow(t){adminTab=t;renderAdmin();}
 function renderAdmin(){
   document.getElementById('admTitle').textContent='Administración';
+  const nSug=mergeSuggestions().length;
   const nav='<div class="adm-nav"><button class="'+(adminTab==='estado'?'on':'')+'" onclick="adminShow(\'estado\')">📊 Estado de la base</button>'+
     '<button class="'+(adminTab==='perfiles'?'on':'')+'" onclick="adminShow(\'perfiles\')">👤 Perfiles</button>'+
+    '<button class="'+(adminTab==='revisar'?'on':'')+'" onclick="adminShow(\'revisar\')">⚠ Revisar'+(nSug?' <span class="adm-badge">'+nSug+'</span>':'')+'</button>'+
     '<button class="adm-logout" style="margin-left:auto" onclick="adminLogout()">Cerrar sesión</button></div>';
   document.getElementById('adminBody').innerHTML=nav+'<div id="admSub"></div>';
-  if(adminTab==='perfiles')renderAdminPerfiles();else renderAdminEstado();
+  if(adminTab==='perfiles')renderAdminPerfiles();else if(adminTab==='revisar')renderAdminRevisar();else renderAdminEstado();
+}
+function renderAdminRevisar(){
+  const sub=document.getElementById('admSub'),sug=mergeSuggestions(),merged=MERGES.slice();
+  let html='<div class="zone-sub" style="margin:4px 0 12px">Acá te aviso cuando un mismo jugador puede estar dividido en dos por el dato (mismo número y nombre parecido). La app <b>no une nada sola</b>: vos validás. Si son distintos, descartalo y no vuelve a aparecer.</div>';
+  if(!sug.length&&!merged.length){sub.innerHTML=html+'<div class="empty">✓ Todo en orden. No hay nada para revisar.</div>';return;}
+  if(sug.length){
+    html+=sug.map(s=>'<div class="merge-box"><div class="merge-q">¿Es el mismo jugador? <b>'+s.equipo+' · #'+s.num+'</b> aparece con nombres distintos:</div>'+
+      '<div class="merge-names">'+s.variants.map(v=>'<span class="merge-name">'+v+'</span>').join('<span class="merge-sep">·</span>')+'</div>'+
+      '<div class="merge-btns"><button class="merge-yes" onclick="confirmMerge(\''+escAttr(s.equipo)+'\',\''+escAttr(s.num)+'\')">✓ Sí, es el mismo (unir)</button>'+
+      '<button class="merge-no" onclick="dismissMerge(\''+escAttr(s.equipo)+'\',\''+escAttr(s.num)+'\')">✕ Son distintos</button></div></div>').join('');
+  }else{
+    html+='<div class="empty" style="padding:18px">✓ No hay jugadores dudosos nuevos.</div>';
+  }
+  if(merged.length){
+    html+='<div class="sec" style="margin-top:18px">Uniones confirmadas por vos</div><div class="merge-done">'+
+      merged.map(x=>{const p=x.split('|'),eq=p[0],nu=p[1];return '<span class="merge-tag">'+eq+' #'+nu+' <button onclick="undoMerge(\''+escAttr(eq)+'\',\''+escAttr(nu)+'\')" title="Deshacer">↺</button></span>';}).join(' ')+'</div>';
+  }
+  sub.innerHTML=html;
 }
 function renderAdminEstado(){
   const rows=dbStatus(),sub=document.getElementById('admSub');
