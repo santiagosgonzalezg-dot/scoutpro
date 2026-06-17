@@ -609,7 +609,15 @@ async function saveMatch(){
       if(crows.length){const {error:ce}=await client.from('cuartos_log').insert(crows);if(ce)throw ce;}
       cmsg=' · '+crows.length+' cuartos';
     }catch(ce){ cmsg=' · (cuartos no guardados: '+(ce.message||ce)+')'; }
-    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+cmsg+'.');
+    // Play-by-play -> pbp_log (best-effort, base del clutch)
+    let pbmsg='';
+    try{
+      const pbrows=buildPbpRows(matchId,fecha,fase,jornada);
+      if(matchId)await client.from('pbp_log').delete().eq('match_id',matchId);
+      if(pbrows.length){const {error:pe}=await client.from('pbp_log').insert(pbrows);if(pe)throw pe;}
+      pbmsg=' · '+pbrows.length+' jugadas';
+    }catch(pe){ pbmsg=' · (jugadas no guardadas: '+(pe.message||pe)+')'; }
+    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+cmsg+pbmsg+'.');
   }catch(e){
     saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
   }finally{ btn.disabled=false; }
@@ -675,6 +683,28 @@ function computeTramos(){
     }
   }
   return result;
+}
+function buildPbpRows(matchId,fecha,fase,jornada){
+  const rows=[];const pbp=S.data.pbp||[];
+  const byPer={};for(const e of pbp){const p=e.period||1;(byPer[p]=byPer[p]||[]).push(e);}
+  const toSec=gt=>{const m=String(gt||'').match(/(\d+):(\d+)/);return m?(+m[1]*60+ +m[2]):null;};
+  const nameOf=t=>S.teams[t]?S.teams[t].name:'';
+  const score={1:0,2:0};
+  for(const p of Object.keys(byPer).map(Number).sort((a,b)=>a-b)){
+    const evs=byPer[p].slice().reverse(); // cronológico
+    for(const e of evs){
+      const t=String(e.tno);if(t!=='1'&&t!=='2')continue;
+      const at=String(e.actionType||'').toLowerCase();const made=(e.success===1||e.success===true);
+      let pts=0;if(at==='2pt'&&made)pts=2;else if(at==='3pt'&&made)pts=3;else if(at==='freethrow'&&made)pts=1;
+      if(!pts)continue;
+      const tn=+t,opp=tn===1?2:1;score[tn]+=pts;
+      rows.push({match_id:matchId,fecha,fase,jornada,
+        equipo:nameOf(tn),rival:nameOf(opp),es_local:tn===1,
+        period:p,seg:toSec(e.gt),pts,s_fav:score[tn],s_riv:score[opp],
+        num:String(e.shirtNumber||'').trim()});
+    }
+  }
+  return rows;
 }
 function buildQuarterRows(matchId,fecha,fase,jornada){
   const rows=[];const res=S.results||{};
