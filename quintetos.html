@@ -787,7 +787,7 @@ function pgEvoSVG(marg,col){
     mlabels+qlabels+'</svg>';
 }
 function pgCourt(shots,col){
-  const W=240,H=165;let dots='';
+  const W=240,H=140;let dots='';
   shots.forEach(s=>{const fx=s.x<=50?s.x:100-s.x;const cx=s.y/100*W;const cy=H-(fx/50)*H;
     if(s.made)dots+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="3.4" fill="'+col+'"/>';
     else dots+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="3.2" fill="none" stroke="#c0392b" stroke-width="1.3"/>';});
