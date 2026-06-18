@@ -733,6 +733,12 @@ function buildQuarterRows(matchId,fecha,fase,jornada){
   }
   return rows;
 }
+function shotIs3ByPos(x,y){
+  if(!isFinite(x)||!isFinite(y))return false;
+  const X=x/100*280,Y=y/100*150,left=X<140,bx=left?15.75:264.25;
+  const d=Math.hypot(X-bx,Y-75),corner=(Y<=10||Y>=140);
+  return d>=66||(corner&&Math.min(X,280-X)<=42);
+}
 function buildShotRows(matchId,fecha,fase,jornada){
   const rows=[];
   const tramos=computeTramos();
@@ -750,7 +756,8 @@ function buildShotRows(matchId,fecha,fase,jornada){
       else made=/made|scored|conv/i.test(String(sh.subType||sh.result||''));
       made=!!made;
       const at=String(sh.actionType||sh.subType||'');
-      const tipo=(at.includes('3')||+sh.points===3||+sh.pts===3)?'3pt':'2pt';
+      const explicit3=(at.includes('3')||+sh.points===3||+sh.pts===3);
+      const tipo=(shotIs3ByPos(x,y)||explicit3)?'3pt':'2pt';
       const num=String(sh.shirtNumber||sh.p||'').trim();
       // emparejar con el tramo (mismo dorsal + resultado + tipo, en orden)
       let tramo=null;
@@ -899,9 +906,10 @@ async function postGameReport(){
   const advRow=(lbl,f,o,fbetter)=>'<tr><td>'+lbl+'</td><td class="'+(fbetter?'pos':'')+'">'+f+'</td><td class="'+(!fbetter?'':'')+'">'+o+'</td></tr>';
   const boxRows=scorers.slice(0,6).map(p=>'<tr><td class="num">#'+p.num+'</td><td class="nm">'+p.nombre+'</td><td>'+Math.round(+p.min||0)+'</td><td>'+(+p.pts||0)+'</td><td>'+(+p.reb||0)+'</td><td>'+(+p.ast||0)+'</td><td>'+(+p.fgm||0)+'/'+(+p.fga||0)+'</td><td class="'+((+p.mas_menos||0)>=0?'pos':'neg')+'">'+((+p.mas_menos||0)>=0?'+':'')+(+p.mas_menos||0)+'</td></tr>').join('');
   const npRows=np.slice(0,6).map(p=>'<tr><td class="num">#'+p.num+'</td><td class="nm">'+p.nombre+'</td><td>'+Math.round(p.min)+'</td><td>'+(p.off>=0?'+':'')+p.off+'</td><td>'+(p.def>=0?'+':'')+p.def+'</td><td class="'+(p.tot>=0?'pos':'neg')+'">'+(p.tot>=0?'+':'')+p.tot+'</td></tr>').join('');
-  const distType=[['Dobles',dosF],['Triples',tresF],['Libres',libF]];const dmax=Math.max(1,...distType.map(d=>d[1]));
+  const distType=[['Dobles',dosF,aF.fgm-aF.tpm,aF.fga-aF.tpa],['Triples',tresF,aF.tpm,aF.tpa],['Libres',libF,aF.ftm,aF.fta]];const dmax=Math.max(1,...distType.map(d=>d[1]));
   const distTramo=[['Primeros 8"',tr[1]],['Medios 8"',tr[2]],['Últimos 8"',tr[3]]];const tmax=Math.max(1,...distTramo.map(d=>d[1]));
   const dbar=(arr,mx,c)=>arr.map(d=>'<div class="db"><span class="dbl">'+d[0]+'</span><span class="dbt"><span class="dbf" style="width:'+(d[1]/mx*100).toFixed(0)+'%;background:'+c+'"></span></span><span class="dbv">'+d[1]+'</span></div>').join('');
+  const dbarType=arr=>arr.map(d=>{const pct=d[3]>0?Math.round(d[2]/d[3]*100):0;return '<div class="db"><span class="dbl">'+d[0]+'</span><span class="dbt"><span class="dbf" style="width:'+(d[1]/dmax*100).toFixed(0)+'%;background:'+col+'"></span></span><span class="dbv">'+d[1]+' pts <span class="ci">'+d[2]+'/'+d[3]+' · '+pct+'%</span></span></div>';}).join('');
   const rachaRows=runs.map(r=>'<tr><td class="nm">Q'+r.p+'</td><td class="nm">'+(r.t===fno?focus:opp)+' '+r.pts+'-0</td><td class="ks2">parcial</td></tr>').join('')||'<tr><td colspan="3" class="ks2">Sin rachas grandes.</td></tr>';
   const prem=[['MVP del partido',mvp?'#'+mvp.num+' '+mvp.nombre:'—',mvp?((+mvp.pts)+' pts · '+(+mvp.reb)+' reb · '+(+mvp.ast)+' ast · VAL '+Math.round(valOf(mvp))):''],
     ['Mejor defensor',defp?'#'+defp.num+' '+defp.nombre:'—',defp?((+defp.rob)+' rob · '+(+defp.tap)+' tap · '+(+defp.rd)+' reb def'):''],
@@ -918,7 +926,7 @@ async function postGameReport(){
     '.card{border:1px solid #e2e5ea;border-radius:8px;padding:10px 12px}.card.tight{padding:8px 10px}.cap{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#9aa0ac;margin-bottom:4px;font-weight:700}'+
     'table{width:100%;border-collapse:collapse;font-size:11px}th,td{text-align:right;padding:3px 5px;border-bottom:1px solid #f0f2f5}tr:last-child td{border-bottom:none}th:first-child,td:first-child{text-align:left}th{font-size:8px;letter-spacing:.4px;text-transform:uppercase;color:#9aa0ac;font-weight:700}td.nm{text-align:left;font-weight:600}td.num{color:'+col+';font-weight:800;width:26px}td.cmb{text-align:left;font-family:monospace;font-weight:700;color:#444}td.pos{color:#16a34a;font-weight:700}td.neg{color:#d1495b;font-weight:700}'+
     '.cmp{display:grid;grid-template-columns:60px 1fr 38px 1fr 38px;align-items:center;gap:6px;margin:5px 0;font-size:10px}.cl{color:#5a626f;font-weight:600}.ctk{height:7px;background:#eef0f3;border-radius:4px;overflow:hidden}.cf{display:block;height:100%;border-radius:4px}.cv{font-weight:700;text-align:right}.ks2{color:#9aa0ac;font-weight:600}'+
-    '.db{display:grid;grid-template-columns:70px 1fr 26px;align-items:center;gap:7px;margin:5px 0;font-size:10px}.dbl{color:#5a626f;font-weight:600}.dbt{height:9px;background:#eef0f3;border-radius:4px;overflow:hidden}.dbf{display:block;height:100%;border-radius:4px}.dbv{text-align:right;font-weight:700}'+
+    '.db{display:grid;grid-template-columns:62px 1fr 66px;align-items:center;gap:7px;margin:5px 0;font-size:10px}.dbl{color:#5a626f;font-weight:600}.dbt{height:9px;background:#eef0f3;border-radius:4px;overflow:hidden}.dbf{display:block;height:100%;border-radius:4px}.dbv{text-align:right;font-weight:700;line-height:1.2}.dbv .ci{display:block;font-weight:400;color:#9aa0ac;font-size:8px}'+
     '.legend{font-size:8px;color:#9aa0ac;margin-top:3px;text-align:center}.prem{border:1px solid #e2e5ea;border-radius:8px;padding:8px 10px;text-align:center}.prem .pt{font-size:8px;letter-spacing:.8px;text-transform:uppercase;color:#9aa0ac;font-weight:700}.prem .pn{font-weight:800;font-size:13px;color:'+col+';margin:3px 0}.prem .pd{font-size:9px;color:#5a626f}'+
     '.gloss{font-size:8.5px;color:#5a626f;line-height:1.55;columns:2;column-gap:18px}.gloss b{color:#1b1f27}.ft{margin-top:auto;text-align:center;color:#b5bbc5;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding-top:8px;border-top:1px solid #f0f2f5}@page{size:A4;margin:0}'+
     '</style></head><body>'+
@@ -931,7 +939,7 @@ async function postGameReport(){
     '<div class="sec">Box score · '+focus+' (destacados)</div><div class="card tight"><table><thead><tr><th>#</th><th>Jugador</th><th>MIN</th><th>PTS</th><th>REB</th><th>AST</th><th>TC</th><th>+/-</th></tr></thead><tbody>'+boxRows+'</tbody></table></div>'+
     '<div class="ft">ScoutPRO · Informe post-partido · '+focus+' vs '+opp+' · '+fecha+' · Página 1/2</div></div>'+
     '<div class="page"><div class="hd"><div class="lg">SCOUTPRO<small>INFORME POST-PARTIDO</small></div><div class="meta"><b>'+focus+' '+scF+' – '+scO+' '+opp+'</b><br>'+fecha+' · '+liga+'</div></div>'+
-    '<div class="grid2"><div><div class="sec">Distribución de puntos</div><div class="card tight" style="margin-bottom:9px"><div class="cap">Por tipo de tiro</div>'+dbar(distType,dmax,col)+'</div><div class="card tight"><div class="cap">Por momento de la posesión</div>'+dbar(distTramo,tmax,'#c98a00')+'</div></div>'+
+    '<div class="grid2"><div><div class="sec">Distribución de puntos</div><div class="card tight" style="margin-bottom:9px"><div class="cap">Por tipo de tiro</div>'+dbarType(distType)+'</div><div class="card tight"><div class="cap">Por momento de la posesión</div>'+dbar(distTramo,tmax,'#c98a00')+'</div></div>'+
     '<div><div class="sec">Comparativa · partido vs temporada</div><div class="card">'+seasonBars+'<div class="legend">Rojo = este partido · Gris = promedio temporada</div></div></div></div>'+
     '<div class="sec">Mapas de tiro</div><div class="grid2"><div class="card tight"><div class="cap" style="text-align:center">'+focus+'</div>'+pgCourt(shotsArr(fno),col)+'</div><div class="card tight"><div class="cap" style="text-align:center">'+opp+'</div>'+pgCourt(shotsArr(ono),'#7a7f8a')+'</div></div><div class="legend" style="margin:-6px 0 10px">● relleno = encestado · ○ contorno = errado</div>'+
     '<div class="grid2"><div><div class="sec">Net Points por jugador · '+focus+'</div><div class="card tight"><table><thead><tr><th>#</th><th>Jugador</th><th>MIN</th><th>OF</th><th>DEF</th><th>TOT</th></tr></thead><tbody>'+npRows+'</tbody></table><div class="legend" style="text-align:left;margin-top:4px">Aporte estimado al resultado (ofensivo + defensivo).</div></div></div>'+
