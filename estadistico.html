@@ -1691,6 +1691,19 @@ function rivalShareBars(team,key,c1,c2){
 let rivalTeam='';
 function setRival(v){rivalTeam=v;renderRival();}
 function rankPct(arr,v,hb){const n=arr.length;if(!n)return 50;const p=Math.round(arr.filter(x=>x<=v).length/n*100);return hb?p:100-p;}
+function tramoPanelFor(team){
+  const fz=(document.getElementById('selFase')||{}).value||'';
+  const sh=SHOTS.filter(s=>s.equipo===team&&(!fz||s.fase===fz)&&s.tramo!=null);
+  const tr=[1,2,3].map(k=>{const arr=sh.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
+  const totT=tr.reduce((s,x)=>s+x.a,0);
+  if(!totT)return '<div class="zone-sub">Todavía no hay datos de momento de la posesión para '+team+'. Se llenan al re-guardar partidos desde Quintetos.</div>';
+  const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
+  return '<div class="tramo-grid">'+tr.map(x=>{const share=Math.round(x.a/totT*100);return '<div class="tramo-card"><div class="lbl">'+tLbl[x.k]+'</div>'+
+    '<div class="big" style="color:'+tCol[x.k]+'">'+share+'%</div>'+
+    '<div class="sub">'+x.a+' tiros · '+x.pct+'% acierto</div>'+
+    '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>'+
+    '<div class="zone-sub" style="margin-top:8px">Primeros 8" = juego rápido / transición · Segundos = ataque normal · Últimos = relojito / forzado. Sale de los tiros con momento registrado.</div>';
+}
 function renderRival(){
   const el=document.getElementById('view-rival');
   if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
@@ -1831,6 +1844,9 @@ function renderRival(){
       '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Rebote ofensivo por jugador</div>'+rivalShareBars(rivalTeam,'ro','#f97316','#fb923c')+'</div>'+
     '</div>'+
     '<div class="sec">Claves del partido</div><div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>'+
+    '<div class="sec">Cuándo tira · momento de la posesión</div>'+
+    help('¿Para qué sirve esto?','Te dice <b>en qué momento de la posesión</b> suele tirar el rival: si juega rápido (primeros 8"), si arma su ataque (segundos 8") o si llega forzado al final (últimos 8"). Útil para saber si conviene correr con ellos o frenarlos, y cuándo aprietan más la defensa.')+
+    tramoPanelFor(rivalTeam)+
     '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>'+
     clutchSec+
     '</div>';
