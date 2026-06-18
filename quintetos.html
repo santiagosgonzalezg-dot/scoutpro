@@ -221,6 +221,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
       <span style="width:1px;height:30px;background:var(--border-light);margin:0 4px"></span>
       <div class="field"><label>Informe de</label><select id="pgTeam" style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:var(--r);padding:9px var(--sp-3);font-family:var(--font-mono);font-size:12px;color:var(--text);outline:none"></select></div>
       <button class="btn-save" id="pgBtn" onclick="postGameReport()" style="background:var(--bg-panel);border:1px solid var(--offense-mid);color:var(--offense)">📄 Informe post-partido</button>
+      <button class="btn-save" id="diagBtn" onclick="diagShots()" style="background:var(--bg-panel);border:1px solid var(--border-light);color:var(--text-2)" title="Ver qué trae el dato de tiros">🔍 Revisar tiros</button>
       <div class="save-status" id="saveStatus"></div>
     </div>
   </div>
@@ -738,6 +739,29 @@ function shotIs3ByPos(x,y){
   const X=x/100*280,Y=y/100*150,left=X<140,bx=left?15.75:264.25;
   const d=Math.hypot(X-bx,Y-75),corner=(Y<=10||Y>=140);
   return d>=66||(corner&&Math.min(X,280-X)<=42);
+}
+function diagShots(){
+  if(!S.data||!S.data.tm){alert('Cargá un partido primero.');return;}
+  let out='DIAGNÓSTICO DE TIROS\n\n';
+  for(const team of [1,2]){
+    const tm=S.data.tm[String(team)];const nm=S.teams[team].name;
+    const shots=tm.shot||tm.shots||tm.shotchart||tm.shotChart||[];
+    const pl=tm.pl||{};
+    let fgaOf=0,tpaOf=0;
+    for(const pno of Object.keys(pl)){const p=pl[pno];fgaOf+=Math.round(+p.sFieldGoalsAttempted||0);tpaOf+=Math.round(+p.sThreePointersAttempted||0);}
+    const conPos=shots.filter(s=>isFinite(+s.x)&&isFinite(+s.y)).length;
+    const tresPos=shots.filter(s=>isFinite(+s.x)&&isFinite(+s.y)&&shotIs3ByPos(+s.x,+s.y)).length;
+    out+='■ '+nm+'\n';
+    out+='  Tiros en el dato: '+shots.length+'  (con posición: '+conPos+')\n';
+    out+='  Lanzamientos de campo según planilla (FGA): '+fgaOf+'\n';
+    out+='  Triples por posición en el dato: '+tresPos+'  ·  Triples según planilla: '+tpaOf+'\n';
+    if(shots[0]){out+='  Campos de un tiro: '+Object.keys(shots[0]).join(', ')+'\n';
+      const e=shots[0];out+='  Ejemplo: x='+e.x+' y='+e.y+' r='+e.r+' #'+(e.shirtNumber!=null?e.shirtNumber:e.p)+' tipo='+(e.actionType||e.subType||'?')+'\n';}
+    out+='\n';
+  }
+  out+='Si "Tiros en el dato" es parecido al FGA, las coordenadas están y el problema es de lectura (lo arreglo).\nSi es mucho menor, FIBA no manda todos los tiros con posición.';
+  alert(out);
+  try{console.log(out);console.log('shot[0] equipo1:',(S.data.tm['1'].shot||[])[0]);}catch(e){}
 }
 function buildShotRows(matchId,fecha,fase,jornada){
   const rows=[];
