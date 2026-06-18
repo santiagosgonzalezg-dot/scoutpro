@@ -935,15 +935,42 @@ function fullCourtLines(){
     '<circle class="court-line" cx="264.25" cy="75" r="4.5"/>'+
     '<path class="court-line" d="M279.5 9 L250.1 9 A67.5 67.5 0 0 0 250.1 141 L279.5 141"/>';
 }
+function scatter3(est3){
+  if(!est3)return '';
+  let out='',seed=20260618;
+  const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  // rangos angulares (rad) desde el aro: tizq=arriba, tcen=tope, tder=abajo
+  const zoneAng={tizq:[-1.40,-0.50],tcen:[-0.42,0.42],tder:[0.50,1.40]};
+  const baskets=[{x:15.75,dir:1},{x:264.25,dir:-1}];
+  const CAP=160; // máx de puntos por zona-aro, para no saturar
+  ['tizq','tcen','tder'].forEach(k=>{
+    const z=est3[k];if(!z||!z.a)return;
+    const [a0,a1]=zoneAng[k];
+    baskets.forEach(b=>{
+      let n=Math.round(z.a/2),nm=Math.round(z.m/2);
+      let scale=1;if(n>CAP){scale=CAP/n;nm=Math.round(nm*scale);n=CAP;}
+      for(let i=0;i<n;i++){
+        const ang=a0+(a1-a0)*rnd();
+        const r=68.5+rnd()*22;
+        let cx=b.x+b.dir*Math.cos(ang)*r;
+        let cy=75+Math.sin(ang)*r;
+        cx=Math.max(5,Math.min(275,cx));cy=Math.max(5,Math.min(145,cy));
+        const made=i<nm;
+        out+= made?'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="1.5" fill="#34c769" fill-opacity="0.5"/>'
+                  :'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="1.5" fill="none" stroke="#f05050" stroke-opacity="0.42" stroke-width="0.7"/>';
+      }
+    });
+  });
+  return out;
+}
 function courtHeatSVG(shots,real3){
-  const dots=shots.map(s=>{const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
+  const realDot=s=>{const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
     const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
-    return shotMade(s)?'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="#34c769" fill-opacity="0.26"/>'
-                      :'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="none" stroke="#f05050" stroke-opacity="0.24" stroke-width="0.8"/>';
-  }).join('');
+    return shotMade(s)?'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="#34c769" fill-opacity="0.28"/>'
+                      :'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="none" stroke="#f05050" stroke-opacity="0.26" stroke-width="0.8"/>';};
   const buckets={};Object.keys(HEAT_ZONES).forEach(k=>buckets[k]=[]);
   shots.map(foldShot).filter(Boolean).forEach(f=>{const z=heatZone(f);if(buckets[z])buckets[z].push(f);});
-  // Zonas de TRIPLE: escalar a los totales reales de la planilla, repartiendo por la densidad de los tiros ubicados
+  // Zonas de TRIPLE: escalar a los totales reales de la planilla, repartiendo por densidad de los ubicados
   let est3=null;
   if(real3&&real3.a>0){
     const tz=['tizq','tcen','tder'],locA=tz.map(k=>buckets[k].length),tot=locA.reduce((a,b)=>a+b,0);
@@ -951,6 +978,14 @@ function courtHeatSVG(shots,real3){
     est3={};let usedA=0;
     tz.forEach((k,i)=>{const prop=tot>0?locA[i]/tot:def[k];const a=Math.round(real3.a*prop);est3[k]={a,m:Math.round(a*o3)};usedA+=a;});
     if(est3.tcen){est3.tcen.a+=(real3.a-usedA);if(est3.tcen.a<0)est3.tcen.a=0;est3.tcen.m=Math.round(est3.tcen.a*o3);}
+  }
+  // Puntos en cancha
+  let dots;
+  if(est3){
+    // dobles: posición real · triples: nube estimada que iguala los carteles
+    dots=shots.filter(s=>s.tipo!=='3pt').map(realDot).join('')+scatter3(est3);
+  }else{
+    dots=shots.map(realDot).join('');
   }
   let bubbles='';
   Object.keys(HEAT_ZONES).forEach(k=>{
@@ -962,7 +997,7 @@ function courtHeatSVG(shots,real3){
     const pps=(k[0]==='t'?3:2)*pct/100, col=ppsColor(pps);
     const r=Math.min(8,3+Math.sqrt(a)*1.0), z=HEAT_ZONES[k];
     [[z[0],z[1]],[280-z[0],z[1]]].forEach(c=>{const cx=c[0],cy=c[1];
-      bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.24" stroke="'+col+'" stroke-width="0.7"'+(estimated?' stroke-dasharray="2 1.3"':'')+'/>'+
+      bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.22" stroke="'+col+'" stroke-width="0.8"'+(estimated?' stroke-dasharray="2 1.3"':'')+'/>'+
         '<text x="'+cx+'" y="'+(cy-0.6)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="5" text-anchor="middle">'+pct+'%</text>'+
         '<text x="'+cx+'" y="'+(cy+3.7)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="3" text-anchor="middle">'+(estimated?'~':'')+m+'/'+a+'</text>';
     });
