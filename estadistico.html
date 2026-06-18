@@ -383,7 +383,7 @@ async function loadData(){
     // Box score de jugadores (best-effort: si no existe la tabla, queda vacío)
     try{ const pr=await c.from('jugadores_log').select('*').limit(20000); PLAYERS=pr.error?[]:(pr.data||[]); }
     catch(_){ PLAYERS=[]; }
-    try{ const tr=await c.from('tiros_log').select('*').limit(40000); SHOTS=tr.error?[]:(tr.data||[]); }
+    try{ const tr=await c.from('tiros_log').select('*').limit(40000); SHOTS=tr.error?[]:(tr.data||[]); SHOTS.forEach(s=>{s.tipo=fixShotTipo(s);}); }
     catch(_){ SHOTS=[]; }
     try{ const cr=await c.from('cuartos_log').select('*').limit(20000); QUARTERS=cr.error?[]:(cr.data||[]); }
     catch(_){ QUARTERS=[]; }
@@ -879,6 +879,21 @@ function setTiroPlayer(v){tiroPlayer=v;renderTiros();}
 function setTiroMatch(v){tiroMatch=v;renderTiros();}
 function setTiroTipo(v){tiroTipo=v;renderTiros();}
 function shotMade(s){return s.made===true||s.made==='true'||+s.made===1;}
+// Corrige el tipo de tiro por posición en cancha (arco de 3 a radio 67.5 del aro).
+// Repara casos donde el dato vino mal clasificado, sin tocar los tiros dudosos del borde.
+function fixShotTipo(s){
+  const t=s.tipo||'2pt';const x=+s.x,y=+s.y;
+  if(!isFinite(x)||!isFinite(y))return t;
+  const X=x/100*280,Y=y/100*150;
+  const left=X<140,bx=left?15.75:264.25;
+  const d=Math.hypot(X-bx,Y-75);
+  const corner=(Y<=10||Y>=140);
+  const clearly3=d>=66||(corner&&Math.min(X,280-X)<=42);
+  const clearly2=d<=52&&!corner;
+  if(clearly3)return '3pt';
+  if(clearly2)return '2pt';
+  return t;
+}
 function foldShot(s){let fx=+s.x,fy=+s.y;if(!isFinite(fx)||!isFinite(fy))return null;if(fx>50){fx=100-fx;fy=100-fy;}return{fx,fy,made:shotMade(s),tipo:s.tipo};}
 const HEAT_ZONES={
   pint:[44,75], mizq:[60,48], mder:[60,102],
