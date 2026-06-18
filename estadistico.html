@@ -1396,17 +1396,8 @@ function renderFicha(){
   const pof=(m,a)=>a?Math.round(m/a*100):0;
   const d2m=(cur.fgm||0)-(cur.tpm||0),d2a=(cur.fga||0)-(cur.tpa||0);
   const efg=cur.fga?Math.round((cur.fgm+0.5*cur.tpm)/cur.fga*100):0;
-  // USG% estimado: posesiones del jugador sobre las del equipo mientras estuvo en cancha
-  const fz=(document.getElementById('selFase')||{}).value||'';
-  const inFz=p=>!fz||p.fase===fz;
-  const myRows=PLAYERS.filter(p=>inFz(p)&&p.equipo===cur.equipo&&String(p.num)===String(cur.num)&&(+p.min>0));
-  const mids=new Set(myRows.map(p=>p.match_id));
-  const teamRows=PLAYERS.filter(p=>inFz(p)&&p.equipo===cur.equipo&&mids.has(p.match_id));
-  const sumK=(rows,k)=>rows.reduce((s,p)=>s+(+p[k]||0),0);
-  const pFGA=sumK(myRows,'fga'),pFTA=sumK(myRows,'fta'),pTOV=sumK(myRows,'per'),pMP=sumK(myRows,'min');
-  const tFGA=sumK(teamRows,'fga'),tFTA=sumK(teamRows,'fta'),tTOV=sumK(teamRows,'per'),tMP=sumK(teamRows,'min');
-  const usgDen=pMP*(tFGA+0.44*tFTA+tTOV);
-  const usg=(pMP>0&&usgDen>0)?Math.round(100*((pFGA+0.44*pFTA+pTOV)*(tMP/5))/usgDen):null;
+  // USG% estimado (posesiones del equipo mientras estuvo en cancha)
+  const usg=playerUSG(cur);
   const shotSec=(cur.fga||cur.fta)?('<div class="sec">Tiros acumulados</div><div class="ficha-grid">'+
     '<div class="court-box">'+
       '<div class="zone-row"><span class="zone-lbl">Dobles</span><span class="zone-val">'+d2m+'/'+d2a+' · '+pof(d2m,d2a)+'%</span></div>'+
@@ -1487,6 +1478,21 @@ function pp1(v){return (Math.round(v*10)/10).toFixed(1);}
 const BS_DIMS=[['anot','Anotación'],['gen','Generación'],['tiro','Tiro ext.'],['reb','Rebote'],['def','Defensa'],['vers','Versatilidad'],['glob','Global']];
 let bsRows=[{dim:'anot',min:70,max:100}];
 function bsLabel(k){const d=BS_DIMS.find(x=>x[0]===k);return d?d[1]:k;}
+function playerUSG(p){
+  const fz=(document.getElementById('selFase')||{}).value||'';
+  const inFz=q=>!fz||q.fase===fz;
+  const myRows=PLAYERS.filter(q=>inFz(q)&&q.equipo===p.equipo&&String(q.num)===String(p.num)&&(+q.min>0));
+  if(!myRows.length)return null;
+  const mids=new Set(myRows.map(q=>q.match_id));
+  const teamRows=PLAYERS.filter(q=>inFz(q)&&q.equipo===p.equipo&&mids.has(q.match_id));
+  const s=(rows,k)=>rows.reduce((a,q)=>a+(+q[k]||0),0);
+  const pMP=s(myRows,'min'),tMP=s(teamRows,'min');
+  const den=pMP*(s(teamRows,'fga')+0.44*s(teamRows,'fta')+s(teamRows,'per'));
+  if(!(pMP>0&&den>0))return null;
+  return Math.round(100*((s(myRows,'fga')+0.44*s(myRows,'fta')+s(myRows,'per'))*(tMP/5))/den);
+}
+let bsSort={key:'',dir:-1};
+function bsSortBy(key){if(bsSort.key===key)bsSort.dir*=-1;else{bsSort.key=key;bsSort.dir=-1;}bsApply();}
 function buscadorData(){
   const pool=fichaList();const pg=(p,k)=>p[k]/(p.g||1);
   const A={anot:pool.map(p=>pg(p,'pts')),gen:pool.map(p=>pg(p,'ast')),tiro:pool.map(p=>pg(p,'tpm')),reb:pool.map(p=>pg(p,'reb')),def:pool.map(p=>pg(p,'rob')+pg(p,'tap'))};
@@ -1494,7 +1500,7 @@ function buscadorData(){
   return pool.map(p=>{
     const a=pctRank(A.anot,pg(p,'pts')),ge=pctRank(A.gen,pg(p,'ast')),ti=pctRank(A.tiro,pg(p,'tpm')),re=pctRank(A.reb,pg(p,'reb')),de=pctRank(A.def,pg(p,'rob')+pg(p,'tap'));
     const ve=Math.round((a+ge+ti+re+de)/5),gl=pctRank(valArr,fichaVal(p));
-    return {p,pct:{anot:a,gen:ge,tiro:ti,reb:re,def:de,vers:ve,glob:gl},pts:pg(p,'pts'),reb:pg(p,'reb'),ast:pg(p,'ast'),val:fichaVal(p)};
+    return {p,pct:{anot:a,gen:ge,tiro:ti,reb:re,def:de,vers:ve,glob:gl},pts:pg(p,'pts'),reb:pg(p,'reb'),ast:pg(p,'ast'),val:fichaVal(p),usg:playerUSG(p)};
   });
 }
 function bsSync(){
@@ -1527,19 +1533,29 @@ function bsApply(){
   bsSync();
   const data=buscadorData();
   const res=data.filter(d=>bsRows.every(r=>d.pct[r.dim]>=r.min&&d.pct[r.dim]<=r.max));
-  const sortDim=bsRows[0].dim;
-  res.sort((a,b)=>b.pct[sortDim]-a.pct[sortDim]);
   const out=document.getElementById('bs-results');if(!out)return;
   if(!res.length){out.innerHTML='<div class="bs-count">0 jugadores cumplen</div><div class="empty">Ningún jugador entra en ese rango. Probá ampliando los límites.</div>';return;}
   const filterDims=[...new Set(bsRows.map(r=>r.dim))];
-  const th='<tr><th>#</th><th class="l">Jugador</th><th class="l">Equipo</th><th>PJ</th>'+
-    filterDims.map(d=>'<th>'+bsLabel(d)+'</th>').join('')+
-    '<th>PTS</th><th>REB</th><th>AST</th><th>VAL</th></tr>';
-  const body=res.map((d,i)=>'<tr onclick="openFicha(\''+escAttr(fichaId(d.p))+'\')">'+
-    '<td>'+(i+1)+'</td><td class="l">'+(d.p.num?'#'+d.p.num+' ':'')+d.p.nombre+'</td><td class="l">'+d.p.equipo+'</td><td>'+d.p.g+'</td>'+
-    filterDims.map(dim=>'<td class="pc" style="color:'+pctColor(d.pct[dim])+'">'+d.pct[dim]+'</td>').join('')+
-    '<td>'+pp1(d.pts)+'</td><td>'+pp1(d.reb)+'</td><td>'+pp1(d.ast)+'</td><td>'+pp1(d.val)+'</td></tr>').join('');
-  out.innerHTML='<div class="bs-count">'+res.length+' jugador'+(res.length>1?'es':'')+' cumplen</div><div class="court-box" style="overflow-x:auto"><table class="bs-table"><thead>'+th+'</thead><tbody>'+body+'</tbody></table></div>';
+  const cols=[
+    {key:'nombre',label:'Jugador',l:true,str:true,val:d=>d.p.nombre,cell:d=>'<b>'+(d.p.num?'#'+d.p.num+' ':'')+d.p.nombre+'</b>'},
+    {key:'equipo',label:'Equipo',l:true,str:true,val:d=>d.p.equipo,cell:d=>d.p.equipo},
+    {key:'g',label:'PJ',val:d=>d.p.g,cell:d=>d.p.g},
+  ].concat(filterDims.map(dim=>({key:'pct_'+dim,label:bsLabel(dim),val:d=>d.pct[dim],cell:d=>'<span class="pc" style="color:'+pctColor(d.pct[dim])+'">'+d.pct[dim]+'</span>'})))
+   .concat([
+    {key:'pts',label:'PTS',val:d=>d.pts,cell:d=>pp1(d.pts)},
+    {key:'reb',label:'REB',val:d=>d.reb,cell:d=>pp1(d.reb)},
+    {key:'ast',label:'AST',val:d=>d.ast,cell:d=>pp1(d.ast)},
+    {key:'usg',label:'USG%',val:d=>d.usg==null?-1:d.usg,cell:d=>d.usg==null?'—':d.usg+'%'},
+    {key:'val',label:'VAL',val:d=>d.val,cell:d=>pp1(d.val)},
+  ]);
+  // columna de orden: la elegida, o por defecto la primera faceta del filtro
+  let col=cols.find(c=>c.key===bsSort.key);
+  if(!col)col=cols.find(c=>c.key==='pct_'+filterDims[0])||cols[cols.length-1];
+  const dir=bsSort.key?bsSort.dir:-1;
+  res.sort((a,b)=>{const va=col.val(a),vb=col.val(b);const c=col.str?String(va).localeCompare(String(vb)):(va-vb);return dir<0?-c:c;});
+  const th='<tr><th>#</th>'+cols.map(c=>{const active=col.key===c.key;const arrow=active?(dir<0?' ▾':' ▴'):'';return '<th'+(c.l?' class="l"':'')+' style="cursor:pointer;user-select:none" onclick="bsSortBy(\''+c.key+'\')" title="Ordenar por '+c.label+'">'+c.label+arrow+'</th>';}).join('')+'</tr>';
+  const body=res.map((d,i)=>'<tr onclick="openFicha(\''+escAttr(fichaId(d.p))+'\')"><td>'+(i+1)+'</td>'+cols.map(c=>'<td'+(c.l?' class="l"':'')+'>'+c.cell(d)+'</td>').join('')+'</tr>').join('');
+  out.innerHTML='<div class="bs-count">'+res.length+' jugador'+(res.length>1?'es':'')+' cumplen · tocá un encabezado para ordenar</div><div class="court-box" style="overflow-x:auto"><table class="bs-table"><thead>'+th+'</thead><tbody>'+body+'</tbody></table></div>';
 }
 
 // ── VISTA DUPLAS / TRÍOS ──
