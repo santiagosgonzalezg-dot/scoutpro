@@ -1396,6 +1396,17 @@ function renderFicha(){
   const pof=(m,a)=>a?Math.round(m/a*100):0;
   const d2m=(cur.fgm||0)-(cur.tpm||0),d2a=(cur.fga||0)-(cur.tpa||0);
   const efg=cur.fga?Math.round((cur.fgm+0.5*cur.tpm)/cur.fga*100):0;
+  // USG% estimado: posesiones del jugador sobre las del equipo mientras estuvo en cancha
+  const fz=(document.getElementById('selFase')||{}).value||'';
+  const inFz=p=>!fz||p.fase===fz;
+  const myRows=PLAYERS.filter(p=>inFz(p)&&p.equipo===cur.equipo&&String(p.num)===String(cur.num)&&(+p.min>0));
+  const mids=new Set(myRows.map(p=>p.match_id));
+  const teamRows=PLAYERS.filter(p=>inFz(p)&&p.equipo===cur.equipo&&mids.has(p.match_id));
+  const sumK=(rows,k)=>rows.reduce((s,p)=>s+(+p[k]||0),0);
+  const pFGA=sumK(myRows,'fga'),pFTA=sumK(myRows,'fta'),pTOV=sumK(myRows,'per'),pMP=sumK(myRows,'min');
+  const tFGA=sumK(teamRows,'fga'),tFTA=sumK(teamRows,'fta'),tTOV=sumK(teamRows,'per'),tMP=sumK(teamRows,'min');
+  const usgDen=pMP*(tFGA+0.44*tFTA+tTOV);
+  const usg=(pMP>0&&usgDen>0)?Math.round(100*((pFGA+0.44*pFTA+pTOV)*(tMP/5))/usgDen):null;
   const shotSec=(cur.fga||cur.fta)?('<div class="sec">Tiros acumulados</div><div class="ficha-grid">'+
     '<div class="court-box">'+
       '<div class="zone-row"><span class="zone-lbl">Dobles</span><span class="zone-val">'+d2m+'/'+d2a+' · '+pof(d2m,d2a)+'%</span></div>'+
@@ -1406,8 +1417,8 @@ function renderFicha(){
     '<div class="court-box">'+
       '<div class="zone-row"><span class="zone-lbl">Tiros de campo (total)</span><span class="zone-val">'+(cur.fgm||0)+'/'+(cur.fga||0)+' · '+pof(cur.fgm,cur.fga)+'%</span></div>'+
       '<div class="zone-row"><span class="zone-lbl">eFG% (ajustado por triples)</span><span class="zone-val">'+efg+'%</span></div>'+
-      '<div class="zone-row"><span class="zone-lbl">Puntos totales</span><span class="zone-val">'+(cur.pts||0)+'</span></div>'+
-      '<div class="zone-sub" style="margin-top:8px">eFG% le da más valor al triple: (convertidos + ½ triples) / intentos.</div>'+
+      '<div class="zone-row"><span class="zone-lbl">USG% (uso)</span><span class="zone-val">'+(usg!=null?usg+'%':'s/d')+'</span></div>'+
+      '<div class="zone-sub" style="margin-top:8px">eFG% le da más valor al triple. USG% = cuánto de las posesiones del equipo termina él (tiros + pérdidas + libres) mientras está en cancha.</div>'+
     '</div></div>'):'';
   // evolución partido a partido
   const games=fichaGames(cur);
