@@ -745,7 +745,12 @@ function buildShotRows(matchId,fecha,fase,jornada){
   for(const team of [1,2]){
     const tm=S.data.tm[String(team)];const rival=S.teams[team===1?2:1].name;
     const shots=tm.shot||tm.shots||[];
-    const queue=(tramos[String(team)]||[]).slice();
+    const pl=tm.pl||{};
+    // Triples intentados OFICIALES por dorsal (de la planilla FIBA)
+    const tpaByNum={};
+    for(const pno of Object.keys(pl)){const p=pl[pno];const num=String(p.shirtNumber||'').trim();if(!num)continue;tpaByNum[num]=Math.round(+p.sThreePointersAttempted||0);}
+    // Recolectar los tiros con posición + distancia al aro
+    const located=[];
     for(const sh of shots){
       const x=+sh.x,y=+sh.y;
       if(!isFinite(x)||!isFinite(y))continue;
@@ -755,18 +760,28 @@ function buildShotRows(matchId,fecha,fase,jornada){
       else if(sh.success!=null)made=(sh.success===true||+sh.success===1);
       else made=/made|scored|conv/i.test(String(sh.subType||sh.result||''));
       made=!!made;
-      const at=String(sh.actionType||sh.subType||'');
-      const explicit3=(at.includes('3')||+sh.points===3||+sh.pts===3);
-      const tipo=(shotIs3ByPos(x,y)||explicit3)?'3pt':'2pt';
       const num=String(sh.shirtNumber||sh.p||'').trim();
-      // emparejar con el tramo (mismo dorsal + resultado + tipo, en orden)
+      const X=x/100*280,Y=y/100*150,bx=X<140?15.75:264.25;const dist=Math.hypot(X-bx,Y-75);
+      located.push({x,y,made,num,dist,per:+sh.per||null,nombre:sh.player||sh.scoreboardName||'',tipo:'2pt'});
+    }
+    // Anclar el tipo a la planilla: por jugador, los N tiros más lejanos son sus N triples reales
+    const byNum={};located.forEach(s=>{(byNum[s.num]=byNum[s.num]||[]).push(s);});
+    Object.keys(byNum).forEach(num=>{
+      const arr=byNum[num].slice().sort((a,b)=>b.dist-a.dist);
+      const tpa=tpaByNum[num];
+      if(tpa!=null){arr.forEach((s,i)=>{s.tipo=(i<tpa)?'3pt':'2pt';});}
+      else{arr.forEach(s=>{s.tipo=shotIs3ByPos(s.x,s.y)?'3pt':'2pt';});}
+    });
+    // Emparejar con el tramo (mismo dorsal + resultado + tipo, en orden) y guardar
+    const queue=(tramos[String(team)]||[]).slice();
+    for(const s of located){
       let tramo=null;
-      const qi=queue.findIndex(q=>q.num===num&&q.made===made&&q.type===tipo);
+      const qi=queue.findIndex(q=>q.num===s.num&&q.made===s.made&&q.type===s.tipo);
       if(qi>=0){tramo=queue[qi].tramo;queue.splice(qi,1);}
       rows.push({match_id:matchId,fecha,fase,jornada,
         equipo:S.teams[team].name,rival,
-        num,nombre:sh.player||sh.scoreboardName||'',
-        x:+x.toFixed(2),y:+y.toFixed(2),made,tipo,periodo:+sh.per||null,tramo});
+        num:s.num,nombre:s.nombre,
+        x:+s.x.toFixed(2),y:+s.y.toFixed(2),made:s.made,tipo:s.tipo,periodo:s.per,tramo});
     }
   }
   return rows;
