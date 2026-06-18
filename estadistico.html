@@ -136,6 +136,21 @@ table.t tr:hover td{background:var(--bg-hover)}
 .shot-miss{fill:none;stroke:#f05050;stroke-width:1.4;stroke-opacity:.8}
 .tiros-ctl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:var(--sp-4);align-items:center}
 .tiros-ctl select{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);color:var(--text);font-family:var(--font-ui);font-size:13px;padding:7px 12px}
+.tipo-seg{display:inline-flex;border:1px solid var(--border-subtle);border-radius:var(--r-sm);overflow:hidden}
+.tipo-seg button{background:var(--bg-panel);border:none;border-right:1px solid var(--border-subtle);color:var(--text-2);font-family:var(--font-mono);font-size:11px;letter-spacing:.5px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast)}
+.tipo-seg button:last-child{border-right:none}
+.tipo-seg button:hover{color:var(--text)}
+.tipo-seg button.on{background:var(--offense);color:#fff;font-weight:700}
+.shooters{margin-top:var(--sp-3)}
+.sh-row{display:grid;grid-template-columns:22px 1fr 130px 92px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
+.sh-row:last-child{border-bottom:none}
+.sh-rk{font-family:var(--font-disp);font-weight:800;font-size:15px;color:var(--text-3);text-align:center}
+.sh-nm{font-weight:600;color:var(--text);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-bar{height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden}
+.sh-fill{display:block;height:100%;background:var(--offense);border-radius:4px}
+.sh-val{font-family:var(--font-mono);font-size:11px;color:var(--text-2);text-align:right}
+.sh-val b{color:var(--text)}
+@media(max-width:620px){.sh-row{grid-template-columns:20px 1fr 80px}.sh-bar{display:none}}
 .zone-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--border-subtle)}
 .zone-row:last-child{border-bottom:none}
 .zone-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text-2);text-transform:uppercase;font-weight:500}
@@ -272,6 +287,18 @@ table.t tr:hover td{background:var(--bg-hover)}
 .arm-chip .pn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:50%;background:var(--bg-hover);color:var(--text-2);font-family:var(--font-mono);font-size:10px;font-weight:700}
 .arm-chip.on{background:rgba(249,115,22,.14);border-color:var(--offense);color:var(--offense)}
 .arm-chip.on .pn{background:var(--offense);color:#fff}
+.arm-dest{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0 4px}
+.lu-card{border:1px solid var(--border-subtle);border-radius:var(--r);padding:12px 14px;background:var(--bg-raised)}
+.lu-card.good{border-color:rgba(52,199,105,.35)}.lu-card.bad{border-color:rgba(240,80,80,.30)}
+.lu-h{font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-2);margin-bottom:6px;font-weight:600;display:flex;align-items:center;gap:6px}
+.lu-item{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border-subtle)}
+.lu-item:first-of-type{border-top:none}
+.lu-rank{font-family:var(--font-disp);font-weight:900;font-size:17px;color:var(--text-3);width:16px;flex-shrink:0;line-height:1.3}
+.lu-body{flex:1;min-width:0}
+.lu-team{font-family:var(--font-mono);font-size:9px;letter-spacing:.5px;color:var(--insight);text-transform:uppercase;margin-bottom:3px;font-weight:600}
+.lu-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
+.lu-meta{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+@media(max-width:680px){.arm-dest{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -846,10 +873,11 @@ function renderLideres(){
 }
 
 // ── VISTA TIROS (mapa de tiros) ──
-let tiroTeam='',tiroPlayer='__all__',tiroMatch='';
+let tiroTeam='',tiroPlayer='__all__',tiroMatch='',tiroTipo='all';
 function setTiroTeam(v){tiroTeam=v;tiroPlayer='__all__';renderTiros();}
 function setTiroPlayer(v){tiroPlayer=v;renderTiros();}
 function setTiroMatch(v){tiroMatch=v;renderTiros();}
+function setTiroTipo(v){tiroTipo=v;renderTiros();}
 function shotMade(s){return s.made===true||s.made==='true'||+s.made===1;}
 function foldShot(s){let fx=+s.x,fy=+s.y;if(!isFinite(fx)||!isFinite(fy))return null;if(fx>50){fx=100-fx;fy=100-fy;}return{fx,fy,made:shotMade(s),tipo:s.tipo};}
 const HEAT_ZONES={
@@ -931,24 +959,49 @@ function renderTiros(){
   const players=[...new Set(rows.map(s=>((s.num||'')+' '+(s.nombre||'')).trim()))].sort();
   if(tiroPlayer!=='__all__'&&!players.includes(tiroPlayer))tiroPlayer='__all__';
   const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>((s.num||'')+' '+(s.nombre||'')).trim()===tiroPlayer);
+  // filtro por tipo de tiro (todos / dobles / triples) — afecta el mapa y los paneles
+  const selT=tiroTipo==='all'?sel:sel.filter(s=>tiroTipo==='3'?s.tipo==='3pt':s.tipo!=='3pt');
+  const tipoLbl=tiroTipo==='3'?'solo triples':tiroTipo==='2'?'solo dobles':'todos los tiros';
   const z=arr=>{const m=arr.filter(shotMade).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
   const all=z(sel),p2=z(sel.filter(s=>s.tipo!=='3pt')),p3=z(sel.filter(s=>s.tipo==='3pt'));
   const heatMode=true;
   const teamOpts='<option value="">Todos los equipos</option>'+teams.map(t=>'<option'+(t===tiroTeam?' selected':'')+'>'+t+'</option>').join('');
   const plOpts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
+  const tipoSeg='<span class="zone-lbl">Tipo</span><span class="tipo-seg">'+
+    '<button class="'+(tiroTipo==='all'?'on':'')+'" onclick="setTiroTipo(\'all\')">Todos</button>'+
+    '<button class="'+(tiroTipo==='2'?'on':'')+'" onclick="setTiroTipo(\'2\')">Dobles</button>'+
+    '<button class="'+(tiroTipo==='3'?'on':'')+'" onclick="setTiroTipo(\'3\')">Triples</button></span>';
   const legend='<span class="zone-sub">Zonas de fortaleza · color = puntos por tiro (rojo→verde) · tamaño = volumen</span>';
   const ctl='<div class="tiros-ctl">'+
     '<span class="zone-lbl">Equipo</span><select onchange="setTiroTeam(this.value)">'+teamOpts+'</select>'+
     '<span class="zone-lbl">Jugador</span><select onchange="setTiroPlayer(this.value)">'+plOpts+'</select>'+
-    legend+'</div>';
+    tipoSeg+legend+'</div>';
   const kpiRow='<div class="kpis" style="margin-top:var(--sp-4)">'+
     kpi(all.pct+'%','Total · '+all.m+'/'+all.a)+
     kpi(p2.pct+'%','Tiros de 2 · '+p2.m+'/'+p2.a)+
     kpi(p3.pct+'%','Tiros de 3 · '+p3.m+'/'+p3.a)+'</div>';
   const ctx='toda la temporada'+(tiroTeam?' · '+tiroTeam:'')+(tiroPlayer!=='__all__'?' · '+tiroPlayer:'');
   const titulo=heatMode?'Zonas de fortaleza':'Mapa de tiros';
+  // jugadores relevantes según el filtro actual (equipo + tipo)
+  let shootersPanel='';
+  if(tiroPlayer==='__all__'){
+    const byPl={};
+    selT.forEach(s=>{const k=(s.num||'')+'|'+(s.nombre||'');const o=byPl[k]||(byPl[k]={num:s.num,nombre:s.nombre,a:0,m:0});o.a++;if(shotMade(s))o.m++;});
+    const plRank=Object.values(byPl).filter(p=>p.a>0).sort((a,b)=>b.m-a.m||b.a-a.a).slice(0,8);
+    if(plRank.length){
+      const mxA=Math.max(...plRank.map(p=>p.a));
+      const ttl=tiroTipo==='3'?'Quién mete los triples':tiroTipo==='2'?'Quién mete los dobles':'Quiénes más tiran';
+      shootersPanel='<div class="sec">'+ttl+(tiroTeam?' · '+tiroTeam:' · liga')+'</div>'+
+        '<div class="zone-sub" style="margin-bottom:6px">Ordenado por convertidos. La barra muestra el volumen (tiros tomados).</div>'+
+        '<div class="shooters">'+plRank.map((p,i)=>{const pct=p.a?Math.round(p.m/p.a*100):0;
+          return '<div class="sh-row"><span class="sh-rk">'+(i+1)+'</span>'+
+            '<span class="sh-nm">'+(p.num?('#'+p.num+' '):'')+(p.nombre||'')+'</span>'+
+            '<span class="sh-bar"><span class="sh-fill" style="width:'+(p.a/mxA*100).toFixed(0)+'%"></span></span>'+
+            '<span class="sh-val"><b>'+p.m+'/'+p.a+'</b> · '+pct+'%</span></div>';}).join('')+'</div>';
+    }
+  }
   // desglose por momento de la posesión (tramo 1/2/3) reconstruido del play-by-play
-  const tr=[1,2,3].map(k=>{const arr=sel.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
+  const tr=[1,2,3].map(k=>{const arr=selT.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
   const totT=tr.reduce((s,x)=>s+x.a,0);
   const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
   let tramoPanel;
@@ -966,7 +1019,7 @@ function renderTiros(){
   poolFase.map(foldShot).filter(Boolean).forEach(f=>{const zk=heatZone(f);if(!zb[zk])return;zb[zk].a++;if(f.made){if(f.tipo==='3pt')zb[zk].m3++;else zb[zk].m2++;}});
   const zonePPS={};Object.keys(zb).forEach(k=>{const b=zb[k];zonePPS[k]=b.a?(b.m2*2+b.m3*3)/b.a:0;});
   let xp=0,xn=0,realPts=0;
-  sel.map(foldShot).filter(Boolean).forEach(f=>{const zk=heatZone(f);if(zonePPS[zk]!=null){xp+=zonePPS[zk];xn++;if(f.made)realPts+=(f.tipo==='3pt'?3:2);}});
+  selT.map(foldShot).filter(Boolean).forEach(f=>{const zk=heatZone(f);if(zonePPS[zk]!=null){xp+=zonePPS[zk];xn++;if(f.made)realPts+=(f.tipo==='3pt'?3:2);}});
   const xPPS=xn?xp/xn:0,rPPS=xn?realPts/xn:0,dPPS=rPPS-xPPS;
   let veredicto;
   if(dPPS>=0.06)veredicto='Mete más de lo que valen sus tiros: está fino / puntería por encima de la media. Ojo, puede no sostenerse.';
@@ -984,8 +1037,8 @@ function renderTiros(){
     '<div class="court-box">'+
     '<div class="kpis ficha-kpis">'+kpi(rPPS.toFixed(2),'PUNTOS/TIRO REAL')+kpi(xPPS.toFixed(2),'ESPERADO POR ZONA')+kpi((dPPS>0?'+':'')+dPPS.toFixed(2),'DIFERENCIA','val-hl')+'</div>'+
     '<div class="zone-sub" style="margin-top:8px">'+veredicto+' · El <b>esperado</b> es cuánto vale en promedio un tiro desde esas zonas en toda tu liga; el <b>real</b> es lo que efectivamente metió. No incluye libres.</div></div>'):'';
-  el.innerHTML=ctl+'<div class="sec">'+titulo+' · '+ctx+' · '+sel.length+' tiros</div>'+
-    '<div class="court-box">'+(heatMode?courtHeatSVG(sel):courtSVGFull(sel))+'</div>'+kpiRow+sqPanel+tramoPanel;
+  el.innerHTML=ctl+'<div class="sec">'+titulo+' · '+ctx+(tiroTipo!=='all'?' · '+tipoLbl:'')+' · '+selT.length+' tiros</div>'+
+    '<div class="court-box">'+(heatMode?courtHeatSVG(selT):courtSVGFull(selT))+'</div>'+kpiRow+shootersPanel+sqPanel+tramoPanel;
 }
 
 // ── VISTA CORRELACIONES (dispersión + tendencia + r) ──
@@ -1833,6 +1886,45 @@ let armTeam='',armSel=[];
 function setArmTeam(v){armTeam=v;armSel=[];renderArmador();}
 function toggleArm(k){const i=armSel.indexOf(k);if(i>=0)armSel.splice(i,1);else{if(armSel.length>=5)return;armSel.push(k);}renderArmador();}
 function clearArm(){armSel=[];renderArmador();}
+function armLineupAggs(rows){
+  const groups={};
+  (rows||[]).forEach(r=>{if(!Array.isArray(r.jugadores)||r.jugadores.length!==5)return;const k=(r.equipo||'')+'#'+(r.jugadores_key||pkeyArr(r.jugadores));(groups[k]=groups[k]||{team:r.equipo,players:r.jugadores,rows:[]}).rows.push(r);});
+  return Object.values(groups).map(g=>({team:g.team,players:g.players,a:agg(g.rows)}));
+}
+function armLuCard(title,cls,list,mode){
+  // mode: 'mine' (muestra NET y +/-) · 'rival' (muestra cuánto te superó)
+  if(!list.length)return '<div class="lu-card '+cls+'"><div class="lu-h">'+title+'</div><div class="zone-sub" style="font-size:11px">Todavía no hay quintetos con minutos suficientes para mostrar acá.</div></div>';
+  const items=list.map((x,i)=>{
+    const net=(x.a.efOff||0)-(x.a.efDef||0),d=x.a.diff||0;
+    let meta;
+    if(mode==='rival'){const txt=d>0?('te superó por +'+d):(d<0?('lo superaste por '+(-d)):'quedó parejo');meta='<span style="color:'+(d>0?'var(--negative)':'var(--positive)')+'">'+txt+'</span> · '+Math.round(x.a.min)+' min';}
+    else{meta='<span style="color:'+dc(d)+'">'+sgn(d)+'</span> · NET '+net.toFixed(2)+' · '+Math.round(x.a.min)+' min';}
+    return '<div class="lu-item"><div class="lu-rank">'+(i+1)+'</div><div class="lu-body">'+
+      (mode==='rival'?'<div class="lu-team">'+x.team+'</div>':'')+
+      '<div class="lu-chips">'+chips(x.players)+'</div><div class="lu-meta">'+meta+'</div></div></div>';
+  }).join('');
+  return '<div class="lu-card '+cls+'"><div class="lu-h">'+title+'</div>'+items+'</div>';
+}
+function armDestacados(team){
+  const MINMIN=4;
+  const mine=armLineupAggs(teamRows(team)).filter(x=>x.a.min>=MINMIN);
+  const byNet=mine.slice().sort((a,b)=>((b.a.efOff-b.a.efDef)-(a.a.efOff-a.a.efDef)));
+  const best=byNet.slice(0,3),worst=byNet.slice(-3).reverse();
+  const rivAg=armLineupAggs(allRowsFiltered().filter(r=>r.rival===team)).filter(x=>x.a.min>=MINMIN);
+  const byDmg=rivAg.slice().sort((a,b)=>(b.a.diff||0)-(a.a.diff||0));
+  const mostDmg=byDmg.slice(0,3),leastDmg=byDmg.slice(-3).reverse();
+  return '<div class="sec" style="margin-top:18px">Quintetos destacados · '+team+'</div>'+
+    '<div class="zone-sub" style="margin-bottom:6px">Ordenado por rendimiento (mínimo '+MINMIN+' min juntos para entrar). NET = puntos por posesión a favor menos en contra.</div>'+
+    '<div class="arm-dest">'+
+      armLuCard('🟢 Tus 3 mejores quintetos','good',best,'mine')+
+      armLuCard('🔴 Tus 3 peores quintetos','bad',worst,'mine')+
+    '</div>'+
+    '<div class="zone-sub" style="margin:10px 0 6px">Quintetos rivales enfrentados (cómo te rindió cada cinco que te pusieron en frente):</div>'+
+    '<div class="arm-dest">'+
+      armLuCard('🛡 Los que más daño te hicieron','bad',mostDmg,'rival')+
+      armLuCard('✅ Los que menos daño te hicieron','good',leastDmg,'rival')+
+    '</div>';
+}
 function renderArmador(){
   const el=document.getElementById('view-armador');if(!el)return;
   if(!DATA.length){el.innerHTML='<div class="empty">No hay quintetos cargados.</div>';return;}
@@ -1864,7 +1956,7 @@ function renderArmador(){
         '<div class="zone-sub" style="margin-top:8px">Sale de '+match.length+' tramo(s) con esos jugadores juntos. NET = EF.OF − EF.DEF (más alto = mejor). Con pocos minutos, tomalo como referencia.</div>';
     }
   }
-  el.innerHTML=teamSel+chipsHtml+result;
+  el.innerHTML=teamSel+chipsHtml+result+armDestacados(armTeam);
 }
 
 // ── VISTA DE UN PARTIDO ──
