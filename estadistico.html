@@ -977,17 +977,27 @@ function renderTiros(){
   const mObjs=mids.map(mid=>({mid,lbl:mLabel(mid),fecha:(poolFase.find(s=>s.match_id===mid)||{}).fecha||''}))
                   .sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
   const pool=poolFase;
-  const teams=[...new Set(pool.map(s=>s.equipo))].sort();
+  // NÚMEROS desde el box score (planilla oficial, jugada-a-jugada): es la fuente confiable.
+  const boxPool=PLAYERS.filter(p=>!fase||p.fase===fase);
+  const teams=[...new Set(boxPool.map(p=>p.equipo))].filter(Boolean).sort();
   if(tiroTeam&&!teams.includes(tiroTeam))tiroTeam='';
-  const rows=pool.filter(s=>!tiroTeam||s.equipo===tiroTeam);
-  const players=[...new Set(rows.map(s=>((s.num||'')+' '+(s.nombre||'')).trim()))].sort();
+  const boxTeam=boxPool.filter(p=>!tiroTeam||p.equipo===tiroTeam);
+  const pkeyP=p=>((p.num!=null?p.num:'')+' '+(p.nombre||'')).trim();
+  const players=[...new Set(boxTeam.map(pkeyP))].filter(Boolean).sort();
   if(tiroPlayer!=='__all__'&&!players.includes(tiroPlayer))tiroPlayer='__all__';
-  const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>((s.num||'')+' '+(s.nombre||'')).trim()===tiroPlayer);
-  // filtro por tipo de tiro (todos / dobles / triples) — afecta el mapa y los paneles
+  const selNum=tiroPlayer==='__all__'?null:String(tiroPlayer).split(' ')[0];
+  // MAPA (sólo ubicación): los tiros con coordenadas disponibles del equipo/jugador
+  const rows=pool.filter(s=>!tiroTeam||s.equipo===tiroTeam);
+  const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>String(s.num)===selNum);
   const selT=tiroTipo==='all'?sel:sel.filter(s=>tiroTipo==='3'?s.tipo==='3pt':s.tipo!=='3pt');
   const tipoLbl=tiroTipo==='3'?'solo triples':tiroTipo==='2'?'solo dobles':'todos los tiros';
-  const z=arr=>{const m=arr.filter(shotMade).length;return{m,a:arr.length,pct:arr.length?Math.round(m/arr.length*1000)/10:0};};
-  const all=z(sel),p2=z(sel.filter(s=>s.tipo!=='3pt')),p3=z(sel.filter(s=>s.tipo==='3pt'));
+  // Conteos 2/3/total desde el box (coinciden con la planilla)
+  const boxSel=tiroPlayer==='__all__'?boxTeam:boxTeam.filter(p=>String(p.num)===selNum);
+  const bAgg=boxSel.reduce((a,p)=>{a.fgm+=+p.fgm||0;a.fga+=+p.fga||0;a.tpm+=+p.tpm||0;a.tpa+=+p.tpa||0;return a;},{fgm:0,fga:0,tpm:0,tpa:0});
+  const pctf=(m,a)=>a?Math.round(m/a*1000)/10:0;
+  const all={m:bAgg.fgm,a:bAgg.fga,pct:pctf(bAgg.fgm,bAgg.fga)};
+  const p3={m:bAgg.tpm,a:bAgg.tpa,pct:pctf(bAgg.tpm,bAgg.tpa)};
+  const p2={m:bAgg.fgm-bAgg.tpm,a:bAgg.fga-bAgg.tpa,pct:pctf(bAgg.fgm-bAgg.tpm,bAgg.fga-bAgg.tpa)};
   const heatMode=true;
   const teamOpts='<option value="">Todos los equipos</option>'+teams.map(t=>'<option'+(t===tiroTeam?' selected':'')+'>'+t+'</option>').join('');
   const plOpts='<option value="__all__">Todos los jugadores</option>'+players.map(p=>'<option value="'+p.replace(/"/g,'')+'"'+(p===tiroPlayer?' selected':'')+'>'+p+'</option>').join('');
@@ -1006,20 +1016,20 @@ function renderTiros(){
     kpi(p3.pct+'%','Tiros de 3 · '+p3.m+'/'+p3.a)+'</div>';
   const ctx='toda la temporada'+(tiroTeam?' · '+tiroTeam:'')+(tiroPlayer!=='__all__'?' · '+tiroPlayer:'');
   const titulo=heatMode?'Zonas de fortaleza':'Mapa de tiros';
-  // jugadores relevantes según el filtro actual (equipo + tipo)
+  // jugadores relevantes según el filtro actual — desde el box score (planilla)
   let shootersPanel='';
   if(tiroPlayer==='__all__'){
-    const byPl={};
-    selT.forEach(s=>{const k=(s.num||'')+'|'+(s.nombre||'');const o=byPl[k]||(byPl[k]={num:s.num,nombre:s.nombre,a:0,m:0});o.a++;if(shotMade(s))o.m++;});
-    const plRank=Object.values(byPl).filter(p=>p.a>0).sort((a,b)=>b.m-a.m||b.a-a.a).slice(0,8);
+    const byNum={};
+    boxTeam.forEach(p=>{const k=String(p.num);const o=byNum[k]||(byNum[k]={num:p.num,nombre:p.nombre||'',fgm:0,fga:0,tpm:0,tpa:0});o.fgm+=+p.fgm||0;o.fga+=+p.fga||0;o.tpm+=+p.tpm||0;o.tpa+=+p.tpa||0;if((p.nombre||'').length>o.nombre.length)o.nombre=p.nombre;});
+    const plRank=Object.values(byNum).map(p=>{let m,a;if(tiroTipo==='3'){m=p.tpm;a=p.tpa;}else if(tiroTipo==='2'){m=p.fgm-p.tpm;a=p.fga-p.tpa;}else{m=p.fgm;a=p.fga;}return {num:p.num,nombre:p.nombre,m,a};}).filter(p=>p.a>0).sort((a,b)=>b.m-a.m||b.a-a.a).slice(0,8);
     if(plRank.length){
       const mxA=Math.max(...plRank.map(p=>p.a));
       const ttl=tiroTipo==='3'?'Quién mete los triples':tiroTipo==='2'?'Quién mete los dobles':'Quiénes más tiran';
       shootersPanel='<div class="sec">'+ttl+(tiroTeam?' · '+tiroTeam:' · liga')+'</div>'+
-        '<div class="zone-sub" style="margin-bottom:6px">Ordenado por convertidos. La barra muestra el volumen (tiros tomados).</div>'+
+        '<div class="zone-sub" style="margin-bottom:6px">Datos de la planilla oficial (jugada-a-jugada). Ordenado por convertidos; la barra muestra el volumen.</div>'+
         '<div class="shooters">'+plRank.map((p,i)=>{const pct=p.a?Math.round(p.m/p.a*100):0;
           return '<div class="sh-row"><span class="sh-rk">'+(i+1)+'</span>'+
-            '<span class="sh-nm">'+(p.num?('#'+p.num+' '):'')+(p.nombre||'')+'</span>'+
+            '<span class="sh-nm">'+(p.num!=null?('#'+p.num+' '):'')+(p.nombre||'')+'</span>'+
             '<span class="sh-bar"><span class="sh-fill" style="width:'+(p.a/mxA*100).toFixed(0)+'%"></span></span>'+
             '<span class="sh-val"><b>'+p.m+'/'+p.a+'</b> · '+pct+'%</span></div>';}).join('')+'</div>';
     }
@@ -1061,8 +1071,10 @@ function renderTiros(){
     '<div class="court-box">'+
     '<div class="kpis ficha-kpis">'+kpi(rPPS.toFixed(2),'PUNTOS/TIRO REAL')+kpi(xPPS.toFixed(2),'ESPERADO POR ZONA')+kpi((dPPS>0?'+':'')+dPPS.toFixed(2),'DIFERENCIA','val-hl')+'</div>'+
     '<div class="zone-sub" style="margin-top:8px">'+veredicto+' · El <b>esperado</b> es cuánto vale en promedio un tiro desde esas zonas en toda tu liga; el <b>real</b> es lo que efectivamente metió. No incluye libres.</div></div>'):'';
-  el.innerHTML=ctl+'<div class="sec">'+titulo+' · '+ctx+(tiroTipo!=='all'?' · '+tipoLbl:'')+' · '+selT.length+' tiros</div>'+
-    '<div class="court-box">'+(heatMode?courtHeatSVG(selT):courtSVGFull(selT))+'</div>'+kpiRow+shootersPanel+sqPanel+tramoPanel;
+  el.innerHTML=ctl+kpiRow+
+    '<div class="sec" style="margin-top:var(--sp-4)">'+titulo+' · '+ctx+(tiroTipo!=='all'?' · '+tipoLbl:'')+'</div>'+
+    '<div class="zone-sub" style="margin-bottom:8px">El mapa muestra los tiros con posición disponible ('+selT.length+'). Los porcentajes de arriba y por jugador salen de la planilla oficial.</div>'+
+    '<div class="court-box">'+(heatMode?courtHeatSVG(selT):courtSVGFull(selT))+'</div>'+shootersPanel+sqPanel+tramoPanel;
 }
 
 // ── VISTA CORRELACIONES (dispersión + tendencia + r) ──
