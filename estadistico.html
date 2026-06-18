@@ -893,13 +893,12 @@ function anchorShotTypes(){
   SHOTS.forEach(s=>{const k=(s.match_id||'')+'|'+String(s.num);(groups[k]=groups[k]||[]).push(s);});
   Object.keys(groups).forEach(k=>{
     const arr=groups[k],info=box[k];
+    if(!info)return; // sin planilla: dejar el tipo guardado
+    const saved3=arr.filter(s=>s.tipo==='3pt').length;
+    if(saved3===info.tpa)return; // ya coincide con la planilla → confiar en el dato guardado
+    // dato viejo mal clasificado: re-anclar por distancia (los más lejanos = triples)
     arr.forEach(s=>{s._d=shotDist(s);});
-    if(info){
-      const sorted=arr.slice().sort((a,b)=>b._d-a._d);
-      sorted.forEach((s,i)=>{s.tipo=(i<info.tpa)?'3pt':'2pt';});
-    }else{
-      arr.forEach(s=>{if(s._d>=0)s.tipo=(s._d>=66)?'3pt':'2pt';});
-    }
+    arr.slice().sort((a,b)=>b._d-a._d).forEach((s,i)=>{s.tipo=(i<info.tpa)?'3pt':'2pt';});
     arr.forEach(s=>{delete s._d;});
   });
 }
