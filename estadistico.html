@@ -935,7 +935,7 @@ function fullCourtLines(){
     '<circle class="court-line" cx="264.25" cy="75" r="4.5"/>'+
     '<path class="court-line" d="M279.5 9 L250.1 9 A67.5 67.5 0 0 0 250.1 141 L279.5 141"/>';
 }
-function courtHeatSVG(shots){
+function courtHeatSVG(shots,real3){
   const dots=shots.map(s=>{const x=+s.x,y=+s.y;if(!isFinite(x)||!isFinite(y))return'';
     const cx=(x/100*280).toFixed(1),cy=(y/100*150).toFixed(1);
     return shotMade(s)?'<circle cx="'+cx+'" cy="'+cy+'" r="1.7" fill="#34c769" fill-opacity="0.26"/>'
@@ -943,16 +943,28 @@ function courtHeatSVG(shots){
   }).join('');
   const buckets={};Object.keys(HEAT_ZONES).forEach(k=>buckets[k]=[]);
   shots.map(foldShot).filter(Boolean).forEach(f=>{const z=heatZone(f);if(buckets[z])buckets[z].push(f);});
+  // Zonas de TRIPLE: escalar a los totales reales de la planilla, repartiendo por la densidad de los tiros ubicados
+  let est3=null;
+  if(real3&&real3.a>0){
+    const tz=['tizq','tcen','tder'],locA=tz.map(k=>buckets[k].length),tot=locA.reduce((a,b)=>a+b,0);
+    const def={tizq:0.30,tcen:0.40,tder:0.30},o3=real3.m/real3.a;
+    est3={};let usedA=0;
+    tz.forEach((k,i)=>{const prop=tot>0?locA[i]/tot:def[k];const a=Math.round(real3.a*prop);est3[k]={a,m:Math.round(a*o3)};usedA+=a;});
+    if(est3.tcen){est3.tcen.a+=(real3.a-usedA);if(est3.tcen.a<0)est3.tcen.a=0;est3.tcen.m=Math.round(est3.tcen.a*o3);}
+  }
   let bubbles='';
   Object.keys(HEAT_ZONES).forEach(k=>{
-    const arr=buckets[k];if(!arr.length)return;
-    const m=arr.filter(f=>f.made).length,a=arr.length,pct=Math.round(m/a*100);
+    let m,a,estimated=false;
+    if(est3&&est3[k]){a=est3[k].a;m=est3[k].m;estimated=true;}
+    else{const arr=buckets[k];if(!arr.length)return;m=arr.filter(f=>f.made).length;a=arr.length;}
+    if(!a)return;
+    const pct=Math.round(m/a*100);
     const pps=(k[0]==='t'?3:2)*pct/100, col=ppsColor(pps);
     const r=Math.min(8,3+Math.sqrt(a)*1.0), z=HEAT_ZONES[k];
     [[z[0],z[1]],[280-z[0],z[1]]].forEach(c=>{const cx=c[0],cy=c[1];
-      bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.24" stroke="'+col+'" stroke-width="0.7"/>'+
+      bubbles+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.24" stroke="'+col+'" stroke-width="0.7"'+(estimated?' stroke-dasharray="2 1.3"':'')+'/>'+
         '<text x="'+cx+'" y="'+(cy-0.6)+'" fill="#fff" font-family="Barlow Condensed,sans-serif" font-weight="800" font-size="5" text-anchor="middle">'+pct+'%</text>'+
-        '<text x="'+cx+'" y="'+(cy+3.7)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="3" text-anchor="middle">'+m+'/'+a+'</text>';
+        '<text x="'+cx+'" y="'+(cy+3.7)+'" fill="#cfd5e3" font-family="DM Mono,monospace" font-size="3" text-anchor="middle">'+(estimated?'~':'')+m+'/'+a+'</text>';
     });
   });
   return '<svg class="court-svg" viewBox="0 0 280 150" xmlns="http://www.w3.org/2000/svg">'+fullCourtLines()+dots+bubbles+'</svg>';
@@ -1072,8 +1084,8 @@ function renderTiros(){
     '<div class="zone-sub" style="margin-top:8px">'+veredicto+' · El <b>esperado</b> es cuánto vale en promedio un tiro desde esas zonas en toda tu liga; el <b>real</b> es lo que efectivamente metió. No incluye libres.</div></div>'):'';
   el.innerHTML=ctl+kpiRow+
     '<div class="sec" style="margin-top:var(--sp-4)">'+titulo+' · '+ctx+(tiroTipo!=='all'?' · '+tipoLbl:'')+'</div>'+
-    '<div class="zone-sub" style="margin-bottom:8px">El mapa muestra los tiros con posición disponible ('+selT.length+'). Los porcentajes de arriba y por jugador salen de la planilla oficial.</div>'+
-    '<div class="court-box">'+(heatMode?courtHeatSVG(selT):courtSVGFull(selT))+'</div>'+shootersPanel+sqPanel+tramoPanel;
+    '<div class="zone-sub" style="margin-bottom:8px">Dobles: tiros con posición real ('+selT.filter(s=>s.tipo!=='3pt').length+'). Triples: zonas <b>estimadas</b> (línea punteada) escaladas al total de la planilla, repartidas según desde dónde tira. Los % de arriba salen de la planilla.</div>'+
+    '<div class="court-box">'+(heatMode?courtHeatSVG(selT,tiroTipo!=='2'?{m:bAgg.tpm,a:bAgg.tpa}:null):courtSVGFull(selT))+'</div>'+shootersPanel+sqPanel+tramoPanel;
 }
 
 // ── VISTA CORRELACIONES (dispersión + tendencia + r) ──
