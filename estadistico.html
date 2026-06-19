@@ -1699,12 +1699,18 @@ function tramoPanelFor(team){
   const tr=[1,2,3].map(k=>{const arr=sh.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
   const totT=tr.reduce((s,x)=>s+x.a,0);
   if(!totT)return '<div class="zone-sub">Todavía no hay datos de momento de la posesión para '+team+'. Se llenan al re-guardar partidos desde Quintetos.</div>';
+  // total real de tiros de campo del equipo (planilla) para escalar los conteos
+  const realFGA=PLAYERS.filter(p=>p.equipo===team&&(!fz||p.fase===fz)).reduce((s,p)=>s+(+p.fga||0),0);
+  const useReal=realFGA>totT;
   const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
-  return '<div class="tramo-grid">'+tr.map(x=>{const share=Math.round(x.a/totT*100);return '<div class="tramo-card"><div class="lbl">'+tLbl[x.k]+'</div>'+
+  // repartir el total real por la distribución de la muestra (ajustando el redondeo en el último)
+  let used=0;const ests=tr.map((x,idx)=>{let e=useReal?Math.round(realFGA*x.a/totT):x.a;used+=e;return e;});
+  if(useReal&&ests.length)ests[2]+=(realFGA-used);
+  return '<div class="tramo-grid">'+tr.map((x,idx)=>{const share=Math.round(x.a/totT*100);const cnt=ests[idx];return '<div class="tramo-card"><div class="lbl">'+tLbl[x.k]+'</div>'+
     '<div class="big" style="color:'+tCol[x.k]+'">'+share+'%</div>'+
-    '<div class="sub">'+x.a+' tiros · '+x.pct+'% acierto</div>'+
+    '<div class="sub">'+(useReal?'~':'')+cnt+' tiros · '+x.pct+'% acierto</div>'+
     '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>'+
-    '<div class="zone-sub" style="margin-top:8px">Primeros 8" = juego rápido / transición · Segundos = ataque normal · Últimos = relojito / forzado. Sale de los tiros con momento registrado.</div>';
+    '<div class="zone-sub" style="margin-top:8px">Primeros 8" = juego rápido / transición · Segundos = ataque normal · Últimos = relojito / forzado. '+(useReal?('Conteos estimados sobre los '+realFGA+' tiros del equipo, repartidos según la muestra con momento registrado ('+totT+').'):'Sale de los '+totT+' tiros con momento registrado.')+'</div>';
 }
 function renderRival(){
   const el=document.getElementById('view-rival');
