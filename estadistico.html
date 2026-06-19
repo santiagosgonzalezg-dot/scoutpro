@@ -318,6 +318,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 <div id="adminOverlay" class="adm-overlay" style="display:none" onclick="if(event.target===this)adminClose()"><div class="adm-box"><div class="adm-head"><span class="adm-title" id="admTitle">Estado de la base</span><button class="adm-close" onclick="adminClose()">✕ Cerrar</button></div><div id="adminBody"></div></div></div>
 
 <div class="wrap">
+  <div id="perspBanner" style="display:none"></div>
   <div class="controls" id="controls" style="display:none">
     <div class="field"><label>Equipo</label><select id="selTeam" onchange="renderAll()"></select></div>
     <div class="field"><label>Fase</label><select id="selFase" onchange="renderAll()"><option value="">Todas</option></select></div>
@@ -405,6 +406,7 @@ async function loadData(){
     document.getElementById('tabs').style.display='flex';
     buildSelectors();
     renderAll();
+    renderPerspBanner();
     if(typeof coachTrySelectTeam==='function')coachTrySelectTeam();
   }catch(e){ m.style.display='block';m.innerHTML='Error al leer la base: '+(e.message||e); }
   finally{ if(btn){btn.disabled=false;btn.textContent=btn.dataset.t||'↻ Actualizar';} }
@@ -2388,6 +2390,24 @@ function clubBadge(team,extra){const lg=clubLogo(team);const cls='club-badge '+(
 
 function clubInitials(club){const w=String(club||'').trim().split(/\s+/).filter(Boolean);if(!w.length)return '?';if(w.length===1)return w[0].slice(0,2).toUpperCase();return (w[0][0]+w[1][0]).toUpperCase();}
 function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',52%,46%)';}
+function renderPerspBanner(){
+  const b=document.getElementById('perspBanner');if(!b)return;
+  if(typeof COACH!=='undefined'&&COACH&&COACH.club){
+    b.style.display='block';
+    b.innerHTML='<div style="display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,rgba(167,139,250,.12),rgba(167,139,250,.03));border:1px solid rgba(167,139,250,.28);border-radius:8px;padding:9px 14px;margin-bottom:12px">'+
+      clubBadge(COACH.club)+
+      '<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-2);letter-spacing:.4px">VIENDO LA LIGA DESDE</span>'+
+      '<b style="font-family:var(--font-disp);font-weight:800;font-size:17px;color:var(--text);letter-spacing:.3px">'+COACH.club+'</b>'+
+      '<span style="margin-left:auto;font-size:11px;color:var(--text-2)">tu club · todo se lee como «nosotros»</span>'+
+      '</div>';
+  }else{
+    b.style.display='block';
+    b.innerHTML='<div style="display:flex;align-items:center;gap:8px;background:var(--bg-panel);border:1px dashed var(--border-light);border-radius:8px;padding:8px 14px;margin-bottom:12px">'+
+      '<span style="font-size:13px;color:var(--text-2)">👤 Entrá con tu usuario para ver la liga desde la óptica de tu club.</span>'+
+      '<button class="coach-in" style="margin-left:auto" onclick="coachOpen()">Ingresar</button>'+
+      '</div>';
+  }
+}
 function renderCoachChip(){
   const el=document.getElementById('coachChip');if(!el)return;
   if(COACH&&COACH.club){
@@ -2422,9 +2442,9 @@ async function coachLogin(){
   if(!p){renderCoachLogin('No encontramos un perfil con ese correo. Pedile al admin que te cree o apruebe uno.');return;}
   if((p.estado||'aprobado')!=='aprobado'){renderCoachLogin('Tu perfil todavía está pendiente de aprobación del admin.');return;}
   COACH={nombre:p.nombre,apellido:p.apellido,correo:p.correo,club:p.club};saveCoach();
-  coachClose();renderCoachChip();coachTrySelectTeam();
+  coachClose();renderCoachChip();renderPerspBanner();coachTrySelectTeam();
 }
-function coachLogout(){COACH=null;saveCoach();renderCoachChip();}
+function coachLogout(){COACH=null;saveCoach();renderCoachChip();renderPerspBanner();if(DATA&&DATA.length)renderAll();}
 function renderCoachSignup(msg){
   document.getElementById('coachBody').innerHTML=
     '<div class="adm-login">'+
@@ -2451,6 +2471,7 @@ function coachTrySelectTeam(){
   for(const o of st.options){if(o.value&&(norm(o.value)===t||norm(o.textContent)===t)){st.value=o.value;renderAll();break;}}
 }
 renderCoachChip();
+renderPerspBanner();
 loadData();
 </script>
 </body>
