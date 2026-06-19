@@ -188,9 +188,57 @@ body{
   *{animation:none!important; transition:none!important}
   .card,.brand,.eyebrow,.subtitle,.tagline,.welcome,.section-label,.foot{opacity:1!important; transform:none!important}
 }
+
+/* ── LOGIN (portón de acceso) ── */
+#auth-gate{position:fixed; inset:0; z-index:9000; display:flex; align-items:center; justify-content:center; padding:22px;
+  background:radial-gradient(130% 100% at 22% 18%, #15171f 0%, #0a0b10 58%, #07080c 100%);}
+.auth-card{width:392px; max-width:100%; background:var(--bg-raised); border:1px solid var(--bm); border-radius:20px;
+  padding:36px 30px; box-shadow:0 30px 90px rgba(0,0,0,.62); animation:rise .5s ease}
+.auth-logo{font-family:var(--disp); font-weight:900; font-size:46px; line-height:1; text-align:center; letter-spacing:.01em; color:#fff}
+.auth-logo span{color:var(--offense)}
+.auth-tag{font-family:var(--mono); font-size:10px; letter-spacing:.34em; text-transform:uppercase; color:var(--text-3); text-align:center; margin:6px 0 26px}
+.auth-tabs{display:flex; gap:5px; background:var(--bg-panel); padding:4px; border-radius:11px; margin-bottom:20px}
+.auth-tab{flex:1; text-align:center; padding:9px; font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-3); cursor:pointer; border-radius:8px; border:1px solid transparent; transition:all .15s}
+.auth-tab.active{color:var(--offense); background:color-mix(in srgb,var(--offense) 14%,transparent); border-color:color-mix(in srgb,var(--offense) 40%,transparent)}
+.auth-field{display:flex; flex-direction:column; gap:5px; margin-bottom:14px}
+.auth-field label{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-3)}
+.auth-field input{background:var(--bg-panel); border:1px solid var(--bm); border-radius:9px; padding:11px 13px;
+  font-family:var(--body); font-size:14.5px; color:var(--text); outline:none; transition:border-color .15s}
+.auth-field input:focus{border-color:var(--offense)}
+.auth-btn{width:100%; margin-top:6px; background:var(--offense); color:#fff; border:none; border-radius:9px; padding:12px;
+  font-family:var(--disp); font-weight:800; font-size:16px; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; transition:background .15s}
+.auth-btn:hover{background:#ea6c10}
+.auth-btn:disabled{background:var(--bg-hover); color:var(--text-3); cursor:not-allowed}
+.auth-msg{font-family:var(--mono); font-size:11px; text-align:center; margin-top:14px; min-height:15px; line-height:1.5}
+.auth-msg.err{color:#f05050}
+.auth-msg.ok{color:#34c769}
+.logout-link{cursor:pointer}
 </style>
 </head>
 <body>
+<!-- LOGIN (portón de acceso) -->
+<div id="auth-gate" style="display:flex">
+  <div class="auth-card">
+    <div class="auth-logo">SCOUT<span>PRO</span></div>
+    <div class="auth-tag">Basketball Intelligence</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
+      <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
+    </div>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label>Contraseña</label>
+      <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+    <button class="auth-btn" id="auth-submit" onclick="authSubmit()">Ingresar</button>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
 <div class="stage">
   <!-- IZQUIERDA -->
   <section class="left">
@@ -284,7 +332,7 @@ body{
 
     <div class="foot">
       <span>ScoutPRO · Temporada en curso</span>
-      <span id="footState"><a href="estadistico.html">Cambiar de usuario</a></span>
+      <span id="footState"><a href="estadistico.html">Cambiar de usuario</a> · <a class="logout-link" onclick="authLogout()">Salir</a></span>
     </div>
   </section>
 </div>
@@ -312,6 +360,52 @@ body{
     nameEl.textContent='Coach';
     footState.innerHTML='<a href="estadistico.html">Entrá con tu usuario →</a>';
   }
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Portón de acceso — mismo Supabase que el resto del ecosistema */
+(function(){
+  const URL="https://jqudeomgafqilqmqcqzg.supabase.co";
+  const KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8";
+  const $=id=>document.getElementById(id);
+  let mode='login', sb=null;
+  try{ if(window.supabase&&window.supabase.createClient){ sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); window._sb=sb; } }catch(e){}
+  const gate=()=>$('auth-gate');
+  function showGate(){ if(gate())gate().style.display='flex'; }
+  function hideGate(){ if(gate())gate().style.display='none'; }
+  function setMsg(t,k){ const m=$('auth-msg'); if(!m)return; m.textContent=t||''; m.className='auth-msg'+(k?' '+k:''); }
+  window.authSetMode=function(m){ mode=m; $('auth-tab-login').classList.toggle('active',m==='login'); $('auth-tab-signup').classList.toggle('active',m==='signup'); $('auth-submit').textContent=m==='login'?'Ingresar':'Crear cuenta'; setMsg(''); };
+  function tradErr(e){ const m=(e&&e.message)?e.message:String(e);
+    if(/Invalid login/i.test(m))return'Email o contraseña incorrectos.';
+    if(/already registered|already exists|User already/i.test(m))return'Ese email ya tiene cuenta. Probá ingresar.';
+    if(/at least 6|password should be|weak/i.test(m))return'La contraseña debe tener al menos 6 caracteres.';
+    if(/confirm/i.test(m))return'Confirmá tu email antes de ingresar.';
+    if(/rate limit|too many/i.test(m))return'Demasiados intentos. Esperá un momento.';
+    return m; }
+  window.authSubmit=async function(){
+    if(!sb){ setMsg('No se pudo conectar al servidor.','err'); return; }
+    const email=($('auth-email').value||'').trim(), pass=$('auth-pass').value||'';
+    if(!email||!pass){ setMsg('Completá email y contraseña.','err'); return; }
+    const btn=$('auth-submit'); btn.disabled=true;
+    try{
+      if(mode==='signup'){
+        const {data,error}=await sb.auth.signUp({email,password:pass}); if(error)throw error;
+        if(data&&data.session){ hideGate(); } else { setMsg('Cuenta creada. Si te pide confirmar por email, hacelo y después ingresá.','ok'); window.authSetMode('login'); }
+      }else{
+        const {error}=await sb.auth.signInWithPassword({email,password:pass}); if(error)throw error; hideGate();
+      }
+    }catch(e){ setMsg(tradErr(e),'err'); }
+    finally{ btn.disabled=false; }
+  };
+  window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} setMsg(''); showGate(); };
+  function boot(){
+    if(!sb){ hideGate(); return; } // si no hay servidor, no bloqueamos
+    showGate();
+    sb.auth.getSession().then(({data})=>{ if(data&&data.session) hideGate(); });
+    sb.auth.onAuthStateChange((ev,session)=>{ if(session) hideGate(); else showGate(); });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 </script>
 </body>
