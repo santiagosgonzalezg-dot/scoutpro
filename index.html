@@ -398,7 +398,7 @@ body{
     }catch(e){ setMsg(tradErr(e),'err'); }
     finally{ btn.disabled=false; }
   };
-  window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} setMsg(''); showGate(); };
+  window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} try{localStorage.removeItem('sp_coach');}catch(e){} showGate(); location.reload(); };
   function boot(){
     if(!sb){ hideGate(); return; } // si no hay servidor, no bloqueamos
     showGate();
