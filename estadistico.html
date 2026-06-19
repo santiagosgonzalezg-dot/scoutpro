@@ -609,6 +609,8 @@ function renderEquipo(){
   ];
   document.getElementById('view-equipo').innerHTML=kpis+formaBlock(team)+'<div class="sec">Quintetos más usados</div>'+sortableTable('view-equipo','Quintetos · '+team,cols,lus,'equipoLU')+splitsBlock(team)+onOffBlock(team);
 }
+function normClub(s){return String(s||'').toLowerCase().replace(/[\s.]/g,'');}
+function isMyClub(team){return !!(typeof COACH!=='undefined'&&COACH&&COACH.club&&normClub(team)===normClub(COACH.club));}
 function teamGames(team){
   const rows=allRowsFiltered().filter(r=>r.equipo===team),g={};
   rows.forEach(r=>{const id=r.match_id||r.fecha||'?';const o=g[id]||(g[id]={mid:id,fecha:r.fecha,rival:r.rival,es_local:r.es_local,ptsF:0,ptsC:0,pos:0,posRiv:0,p2c:0,p2i:0,p3c:0,p3i:0,tlc:0,tli:0});
@@ -652,24 +654,25 @@ function splitsBlock(team){
   const byRiv={};games.forEach(g=>{const r=g.rival||'?';(byRiv[r]=byRiv[r]||[]).push(g);});
   const rivRows=Object.keys(byRiv).sort().map(r=>{const s=splitAgg(byRiv[r]);const last=byRiv[r].slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))[0];return '<tr><td class="l"><b>'+r+'</b></td><td>'+s.n+'</td><td class="l">'+s.w+'-'+s.l+'</td><td>'+s.pf.toFixed(1)+'</td><td>'+s.pc.toFixed(1)+'</td><td style="color:'+dc(s.dif)+'">'+(s.dif>0?'+':'')+s.dif.toFixed(1)+'</td><td class="l" style="color:'+dc(last.diff)+'">'+(last.diff>0?'G':'P')+' '+(last.diff>0?'+':'')+last.diff+'</td></tr>';}).join('');
   const pr='<table class="bs-table"><thead><tr><th class="l">Rival</th><th>PJ</th><th class="l">Récord</th><th>PF</th><th>PC</th><th>DIF</th><th class="l">Último</th></tr></thead><tbody>'+rivRows+'</tbody></table>';
-  return '<div class="sec">Local vs Visitante <span style="font-weight:400;color:var(--text-2);font-size:11px">· ¿cambia el juego?</span></div><div class="court-box" style="overflow-x:auto">'+lv+'<div class="zone-sub" style="margin-top:8px">Promedios por partido. %TIROS 3 = qué parte de sus tiros son de 3 (distribución). 3P% = acierto en triples. Mirá si de local/visita cambia el volumen de 3 o la eficiencia.</div></div>'+
-    '<div class="sec">Contra rivales fuertes vs flojos</div><div class="court-box" style="overflow-x:auto">'+fv+'<div class="zone-sub" style="margin-top:8px">Fuertes/flojos según el NET de cada rival (sobre/bajo la mediana de la liga). Sirve para ver si el equipo se achica o crece contra los mejores.</div></div>'+
-    '<div class="sec">Historial directo · por rival</div><div class="court-box" style="overflow-x:auto">'+pr+'</div>';
+  return '<div class="sec">'+(isMyClub(team)?'Cómo jugamos de local vs visitante':'Local vs Visitante')+' <span style="font-weight:400;color:var(--text-2);font-size:11px">· ¿cambia el juego?</span></div><div class="court-box" style="overflow-x:auto">'+lv+'<div class="zone-sub" style="margin-top:8px">Promedios por partido. %TIROS 3 = qué parte de sus tiros son de 3 (distribución). 3P% = acierto en triples. Mirá si de local/visita cambia el volumen de 3 o la eficiencia.</div></div>'+
+    '<div class="sec">'+(isMyClub(team)?'¿Crecemos o nos achicamos contra los fuertes?':'Contra rivales fuertes vs flojos')+'</div><div class="court-box" style="overflow-x:auto">'+fv+'<div class="zone-sub" style="margin-top:8px">Fuertes/flojos según el NET de cada rival (sobre/bajo la mediana de la liga). '+(isMyClub(team)?'Sirve para ver si nos crecemos o nos achicamos contra los mejores.':'Sirve para ver si el equipo se achica o crece contra los mejores.')+'</div></div>'+
+    '<div class="sec">'+(isMyClub(team)?'Cómo nos fue contra cada rival':'Historial directo · por rival')+'</div><div class="court-box" style="overflow-x:auto">'+pr+'</div>';
 }
 function formaBlock(team){
   const games=teamGames(team).slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
   if(!games.length)return '';
+  const mine=isMyClub(team);
   const last=games.slice(0,5);
   const badges=last.map(g=>{const w=g.diff>0;return '<span class="frm-badge '+(w?'w':'l')+'" title="'+(g.rival||'')+' '+(isLocG(g)?'(L)':'(V)')+' · '+(g.diff>0?'+':'')+g.diff+'">'+(w?'G':'P')+'</span>';}).join('');
   const avg=arr=>arr.length?arr.reduce((s,g)=>s+g.diff,0)/arr.length:0;
   const a1=avg(games.slice(0,3)),a0=avg(games.slice(3,6)),prev=games.slice(3,6).length;
   let verdict,vcol;
   if(!prev){verdict='Pocos partidos todavía para marcar tendencia.';vcol='var(--text-2)';}
-  else if(a1-a0>=3){verdict='📈 En subida: viene rindiendo mejor que en los partidos previos.';vcol='var(--positive)';}
-  else if(a0-a1>=3){verdict='📉 En baja: viene rindiendo peor que antes.';vcol='var(--negative)';}
-  else{verdict='➡️ Estable: rendimiento parejo respecto a antes.';vcol='var(--text)';}
+  else if(a1-a0>=3){verdict=mine?'📈 Venimos en subida: rindiendo mejor que en los partidos previos.':'📈 En subida: viene rindiendo mejor que en los partidos previos.';vcol='var(--positive)';}
+  else if(a0-a1>=3){verdict=mine?'📉 Venimos en baja: rindiendo peor que antes.':'📉 En baja: viene rindiendo peor que antes.';vcol='var(--negative)';}
+  else{verdict=mine?'➡️ Estables: rendimiento parejo respecto a antes.':'➡️ Estable: rendimiento parejo respecto a antes.';vcol='var(--text)';}
   const wl=last.filter(g=>g.diff>0).length;
-  return '<div class="sec">Forma reciente</div><div class="court-box">'+
+  return '<div class="sec">'+(mine?'Nuestra forma reciente':'Forma reciente')+'</div><div class="court-box">'+
     '<div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'+badges+'<span class="zone-sub" style="margin-left:6px">últimos '+last.length+' (el más nuevo primero) · '+wl+'-'+(last.length-wl)+'</span></div>'+
     '<div style="color:'+vcol+';font-weight:600;font-size:14px">'+verdict+'</div>'+
     '<div class="zone-sub" style="margin-top:6px">Margen promedio últimos 3: '+(a1>0?'+':'')+a1.toFixed(1)+(prev?(' · 3 previos: '+(a0>0?'+':'')+a0.toFixed(1)):'')+'</div></div>';
