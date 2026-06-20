@@ -4403,14 +4403,11 @@ updateClipsBadge();
     };
   }
 
-  function boot() {
+ function boot() {
     buildHub();
     injectHubButton();
-    const sb = window._sb;
-    if (sb) {
-      sb.auth.getSession().then(({ data }) => { if (data && data.session) showHub(); });
-      sb.auth.onAuthStateChange((event, session) => { if (session && event === 'SIGNED_IN') showHub(); });
-    }
+    // Ya NO abrimos el hub automáticamente: se entra directo al Scouting de Video.
+    // Para cambiar de módulo, usá el botón "⇄ Cambiar de módulo" en el inicio.
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
