@@ -4412,7 +4412,48 @@ updateClipsBadge();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
-</script>
+///// prueba
+  </script>
 
+<!-- ScoutPRO — Cartel "Menú principal" + entrar directo al video -->
+<script>
+(function () {
+  var start = Date.now();
+
+  // 1) No abrir solo la pantalla vieja (hub) al entrar,
+  //    pero dejar que el botón "⇄ Cambiar de módulo" siga andando.
+  function wrapShowHub() {
+    if (typeof window.showHub === 'function' && !window.showHub.__noAuto) {
+      var orig = window.showHub;
+      var wrapped = function () {
+        if (Date.now() - start < 3000) return; // ignora la apertura automática del arranque
+        return orig.apply(this, arguments);
+      };
+      wrapped.__noAuto = true;
+      window.showHub = wrapped;
+    }
+  }
+  wrapShowHub();
+  var iv = setInterval(wrapShowHub, 60);
+  setTimeout(function () { clearInterval(iv); }, 3000);
+  function closeHub() { try { if (typeof hideHub === 'function') hideHub(); } catch (e) {} var o = document.getElementById('hub-overlay'); if (o) o.style.display = 'none'; }
+  setTimeout(closeHub, 100); setTimeout(closeHub, 600); setTimeout(closeHub, 1200);
+
+  // 2) Cartel "Volver al menú principal" arriba del inicio.
+  function injectMenu() {
+    var inner = document.querySelector('#screen-splash .splash-inner');
+    if (!inner || document.getElementById('menu-principal-link')) return;
+    var d = document.createElement('div');
+    d.id = 'menu-principal-link';
+    d.style.cssText = 'text-align:center;margin-bottom:18px';
+    d.innerHTML = '<a href="index.html" style="display:inline-flex;align-items:center;gap:8px;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:5px;padding:9px 18px;font-family:var(--font-mono,monospace);font-size:9px;letter-spacing:1.5px;color:var(--text-2);text-transform:uppercase;text-decoration:none">← Volver al menú principal</a>';
+    inner.insertBefore(d, inner.firstChild);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectMenu);
+  else injectMenu();
+  setTimeout(injectMenu, 400); setTimeout(injectMenu, 1000);
+})();
+</script>
+  
 </body>
 </html>
