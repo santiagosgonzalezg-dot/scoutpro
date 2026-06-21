@@ -1485,6 +1485,30 @@ function renderFicha(){
   const simSection=sims.length?('<div class="sec">Jugadores similares</div>'+
     '<button class="sim-btn" id="simBtn" onclick="toggleSim()">🔍 Ver 3 jugadores similares</button>'+
     '<div class="sim-grid" id="simPanel" style="display:none">'+simCards+'</div>'):'';
+  // ── CLONES (sección nueva, NO toca 'similares') ──
+  const cloneFacets=['Anotación','Generación','Tiro ext.','Rebote','Defensa'];
+  const clones=pool.map((p,i)=>({p,i,d:Math.hypot(...vecs[i].map((v,j)=>v-curVec[j]))})).filter(s=>s.p!==cur).sort((a,b)=>a.d-b.d).slice(0,5);
+  const cloneCards=clones.map(s=>{
+    const o=s.p,sim=Math.max(0,Math.round(100-s.d/2.236));
+    const fm=vecs[s.i].map((v,j)=>({lbl:cloneFacets[j],m:Math.max(0,Math.round(100-Math.abs(v-curVec[j])))})).sort((a,b)=>b.m-a.m);
+    const bars=fm.map(f=>'<div style="display:flex;align-items:center;gap:8px;margin-top:5px">'+
+      '<span style="width:74px;font-family:var(--font-ui);font-size:11.5px;color:var(--text-2);flex:none">'+f.lbl+'</span>'+
+      '<span style="flex:1;height:7px;background:var(--bg-panel);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;border-radius:4px;width:'+f.m+'%;background:'+pctColor(f.m)+'"></span></span>'+
+      '<span style="width:34px;text-align:right;font-family:var(--font-disp);font-weight:800;font-size:13px;color:'+pctColor(f.m)+'">'+f.m+'%</span></div>').join('');
+    return '<div class="sim-card" data-id="'+escAttr(fichaId(o))+'" onclick="gotoFicha(this.dataset.id)" style="cursor:pointer">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'+
+        '<div><div class="sim-name">'+o.nombre+' <span class="sim-num">#'+o.num+'</span></div>'+
+        '<div class="sim-team" style="margin:3px 0 0">'+o.equipo+'</div></div>'+
+        '<div style="text-align:right;flex:none"><div style="font-family:var(--font-disp);font-weight:900;font-size:26px;line-height:1;color:#34c769">'+sim+'%</div>'+
+        '<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:.5px;color:var(--text-3);text-transform:uppercase">similitud</div></div>'+
+      '</div>'+
+      '<div style="font-family:var(--font-ui);font-size:12px;color:var(--text-2);margin-bottom:6px">Se parece más en <b style="color:var(--text)">'+fm.slice(0,2).map(f=>f.lbl).join(' y ')+'</b></div>'+
+      bars+
+    '</div>';
+  }).join('');
+  const clonesSection=clones.length?('<div class="sec">Clones</div>'+
+    '<div class="zone-sub" style="margin-bottom:10px">Los 5 jugadores con el perfil más parecido. El % es la similitud general; las barras muestran en qué facetas se parecen más. Tocá uno para abrir su ficha.</div>'+
+    '<div class="sim-grid">'+cloneCards+'</div>'):'';
   // cancha de tiro del jugador
   const pof=(m,a)=>a?Math.round(m/a*100):0;
   const d2m=(cur.fgm||0)-(cur.tpm||0),d2a=(cur.fga||0)-(cur.tpa||0);
@@ -1528,6 +1552,7 @@ function renderFicha(){
     shotSec+
     evoSec+
     simSection+
+    clonesSection+
     '<div class="sec">Cómo leer esta ficha</div>'+
     '<div class="court-box ficha-help">'+
       '<p>Cada faceta es una <b>nota de 0 a 10</b>. No mide cuántas unidades hizo el jugador, sino su <b>lugar frente al resto de la base</b>, midiendo todo <b>por partido</b>. Una nota <b>7</b> quiere decir que es mejor en esa faceta que el <b>70%</b> de los jugadores cargados. La barra de la derecha es ese mismo percentil (cuánto llena de 0 a 100%).</p>'+
