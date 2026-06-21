@@ -216,6 +216,21 @@ body{
 .logout-link{cursor:pointer}
 /* Mientras no haya sesión iniciada, no se ve NADA de la app */
 body.auth-locked .stage{display:none!important}
+/* Editar nombre del coach */
+.name-edit{margin-left:14px; vertical-align:middle; display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:9px; background:none; border:1px solid var(--bm); color:var(--text-2);
+  cursor:pointer; font-size:15px; line-height:1; transition:color .15s, border-color .15s}
+.name-edit:hover{color:var(--offense); border-color:var(--offense)}
+.name-editor{display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-top:14px}
+.name-editor input{background:var(--bg-panel); border:1px solid var(--bm); border-radius:9px; padding:11px 14px;
+  font-family:var(--body); font-size:15px; color:var(--text); outline:none; min-width:260px; transition:border-color .15s}
+.name-editor input:focus{border-color:var(--offense)}
+.name-save{background:var(--offense); color:#fff; border:none; border-radius:9px; padding:11px 18px;
+  font-family:var(--disp); font-weight:700; font-size:14px; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; transition:background .15s}
+.name-save:hover{background:#ea6c10}
+.name-cancel{background:none; border:1px solid var(--bm); color:var(--text-2); border-radius:9px; padding:11px 15px;
+  font-family:var(--mono); font-size:12px; cursor:pointer; transition:color .15s, border-color .15s}
+.name-cancel:hover{color:var(--text); border-color:var(--bs)}
 </style>
 </head>
 <body class="auth-locked">
@@ -230,7 +245,7 @@ body.auth-locked .stage{display:none!important}
     </div>
     <div class="auth-field" id="auth-name-field" style="display:none">
       <label>Nombre</label>
-      <input type="text" id="auth-name" placeholder="Tu nombre" autocomplete="name">
+      <input type="text" id="auth-name" placeholder="Tu nombre (ej: Santi)" autocomplete="given-name">
     </div>
     <div class="auth-field">
       <label>Email</label>
@@ -290,7 +305,12 @@ body.auth-locked .stage{display:none!important}
   <section class="right">
     <div class="welcome">
       <div class="hi">Bienvenido</div>
-      <h1>Hola, <span class="name" id="coachName">Coach</span></h1>
+      <h1>Hola, <span class="name" id="coachName">Coach</span><button id="nameEdit" class="name-edit" title="Poné tu nombre" onclick="startEditName()" style="display:none" aria-label="Editar nombre">✎</button></h1>
+      <div class="name-editor" id="nameEditor" style="display:none">
+        <input type="text" id="nameInput" placeholder="Tu nombre (ej: Santi)" autocomplete="given-name" onkeydown="if(event.key==='Enter')saveName(); if(event.key==='Escape')cancelEditName()">
+        <button class="name-save" onclick="saveName()">Guardar</button>
+        <button class="name-cancel" onclick="cancelEditName()">Cancelar</button>
+      </div>
       <div class="club-row" id="clubRow" style="display:none">
         <div class="club-badge mono" id="clubBadge">·</div>
         <div class="club-name">Dirigiendo a <b id="clubName">tu equipo</b></div>
@@ -354,7 +374,7 @@ body.auth-locked .stage{display:none!important}
   const clubBadge=document.getElementById('clubBadge');
   const footState=document.getElementById('footState');
   if(coach&&(coach.nombre||coach.club)){
-    const first=(coach.nombre||'').trim()||'Coach';
+    const first=((coach.nombre||'').trim().split(/\s+/)[0])||'Coach';
     nameEl.textContent=first;
     if(coach.club){
       clubRow.style.display='flex';
@@ -406,17 +426,52 @@ body.auth-locked .stage{display:none!important}
     finally{ btn.disabled=false; }
   };
   window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} try{localStorage.removeItem('sp_coach');}catch(e){} showGate(); location.reload(); };
-  function niceNameFromEmail(email){ const base=((email||'').split('@')[0]||''); if(!base)return''; return base.replace(/[._-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).trim(); }
+  function firstNameOf(name){ return ((name||'').trim().split(/\s+/)[0]||''); }
+  function niceNameFromEmail(email){
+    let base=((email||'').split('@')[0]||'').replace(/[._-]+/g,' ').trim();
+    if(!base)return'';
+    // Si quedó una sola palabra pegada (sin separadores), no inventamos un nombre.
+    if(base.indexOf(' ')===-1)return'';
+    return base.replace(/\b\w/g,c=>c.toUpperCase());
+  }
+  function setGreeting(name){
+    const first=firstNameOf(name)||'Coach';
+    const nameEl=$('coachName'); if(nameEl)nameEl.textContent=first;
+    const footState=$('footState'); if(footState)footState.innerHTML='<a class="logout-link" onclick="authLogout()">No sos '+first+'? Ingresar con otro usuario</a>';
+  }
   function applyUserIdentity(user){
     if(!user)return;
+    const editBtn=$('nameEdit'); if(editBtn)editBtn.style.display='inline-flex'; // siempre se puede editar el nombre
     // Si el coach ya tiene un nombre propio guardado (sp_coach), se respeta.
     let coach=null; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s);}catch(e){}
-    if(coach&&(coach.nombre||'').trim())return;
+    if(coach&&(coach.nombre||'').trim()){ setGreeting(coach.nombre); return; }
     const meta=user.user_metadata||{};
     const name=((meta.full_name||meta.name||'').trim())||niceNameFromEmail(user.email)||'Coach';
-    const nameEl=$('coachName'); if(nameEl)nameEl.textContent=name;
-    const footState=$('footState'); if(footState)footState.innerHTML='<a class="logout-link" onclick="authLogout()">No sos '+name+'? Ingresar con otro usuario</a>';
+    setGreeting(name);
   }
+  window.startEditName=function(){
+    const cur=(($('coachName')&&$('coachName').textContent)||'').trim();
+    const inp=$('nameInput'); if(inp)inp.value=(cur&&cur.toLowerCase()!=='coach')?cur:'';
+    if($('nameEditor'))$('nameEditor').style.display='flex';
+    if($('coachName'))$('coachName').style.display='none';
+    if($('nameEdit'))$('nameEdit').style.display='none';
+    if(inp)setTimeout(()=>inp.focus(),0);
+  };
+  window.cancelEditName=function(){
+    if($('nameEditor'))$('nameEditor').style.display='none';
+    if($('coachName'))$('coachName').style.display='';
+    if($('nameEdit'))$('nameEdit').style.display='inline-flex';
+  };
+  window.saveName=async function(){
+    const inp=$('nameInput'); const val=((inp&&inp.value)||'').trim();
+    if(!val){ if(inp)inp.focus(); return; }
+    const btns=document.querySelectorAll('.name-save,.name-cancel'); btns.forEach(b=>b.disabled=true);
+    try{ if(sb)await sb.auth.updateUser({data:{full_name:val}}); }catch(e){}
+    try{ let coach={}; const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{}; coach.nombre=val; localStorage.setItem('sp_coach',JSON.stringify(coach)); }catch(e){}
+    setGreeting(val);
+    btns.forEach(b=>b.disabled=false);
+    window.cancelEditName();
+  };
   function boot(){
     if(!sb){ showGate(); setMsg('No se pudo conectar al servidor. Revisá tu conexión y recargá la página.','err'); return; } // sin servidor NO se libera el acceso
     showGate();
