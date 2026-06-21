@@ -1379,6 +1379,11 @@ function renderCuartos(){
 // ── VISTA FICHA (informe de jugador) ──
 let fichaSel='';
 let fichaTeam='';
+let fichaMode='ficha';
+let cloneSort={key:'sim',dir:-1};
+function setFichaMode(m){fichaMode=m;renderFicha();}
+function cloneSortBy(k){if(cloneSort.key===k)cloneSort.dir*=-1;else{cloneSort.key=k;cloneSort.dir=-1;}renderFicha();}
+function openCloneRef(id){fichaMode='ficha';fichaSel=id;renderFicha();const v=document.getElementById('view-ficha');if(v)v.scrollIntoView({behavior:'smooth',block:'start'});}
 function setFichaTeam(v){fichaTeam=v;renderFicha();}
 function fichaList(){return playersAgg().filter(p=>p.g>0);}
 function fichaId(p){return p.equipo+'|'+p.num+'|'+p.nombre;}
@@ -1462,9 +1467,13 @@ function renderFicha(){
   const bar='<div class="tiros-ctl">'+teamSel+'<span class="zone-lbl">Jugador</span>'+
     '<input class="ficha-input" list="fichaDL" placeholder="Buscá un jugador…" value="'+(cur?fichaTxt(cur):'')+'" onchange="pickFicha(this.value)">'+
     '<datalist id="fichaDL">'+opts.map(p=>'<option value="'+fichaTxt(p).replace(/"/g,'')+'">').join('')+'</datalist>'+
-    '<span class="zone-sub">'+(fichaTeam?opts.length+' en '+fichaTeam:pool.length+' jugadores')+'</span></div>'+
+    '<span class="zone-sub">'+(fichaTeam?opts.length+' en '+fichaTeam:pool.length+' jugadores')+'</span>'+
+    '<span class="tipo-seg" style="margin-left:8px">'+
+      '<button class="'+(fichaMode==='ficha'?'on':'')+'" onclick="setFichaMode(\'ficha\')">Ficha</button>'+
+      '<button class="'+(fichaMode==='clones'?'on':'')+'" onclick="setFichaMode(\'clones\')">Clones</button>'+
+    '</span></div>'+
     (fichaTeam?'<div class="fchips">'+opts.map(p=>'<button class="fchip'+(cur&&fichaId(p)===fichaSel?' on':'')+'" onclick="gotoFicha(\''+escAttr(fichaId(p))+'\')">'+(p.num?'#'+p.num+' ':'')+p.nombre+'</button>').join('')+'</div>':'');
-  if(!cur){el.innerHTML=bar+'<div class="empty">'+(fichaTeam?'Elegí un jugador de '+fichaTeam+' (tocá un nombre arriba) para ver su ficha.':'Buscá un jugador o filtrá por equipo para ver la lista.')+'</div>';return;}
+  if(!cur){const _msg=fichaMode==='clones'?'Elegí un jugador de referencia (buscalo arriba) para ver el ranking de clones.':(fichaTeam?'Elegí un jugador de '+fichaTeam+' (tocá un nombre arriba) para ver su ficha.':'Buscá un jugador o filtrá por equipo para ver la lista.');el.innerHTML=bar+'<div class="empty">'+_msg+'</div>';return;}
   const g=cur.g||1,pg=(p,k)=>p[k]/(p.g||1);
   const A={anot:pool.map(p=>pg(p,'pts')),gen:pool.map(p=>pg(p,'ast')),tiro:pool.map(p=>pg(p,'tpm')),reb:pool.map(p=>pg(p,'reb')),def:pool.map(p=>pg(p,'rob')+pg(p,'tap'))};
   const valArr=pool.map(fichaVal);
@@ -1474,6 +1483,30 @@ function renderFicha(){
   // jugadores similares: distancia entre perfiles de percentiles (5 facetas)
   const curVec=[pAnot,pGen,pTiro,pReb,pDef];
   const vecs=pool.map(p=>[pctRank(A.anot,pg(p,'pts')),pctRank(A.gen,pg(p,'ast')),pctRank(A.tiro,pg(p,'tpm')),pctRank(A.reb,pg(p,'reb')),pctRank(A.def,pg(p,'rob')+pg(p,'tap'))]);
+  // ── CLONES (modo tabla: ranking de TODOS los jugadores por parecido al de referencia) ──
+  if(fichaMode==='clones'){
+    let crows=pool.map((p,i)=>{
+      const v=vecs[i];
+      const sim=Math.max(0,Math.round(100-Math.hypot(...v.map((x,j)=>x-curVec[j]))/2.236));
+      const ar=v.map((x,j)=>Math.max(0,Math.round(100-Math.abs(x-curVec[j]))));
+      return {p,sim,a:ar[0],ge:ar[1],ti:ar[2],re:ar[3],de:ar[4]};
+    }).filter(r=>r.p!==cur);
+    crows.sort((x,y)=>{const c=x[cloneSort.key]-y[cloneSort.key];return cloneSort.dir<0?-c:c;});
+    const ccols=[['sim','Similitud'],['a','Anotación'],['ge','Generación'],['ti','Tiro ext.'],['re','Rebote'],['de','Defensa']];
+    const carrow=k=>cloneSort.key===k?(cloneSort.dir<0?' ▾':' ▴'):'';
+    const cth='<tr><th>#</th><th class="l">Jugador</th><th class="l">Equipo</th>'+ccols.map(c=>'<th style="cursor:pointer;user-select:none" onclick="cloneSortBy(\''+c[0]+'\')" title="Ordenar por '+c[1]+'">'+c[1]+carrow(c[0])+'</th>').join('')+'</tr>';
+    const cbody=crows.map((r,i)=>'<tr onclick="openCloneRef(\''+escAttr(fichaId(r.p))+'\')" style="cursor:pointer"><td>'+(i+1)+'</td>'+
+      '<td class="l"><b>'+(r.p.num?'#'+r.p.num+' ':'')+r.p.nombre+'</b></td>'+
+      '<td class="l">'+r.p.equipo+'</td>'+
+      '<td class="pc" style="font-family:var(--font-disp);font-weight:800;font-size:15px;color:'+pctColor(r.sim)+'">'+r.sim+'%</td>'+
+      ccols.slice(1).map(c=>'<td style="color:'+pctColor(r[c[0]])+'">'+r[c[0]]+'%</td>').join('')+'</tr>').join('');
+    const cref='<div class="ficha-card" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 20px"><div><div class="fh-name" style="font-size:26px">'+cur.nombre+' <span class="fh-num">#'+cur.num+'</span></div><div class="fh-team" style="margin-top:5px">'+cur.equipo+' · jugador de referencia</div></div><span class="fh-tag" style="margin-left:auto">'+roleFromVec(curVec)+'</span></div>';
+    el.innerHTML=bar+cref+
+      '<div class="sec">Clones de '+cur.nombre+'</div>'+
+      '<div class="zone-sub" style="margin-bottom:10px">Todos los jugadores ordenados por <b>parecido de perfil</b> al de referencia. <b>Similitud</b> = parecido general; las otras columnas, el parecido en cada faceta (por partido). Tocá un encabezado para ordenar, o una fila para abrir esa ficha.</div>'+
+      '<div class="court-box" style="overflow-x:auto"><table class="bs-table"><thead>'+cth+'</thead><tbody>'+cbody+'</tbody></table></div>';
+    return;
+  }
   const sims=pool.map((p,i)=>({p,i,d:Math.hypot(...vecs[i].map((v,j)=>v-curVec[j]))})).filter(s=>s.p!==cur).sort((a,b)=>a.d-b.d).slice(0,3);
   const simCards=sims.map(s=>{const o=s.p,og=o.g||1,sim=Math.max(0,Math.round(100-s.d/2.236));
     return '<div class="sim-card" data-id="'+escAttr(fichaId(o))+'" onclick="gotoFicha(this.dataset.id)">'+
@@ -1485,30 +1518,6 @@ function renderFicha(){
   const simSection=sims.length?('<div class="sec">Jugadores similares</div>'+
     '<button class="sim-btn" id="simBtn" onclick="toggleSim()">🔍 Ver 3 jugadores similares</button>'+
     '<div class="sim-grid" id="simPanel" style="display:none">'+simCards+'</div>'):'';
-  // ── CLONES (sección nueva, NO toca 'similares') ──
-  const cloneFacets=['Anotación','Generación','Tiro ext.','Rebote','Defensa'];
-  const clones=pool.map((p,i)=>({p,i,d:Math.hypot(...vecs[i].map((v,j)=>v-curVec[j]))})).filter(s=>s.p!==cur).sort((a,b)=>a.d-b.d).slice(0,5);
-  const cloneCards=clones.map(s=>{
-    const o=s.p,sim=Math.max(0,Math.round(100-s.d/2.236));
-    const fm=vecs[s.i].map((v,j)=>({lbl:cloneFacets[j],m:Math.max(0,Math.round(100-Math.abs(v-curVec[j])))})).sort((a,b)=>b.m-a.m);
-    const bars=fm.map(f=>'<div style="display:flex;align-items:center;gap:8px;margin-top:5px">'+
-      '<span style="width:74px;font-family:var(--font-ui);font-size:11.5px;color:var(--text-2);flex:none">'+f.lbl+'</span>'+
-      '<span style="flex:1;height:7px;background:var(--bg-panel);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;border-radius:4px;width:'+f.m+'%;background:'+pctColor(f.m)+'"></span></span>'+
-      '<span style="width:34px;text-align:right;font-family:var(--font-disp);font-weight:800;font-size:13px;color:'+pctColor(f.m)+'">'+f.m+'%</span></div>').join('');
-    return '<div class="sim-card" data-id="'+escAttr(fichaId(o))+'" onclick="gotoFicha(this.dataset.id)" style="cursor:pointer">'+
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'+
-        '<div><div class="sim-name">'+o.nombre+' <span class="sim-num">#'+o.num+'</span></div>'+
-        '<div class="sim-team" style="margin:3px 0 0">'+o.equipo+'</div></div>'+
-        '<div style="text-align:right;flex:none"><div style="font-family:var(--font-disp);font-weight:900;font-size:26px;line-height:1;color:#34c769">'+sim+'%</div>'+
-        '<div style="font-family:var(--font-mono);font-size:8.5px;letter-spacing:.5px;color:var(--text-3);text-transform:uppercase">similitud</div></div>'+
-      '</div>'+
-      '<div style="font-family:var(--font-ui);font-size:12px;color:var(--text-2);margin-bottom:6px">Se parece más en <b style="color:var(--text)">'+fm.slice(0,2).map(f=>f.lbl).join(' y ')+'</b></div>'+
-      bars+
-    '</div>';
-  }).join('');
-  const clonesSection=clones.length?('<div class="sec">Clones</div>'+
-    '<div class="zone-sub" style="margin-bottom:10px">Los 5 jugadores con el perfil más parecido. El % es la similitud general; las barras muestran en qué facetas se parecen más. Tocá uno para abrir su ficha.</div>'+
-    '<div class="sim-grid">'+cloneCards+'</div>'):'';
   // cancha de tiro del jugador
   const pof=(m,a)=>a?Math.round(m/a*100):0;
   const d2m=(cur.fgm||0)-(cur.tpm||0),d2a=(cur.fga||0)-(cur.tpa||0);
@@ -1552,7 +1561,6 @@ function renderFicha(){
     shotSec+
     evoSec+
     simSection+
-    clonesSection+
     '<div class="sec">Cómo leer esta ficha</div>'+
     '<div class="court-box ficha-help">'+
       '<p>Cada faceta es una <b>nota de 0 a 10</b>. No mide cuántas unidades hizo el jugador, sino su <b>lugar frente al resto de la base</b>, midiendo todo <b>por partido</b>. Una nota <b>7</b> quiere decir que es mejor en esa faceta que el <b>70%</b> de los jugadores cargados. La barra de la derecha es ese mismo percentil (cuánto llena de 0 a 100%).</p>'+
