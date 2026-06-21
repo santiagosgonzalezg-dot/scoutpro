@@ -305,15 +305,16 @@ body.auth-locked .stage{display:none!important}
   <section class="right">
     <div class="welcome">
       <div class="hi">Bienvenido</div>
-      <h1>Hola, <span class="name" id="coachName">Coach</span><button id="nameEdit" class="name-edit" title="Poné tu nombre" onclick="startEditName()" style="display:none" aria-label="Editar nombre">✎</button></h1>
+      <h1>Hola, <span class="name" id="coachName">Coach</span><button id="nameEdit" class="name-edit" title="Editar tu perfil (nombre y club)" onclick="startEditName()" style="display:none" aria-label="Editar perfil">✎</button></h1>
       <div class="name-editor" id="nameEditor" style="display:none">
         <input type="text" id="nameInput" placeholder="Tu nombre (ej: Santi)" autocomplete="given-name" onkeydown="if(event.key==='Enter')saveName(); if(event.key==='Escape')cancelEditName()">
+        <input type="text" id="clubInput" placeholder="Tu club (ej: Larrañaga)" autocomplete="off" onkeydown="if(event.key==='Enter')saveName(); if(event.key==='Escape')cancelEditName()">
         <button class="name-save" onclick="saveName()">Guardar</button>
         <button class="name-cancel" onclick="cancelEditName()">Cancelar</button>
       </div>
       <div class="club-row" id="clubRow" style="display:none">
         <div class="club-badge mono" id="clubBadge">·</div>
-        <div class="club-name">Dirigiendo a <b id="clubName">tu equipo</b></div>
+        <div class="club-name">Tu club · <b id="clubName">tu equipo</b></div>
       </div>
     </div>
 
@@ -439,23 +440,43 @@ body.auth-locked .stage{display:none!important}
     const nameEl=$('coachName'); if(nameEl)nameEl.textContent=first;
     const footState=$('footState'); if(footState)footState.innerHTML='<a class="logout-link" onclick="authLogout()">No sos '+first+'? Ingresar con otro usuario</a>';
   }
+  function setClub(club){
+    club=(club||'').trim();
+    const row=$('clubRow'), nm=$('clubName'), bd=$('clubBadge');
+    if(club){ if(row)row.style.display='flex'; if(nm)nm.textContent=club; if(bd)bd.textContent=club.charAt(0).toUpperCase(); }
+    else{ if(row)row.style.display='none'; }
+  }
+  // Guarda el perfil en el storage que comparten TODAS las secciones (Estadístico, etc.)
+  function persistProfile(nombre,club){
+    let coach={}; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{};}catch(e){}
+    if(nombre!=null) coach.nombre=nombre;
+    if(club!=null) coach.club=club;
+    try{localStorage.setItem('sp_coach',JSON.stringify(coach));}catch(e){}
+    return coach;
+  }
   function applyUserIdentity(user){
     if(!user)return;
-    const editBtn=$('nameEdit'); if(editBtn)editBtn.style.display='inline-flex'; // siempre se puede editar el nombre
-    // Si el coach ya tiene un nombre propio guardado (sp_coach), se respeta.
-    let coach=null; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s);}catch(e){}
-    if(coach&&(coach.nombre||'').trim()){ setGreeting(coach.nombre); return; }
+    const editBtn=$('nameEdit'); if(editBtn)editBtn.style.display='inline-flex';
+    let coach={}; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{};}catch(e){}
     const meta=user.user_metadata||{};
-    const name=((meta.full_name||meta.name||'').trim())||niceNameFromEmail(user.email)||'Coach';
-    setGreeting(name);
+    // NOMBRE: lo guardado por el coach > metadatos de la cuenta > derivado del email
+    const nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(user.email)||'Coach';
+    // CLUB: lo guardado por el coach > el club asociado a la cuenta
+    const club=((coach.club||'').trim())||((meta.club||'').trim());
+    // Sembramos el storage compartido para que el resto de secciones lean lo mismo desde el arranque
+    persistProfile(nombre,club);
+    setGreeting(nombre);
+    setClub(club);
   }
   window.startEditName=function(){
+    let coach={}; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{};}catch(e){}
     const cur=(($('coachName')&&$('coachName').textContent)||'').trim();
-    const inp=$('nameInput'); if(inp)inp.value=(cur&&cur.toLowerCase()!=='coach')?cur:'';
+    const ni=$('nameInput'); if(ni)ni.value=(coach.nombre||((cur&&cur.toLowerCase()!=='coach')?cur:''))||'';
+    const ci=$('clubInput'); if(ci)ci.value=(coach.club||'')||'';
     if($('nameEditor'))$('nameEditor').style.display='flex';
     if($('coachName'))$('coachName').style.display='none';
     if($('nameEdit'))$('nameEdit').style.display='none';
-    if(inp)setTimeout(()=>inp.focus(),0);
+    if(ni)setTimeout(()=>ni.focus(),0);
   };
   window.cancelEditName=function(){
     if($('nameEditor'))$('nameEditor').style.display='none';
@@ -463,12 +484,14 @@ body.auth-locked .stage{display:none!important}
     if($('nameEdit'))$('nameEdit').style.display='inline-flex';
   };
   window.saveName=async function(){
-    const inp=$('nameInput'); const val=((inp&&inp.value)||'').trim();
-    if(!val){ if(inp)inp.focus(); return; }
+    const ni=$('nameInput'); const nombre=((ni&&ni.value)||'').trim();
+    const ci=$('clubInput'); const club=((ci&&ci.value)||'').trim();
+    if(!nombre){ if(ni)ni.focus(); return; }
     const btns=document.querySelectorAll('.name-save,.name-cancel'); btns.forEach(b=>b.disabled=true);
-    try{ if(sb)await sb.auth.updateUser({data:{full_name:val}}); }catch(e){}
-    try{ let coach={}; const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{}; coach.nombre=val; localStorage.setItem('sp_coach',JSON.stringify(coach)); }catch(e){}
-    setGreeting(val);
+    try{ if(sb)await sb.auth.updateUser({data:{full_name:nombre,club:club}}); }catch(e){}
+    persistProfile(nombre,club);
+    setGreeting(nombre);
+    setClub(club);
     btns.forEach(b=>b.disabled=false);
     window.cancelEditName();
   };
