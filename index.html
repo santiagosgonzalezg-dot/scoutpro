@@ -214,9 +214,11 @@ body{
 .auth-msg.err{color:#f05050}
 .auth-msg.ok{color:#34c769}
 .logout-link{cursor:pointer}
+/* Mientras no haya sesión iniciada, no se ve NADA de la app */
+body.auth-locked .stage{display:none!important}
 </style>
 </head>
-<body>
+<body class="auth-locked">
 <!-- LOGIN (portón de acceso) -->
 <div id="auth-gate" style="display:flex">
   <div class="auth-card">
@@ -332,7 +334,7 @@ body{
 
     <div class="foot">
       <span>ScoutPRO · Temporada en curso</span>
-      <span id="footState"><a href="estadistico.html">Cambiar de usuario</a> · <a class="logout-link" onclick="authLogout()">Salir</a></span>
+      <span id="footState"><a class="logout-link" onclick="authLogout()">Ingresar con otro usuario</a></span>
     </div>
   </section>
 </div>
@@ -355,10 +357,10 @@ body{
       clubName.textContent=coach.club;
       clubBadge.textContent=(coach.club||'?').trim().charAt(0).toUpperCase();
     }
-    footState.innerHTML='<a href="estadistico.html">No sos '+first+'? Cambiar usuario</a>';
+    footState.innerHTML='<a class="logout-link" onclick="authLogout()">No sos '+first+'? Ingresar con otro usuario</a>';
   }else{
     nameEl.textContent='Coach';
-    footState.innerHTML='<a href="estadistico.html">Entrá con tu usuario →</a>';
+    footState.innerHTML='<a class="logout-link" onclick="authLogout()">Ingresar con otro usuario</a>';
   }
 })();
 </script>
@@ -372,8 +374,8 @@ body{
   let mode='login', sb=null;
   try{ if(window.supabase&&window.supabase.createClient){ sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); window._sb=sb; } }catch(e){}
   const gate=()=>$('auth-gate');
-  function showGate(){ if(gate())gate().style.display='flex'; }
-  function hideGate(){ if(gate())gate().style.display='none'; }
+  function showGate(){ document.body.classList.add('auth-locked'); if(gate())gate().style.display='flex'; }
+  function hideGate(){ document.body.classList.remove('auth-locked'); if(gate())gate().style.display='none'; }
   function setMsg(t,k){ const m=$('auth-msg'); if(!m)return; m.textContent=t||''; m.className='auth-msg'+(k?' '+k:''); }
   window.authSetMode=function(m){ mode=m; $('auth-tab-login').classList.toggle('active',m==='login'); $('auth-tab-signup').classList.toggle('active',m==='signup'); $('auth-submit').textContent=m==='login'?'Ingresar':'Crear cuenta'; setMsg(''); };
   function tradErr(e){ const m=(e&&e.message)?e.message:String(e);
@@ -400,7 +402,7 @@ body{
   };
   window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} try{localStorage.removeItem('sp_coach');}catch(e){} showGate(); location.reload(); };
   function boot(){
-    if(!sb){ hideGate(); return; } // si no hay servidor, no bloqueamos
+    if(!sb){ showGate(); setMsg('No se pudo conectar al servidor. Revisá tu conexión y recargá la página.','err'); return; } // sin servidor NO se libera el acceso
     showGate();
     sb.auth.getSession().then(({data})=>{ if(data&&data.session) hideGate(); });
     sb.auth.onAuthStateChange((ev,session)=>{ if(session) hideGate(); else showGate(); });
