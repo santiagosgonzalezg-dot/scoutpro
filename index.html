@@ -228,6 +228,10 @@ body.auth-locked .stage{display:none!important}
       <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
       <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
     </div>
+    <div class="auth-field" id="auth-name-field" style="display:none">
+      <label>Nombre</label>
+      <input type="text" id="auth-name" placeholder="Tu nombre" autocomplete="name">
+    </div>
     <div class="auth-field">
       <label>Email</label>
       <input type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
@@ -377,7 +381,7 @@ body.auth-locked .stage{display:none!important}
   function showGate(){ document.body.classList.add('auth-locked'); if(gate())gate().style.display='flex'; }
   function hideGate(){ document.body.classList.remove('auth-locked'); if(gate())gate().style.display='none'; }
   function setMsg(t,k){ const m=$('auth-msg'); if(!m)return; m.textContent=t||''; m.className='auth-msg'+(k?' '+k:''); }
-  window.authSetMode=function(m){ mode=m; $('auth-tab-login').classList.toggle('active',m==='login'); $('auth-tab-signup').classList.toggle('active',m==='signup'); $('auth-submit').textContent=m==='login'?'Ingresar':'Crear cuenta'; setMsg(''); };
+  window.authSetMode=function(m){ mode=m; $('auth-tab-login').classList.toggle('active',m==='login'); $('auth-tab-signup').classList.toggle('active',m==='signup'); $('auth-submit').textContent=m==='login'?'Ingresar':'Crear cuenta'; var nf=$('auth-name-field'); if(nf)nf.style.display=(m==='signup')?'flex':'none'; setMsg(''); };
   function tradErr(e){ const m=(e&&e.message)?e.message:String(e);
     if(/Invalid login/i.test(m))return'Email o contraseña incorrectos.';
     if(/already registered|already exists|User already/i.test(m))return'Ese email ya tiene cuenta. Probá ingresar.';
@@ -392,7 +396,8 @@ body.auth-locked .stage{display:none!important}
     const btn=$('auth-submit'); btn.disabled=true;
     try{
       if(mode==='signup'){
-        const {data,error}=await sb.auth.signUp({email,password:pass}); if(error)throw error;
+        const name=(($('auth-name')&&$('auth-name').value)||'').trim();
+        const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}}); if(error)throw error;
         if(data&&data.session){ hideGate(); } else { setMsg('Cuenta creada. Si te pide confirmar por email, hacelo y después ingresá.','ok'); window.authSetMode('login'); }
       }else{
         const {error}=await sb.auth.signInWithPassword({email,password:pass}); if(error)throw error; hideGate();
@@ -401,11 +406,22 @@ body.auth-locked .stage{display:none!important}
     finally{ btn.disabled=false; }
   };
   window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} try{localStorage.removeItem('sp_coach');}catch(e){} showGate(); location.reload(); };
+  function niceNameFromEmail(email){ const base=((email||'').split('@')[0]||''); if(!base)return''; return base.replace(/[._-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).trim(); }
+  function applyUserIdentity(user){
+    if(!user)return;
+    // Si el coach ya tiene un nombre propio guardado (sp_coach), se respeta.
+    let coach=null; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s);}catch(e){}
+    if(coach&&(coach.nombre||'').trim())return;
+    const meta=user.user_metadata||{};
+    const name=((meta.full_name||meta.name||'').trim())||niceNameFromEmail(user.email)||'Coach';
+    const nameEl=$('coachName'); if(nameEl)nameEl.textContent=name;
+    const footState=$('footState'); if(footState)footState.innerHTML='<a class="logout-link" onclick="authLogout()">No sos '+name+'? Ingresar con otro usuario</a>';
+  }
   function boot(){
     if(!sb){ showGate(); setMsg('No se pudo conectar al servidor. Revisá tu conexión y recargá la página.','err'); return; } // sin servidor NO se libera el acceso
     showGate();
-    sb.auth.getSession().then(({data})=>{ if(data&&data.session) hideGate(); });
-    sb.auth.onAuthStateChange((ev,session)=>{ if(session) hideGate(); else showGate(); });
+    sb.auth.getSession().then(({data})=>{ if(data&&data.session){ hideGate(); applyUserIdentity(data.session.user); } });
+    sb.auth.onAuthStateChange((ev,session)=>{ if(session){ hideGate(); applyUserIdentity(session.user); } else showGate(); });
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
