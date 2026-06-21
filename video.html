@@ -76,7 +76,7 @@ body { font-family: var(--font-ui); font-size: 13px; background: var(--bg-base);
 
 .screen { display: none !important; }
 .screen.active { display: flex !important; }
-#screen-splash.active  { flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+#screen-splash.active  { flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding-top: 60px; }
 #screen-partido.active { display: block !important; overflow-y: auto; height: 100vh; }
 #screen-scout.active   { display: grid !important; grid-template-columns: 1fr 276px; overflow: hidden; height: 100%; }
 #screen-board.active   { flex-direction: column; height: 100%; overflow: hidden; }
@@ -210,6 +210,12 @@ body.mode-offense .topbar { border-bottom-color: rgba(249,115,22,0.2); }
 .mc-name { font-family: var(--font-disp); font-size: 17px; font-weight: 700; }
 .mc-sub { font-family: var(--font-mono); font-size: 8px; color: var(--text-3); margin-top: 3px; }
 .splash-shortcuts { font-family: var(--font-mono); font-size: 8px; color: var(--text-3); text-align: center; letter-spacing: 1px; }
+.splash-topnav { position: fixed; top: 0; left: 0; right: 0; height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--bg-raised); border-bottom: 1px solid var(--border-light); z-index: 60; }
+.splash-topnav .stn-logo { font-family: var(--font-disp); font-weight: 800; font-size: 18px; letter-spacing: 2px; flex-shrink: 0; }
+.splash-topnav .stn-logo span { color: var(--offense); }
+.splash-topnav .stn-right { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.splash-topnav .stn-btn { background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--r-sm); color: var(--text-2); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.3px; padding: 7px 13px; cursor: pointer; text-decoration: none; transition: all var(--t-base); white-space: nowrap; }
+.splash-topnav .stn-btn:hover { border-color: var(--offense); color: var(--offense); }
 
 /* PARTIDO FORM */
 .partido-wrap { max-width: 620px; margin: 0 auto; padding: 28px 24px 64px; }
@@ -874,6 +880,15 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
 
 <!-- SPLASH -->
 <div class="screen active" id="screen-splash">
+  <div class="splash-topnav">
+    <div class="stn-logo">SCOUT<span>PRO</span></div>
+    <div class="stn-right">
+      <a class="stn-btn" href="quintetos.html">🔄 Quintetos</a>
+      <a class="stn-btn" href="estadistico.html">📊 Estadístico</a>
+      <a class="stn-btn" href="defensa.html">🛡 Defensa</a>
+      <a class="stn-btn" href="index.html">🏠 Menú</a>
+    </div>
+  </div>
   <div class="splash-inner">
     <div class="splash-logo">SCOUT<span>PRO</span></div>
     <div class="splash-version">// v5.0 — Basketball Intelligence Platform</div>
