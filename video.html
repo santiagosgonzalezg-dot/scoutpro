@@ -218,7 +218,7 @@ body.mode-offense .topbar { border-bottom-color: rgba(249,115,22,0.2); }
 .splash-topnav .stn-btn:hover { border-color: var(--offense); color: var(--offense); }
 
 /* PARTIDO FORM */
-.partido-wrap { max-width: 620px; margin: 0 auto; padding: 28px 24px 64px; }
+.partido-wrap { max-width: 620px; margin: 0 auto; padding: 72px 24px 64px; }
 .pf-title { font-family: var(--font-disp); font-size: 26px; font-weight: 800; letter-spacing: 1px; margin-bottom: 2px; }
 .pf-sub { font-family: var(--font-mono); font-size: 8px; color: var(--text-3); letter-spacing: 1.5px; margin-bottom: var(--sp-4); text-transform: uppercase; }
 .pf-row { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-2); }
@@ -934,6 +934,15 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
 
 <!-- GAME SETUP FORM -->
 <div class="screen" id="screen-partido">
+  <div class="splash-topnav">
+    <div class="stn-logo">SCOUT<span>PRO</span></div>
+    <div class="stn-right">
+      <a class="stn-btn" href="quintetos.html">🔄 Quintetos</a>
+      <a class="stn-btn" href="estadistico.html">📊 Estadístico</a>
+      <a class="stn-btn" href="defensa.html">🛡 Defensa</a>
+      <a class="stn-btn" href="index.html">🏠 Menú</a>
+    </div>
+  </div>
   <div class="partido-wrap">
     <button onclick="showScreen('splash')" style="background:none;border:1px solid var(--border-light);border-radius:var(--r-sm);padding:5px 12px;font-family:var(--font-mono);font-size:9px;letter-spacing:0.5px;color:var(--text-2);cursor:pointer;margin-bottom:16px;transition:all var(--t-base)" onmouseover="this.style.borderColor='var(--offense)';this.style.color='var(--offense)'" onmouseout="this.style.borderColor='var(--border-light)';this.style.color='var(--text-2)'">&larr; VOLVER AL INICIO</button>
     <div class="pf-title">New Game</div>
