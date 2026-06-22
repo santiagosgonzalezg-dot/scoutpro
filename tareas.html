@@ -99,6 +99,17 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--body);font-si
 .mini:hover{border-color:var(--positive);color:var(--positive)}
 .mini.danger:hover{border-color:var(--negative);color:var(--negative)}
 
+/* resumen por asistente */
+.sum-row{display:flex;align-items:center;gap:12px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:12px;padding:11px 14px;margin-bottom:8px}
+.avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:14px;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.sum-body{flex:1;min-width:0}
+.sum-n{font-weight:600;font-size:13.5px}
+.sum-track{height:7px;background:var(--bg-panel);border-radius:4px;overflow:hidden;margin-top:6px}
+.sum-track span{display:block;height:100%;background:var(--positive);border-radius:4px;transition:width .3s}
+.sum-nums{font-family:var(--mono);font-size:10px;color:var(--text-3);text-align:right;white-space:nowrap;flex-shrink:0}
+.sum-nums b{color:var(--text);font-family:var(--disp);font-size:16px;margin-right:2px}
+.sum-nums .ok{color:var(--positive)}.sum-nums .pn{color:#e0b341}
+
 .loadbox{display:flex;flex-direction:column;align-items:center;gap:14px;padding:80px 20px;color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase}
 .spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--bs);border-top-color:var(--offense);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -194,6 +205,9 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   const areaInfo=k=>AREAS.find(a=>a.k===k)||{label:k||'—',color:'#8891a0'};
   const tipoInfo=k=>TIPOS.find(t=>t.k===k)||{label:k||'—',color:'#8891a0'};
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function avColor(n){let h=0;const s=String(n||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',50%,45%)';}
+  function avInit(n){const w=String(n||'').trim().split(/\s+/).filter(Boolean);if(!w.length)return'?';if(w.length===1)return w[0].slice(0,2).toUpperCase();return (w[0][0]+w[1][0]).toUpperCase();}
+  function avatar(n){return '<span class="avatar" style="background:'+avColor(n)+'">'+avInit(n)+'</span>';}
   function readCoach(){let c={};try{const s=localStorage.getItem('sp_coach');if(s)c=JSON.parse(s)||{};}catch(e){}return c;}
   function niceNameFromEmail(email){let b=((email||'').split('@')[0]||'').replace(/[._-]+/g,' ').trim();if(!b)return'';return b.replace(/\b\w/g,c=>c.toUpperCase());}
 
@@ -338,6 +352,22 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     return form+'<div class="sec">Biblioteca ('+EXS.length+')</div>'+'<div class="filters">'+fa+'</div><div class="filters">'+ft+'</div>'+grid;
   }
 
+  function resumenView(){
+    const by={};
+    TASKS.forEach(t=>{const k=t.asignado_a;if(!by[k])by[k]={nombre:t.asignado_a_nombre,total:0,hechas:0};by[k].total++;if(t.estado==='hecha')by[k].hechas++;});
+    if(TAB==='asignar')TEAM.forEach(p=>{if(!by[p.user_id])by[p.user_id]={nombre:p.nombre||p.email,total:0,hechas:0};});
+    const ids=Object.keys(by);
+    if(!ids.length)return '';
+    const rows=ids.map(k=>by[k]).sort((a,b)=>b.total-a.total).map(r=>{
+      const pend=r.total-r.hechas,pct=r.total?Math.round(r.hechas/r.total*100):0;
+      return '<div class="sum-row">'+avatar(r.nombre)+
+        '<div class="sum-body"><div class="sum-n">'+esc(r.nombre||'—')+'</div>'+
+        '<div class="sum-track"><span style="width:'+pct+'%"></span></div></div>'+
+        '<div class="sum-nums"><b>'+r.total+'</b>tareas · <span class="ok">'+r.hechas+' hechas</span> · <span class="pn">'+pend+' pend.</span></div></div>';
+    }).join('');
+    return '<div class="sec">Resumen por asistente</div>'+rows;
+  }
+
   function asignarView(){
     if(!TEAM.length)return '<div class="sec">Asignar tareas</div><div class="empty">Todavía no tenés asistentes activos en tu cuerpo técnico. Cargalos desde tu perfil; cuando se registren vas a poder asignarles tareas.</div>'+misAsignadasView();
     const exOpts='<option value="">— Tarea libre (la escribís vos) —</option>'+
@@ -355,7 +385,7 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
         '<div class="fld wide"><label>Asignar a</label><div class="who">'+who+'</div></div>'+
         '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="assign()">Asignar</button><span class="msg" id="as-msg"></span></div>'+
       '</div></div>';
-    return form+misAsignadasView();
+    return resumenView()+form+misAsignadasView();
   }
 
   function taskRow(t,opts){
@@ -392,7 +422,7 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   }
   function clubView(){
     if(!TASKS.length)return '<div class="sec">Tareas del club</div><div class="empty">Todavía no hay tareas asignadas en el club.</div>';
-    return '<div class="sec">Tareas del club ('+TASKS.length+')</div>'+TASKS.map(t=>taskRow(t,{showWho:true,showBy:true})).join('');
+    return resumenView()+'<div class="sec">Tareas del club ('+TASKS.length+')</div>'+TASKS.map(t=>taskRow(t,{showWho:true,showBy:true})).join('');
   }
 
   function paint(){
