@@ -136,7 +136,22 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
 .boss-card .bc-n{font-family:var(--disp);font-weight:800;font-size:21px;letter-spacing:.3px;line-height:1.05}
 .boss-card .bc-r{font-family:var(--mono);font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);margin-top:3px}
 
-@media(max-width:560px){.hero-name{font-size:28px}.role-pill{min-width:100%}}
+.pend-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;color:#e0b341;border:1px solid color-mix(in srgb,#e0b341 45%,transparent);border-radius:20px;padding:2px 7px;margin-left:6px}
+.row-x{background:none;border:1px solid var(--bm);color:var(--text-3);border-radius:7px;width:28px;height:28px;font-size:12px;cursor:pointer;flex-shrink:0;transition:all .15s}
+.row-x:hover{border-color:var(--negative);color:var(--negative)}
+.add-card{background:var(--bg-raised);border:1px solid var(--bm);border-radius:14px;padding:14px}
+.add-row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.add-row input,.add-row select{background:var(--bg-panel);border:1px solid var(--bm);border-radius:8px;color:var(--text);font-family:var(--body);font-size:13.5px;padding:10px 12px;outline:none;transition:border-color .15s}
+.add-row input{flex:1;min-width:150px}
+.add-row select{min-width:160px}
+.add-row input:focus,.add-row select:focus{border-color:var(--offense)}
+.btn-add{background:var(--offense);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .15s}
+.btn-add:hover{background:#ea6c10}
+.btn-add:disabled{background:var(--bg-hover);color:var(--text-3);cursor:not-allowed}
+.add-hint{font-family:var(--mono);font-size:10px;color:var(--text-3);line-height:1.55;margin-top:10px}
+.add-hint.err{color:var(--negative)}
+
+@media(max-width:560px){.hero-name{font-size:28px}.role-pill{min-width:100%}.add-row input,.add-row select{min-width:100%}}
 </style>
 </head>
 <body class="auth-locked">
@@ -254,19 +269,68 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
       return (data||[]).slice().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||'')));
     }catch(e){console.warn('perfiles load:',e&&e.message||e);return null;} // null = tabla no disponible
   }
-  async function syncMyProfile(p){
-    if(!sb)return;
+  // Busca mi fila por user_id; si no existe, intenta reclamar un cupo precargado
+  // con mi email; si tampoco, crea una fila nueva (autoalta normal).
+  async function ensureMyProfileRow(){
+    if(!sb||!MY.userId)return;
     try{
-      const {data}=await sb.auth.getUser();const u=data&&data.user;if(!u)return;
-      const {error}=await sb.from('perfiles').upsert({
-        id:u.id,email:u.email,nombre:p.nombre||null,club:p.club||null,
-        rol:p.rol||'headcoach',especialidad:(p.rol==='asistente')?(p.especialidad||null):null,
-        reporta_a:(p.rol==='asistente')?(p.reporta_a||null):null,
-        reporta_a_nombre:(p.rol==='asistente')?(p.reporta_a_nombre||null):null,
-        updated_at:new Date().toISOString()
-      },{onConflict:'id'});
-      if(error)throw error;
-    }catch(e){console.warn('perfiles upsert:',e&&e.message||e);}
+      let {data:mine}=await sb.from('perfiles').select('*').eq('user_id',MY.userId).limit(1);
+      let row=mine&&mine[0];
+      if(!row&&EMAIL){
+        let {data:pend}=await sb.from('perfiles').select('*').is('user_id',null).ilike('email',EMAIL).limit(1);
+        const p=pend&&pend[0];
+        if(p){
+          const upd={user_id:MY.userId,email:EMAIL,estado:'activo',updated_at:new Date().toISOString()};
+          if(!p.nombre&&MY.nombre)upd.nombre=MY.nombre;
+          let {data:cl}=await sb.from('perfiles').update(upd).eq('id',p.id).select().limit(1);
+          row=(cl&&cl[0])||Object.assign({},p,upd);
+        }
+      }
+      if(!row){
+        const ins={user_id:MY.userId,email:EMAIL,nombre:MY.nombre,club:MY.club,rol:MY.rol||'headcoach',
+          especialidad:(MY.rol==='asistente')?(MY.especialidad||null):null,
+          reporta_a:(MY.rol==='asistente')?(MY.reporta_a||null):null,
+          reporta_a_nombre:(MY.rol==='asistente')?(MY.reporta_a_nombre||null):null,
+          estado:'activo',updated_at:new Date().toISOString()};
+        let {data:cr}=await sb.from('perfiles').insert(ins).select().limit(1);
+        row=(cr&&cr[0])||ins;
+      }
+      MY.rowId=row.id;
+      MY.nombre=row.nombre||MY.nombre;
+      MY.club=row.club||MY.club;
+      MY.rol=ROLES[row.rol]?row.rol:(MY.rol||'headcoach');
+      MY.especialidad=row.especialidad||'';
+      MY.reporta_a=row.reporta_a||'';
+      MY.reporta_a_nombre=row.reporta_a_nombre||'';
+      EDIT_ROL=MY.rol;
+      writeCoach({nombre:MY.nombre,club:MY.club,rol:MY.rol,especialidad:MY.especialidad,reporta_a:MY.reporta_a,reporta_a_nombre:MY.reporta_a_nombre});
+    }catch(e){console.warn('ensureMyProfileRow:',e&&e.message||e);}
+  }
+  // Guarda mi fila (update si ya tengo rowId, insert si no)
+  async function saveMyRow(){
+    if(!sb||!MY.userId)return;
+    const payload={user_id:MY.userId,email:EMAIL,nombre:MY.nombre,club:MY.club,rol:MY.rol||'headcoach',
+      especialidad:(MY.rol==='asistente')?(MY.especialidad||null):null,
+      reporta_a:(MY.rol==='asistente')?(MY.reporta_a||null):null,
+      reporta_a_nombre:(MY.rol==='asistente')?(MY.reporta_a_nombre||null):null,
+      estado:'activo',updated_at:new Date().toISOString()};
+    try{
+      if(MY.rowId){const {error}=await sb.from('perfiles').update(payload).eq('id',MY.rowId);if(error)throw error;}
+      else{let {data,error}=await sb.from('perfiles').insert(payload).select().limit(1);if(error)throw error;if(data&&data[0])MY.rowId=data[0].id;}
+    }catch(e){console.warn('saveMyRow:',e&&e.message||e);}
+  }
+  // El head coach precarga un cupo pendiente para su grupo
+  async function addPendingMember(nombre,email,especialidad){
+    if(!sb)return {error:'sin conexión'};
+    const row={user_id:null,email:(email||'').trim().toLowerCase(),nombre:(nombre||'').trim(),club:MY.club,
+      rol:'asistente',especialidad:especialidad||'otro',reporta_a:MY.userId,reporta_a_nombre:MY.nombre,
+      estado:'pendiente',creado_por:MY.userId,updated_at:new Date().toISOString()};
+    try{const {error}=await sb.from('perfiles').insert(row);if(error)throw error;return {ok:true};}
+    catch(e){return {error:e&&e.message||String(e)};}
+  }
+  async function removeMember(id){
+    if(!sb)return;
+    try{await sb.from('perfiles').delete().eq('id',id);}catch(e){console.warn('removeMember:',e&&e.message||e);}
   }
   try{ if(window.supabase&&window.supabase.createClient){ sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); } }catch(e){}
 
@@ -307,21 +371,23 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
 
   // ────────── piezas de UI del organigrama ──────────
   function stat(n,l){return '<div class="org-stat"><div class="os-n">'+n+'</div><div class="os-l">'+l+'</div></div>';}
-  function staffRow(p){
-    const me=(p.id&&p.id===MY.id);const sp=specInfo(p.especialidad);
+  function staffRow(p,canManage){
+    const me=(p.user_id&&p.user_id===MY.userId);const sp=specInfo(p.especialidad);const pend=!p.user_id;
+    const del=(canManage&&pend)?'<button class="row-x" title="Quitar cupo" onclick="delMember(\''+esc(p.id)+'\')">✕</button>':'';
     return '<div class="staff-row">'+avatar(p.nombre||p.email,'sm')+
-      '<div class="sr-body"><div class="sr-n">'+esc(p.nombre||p.email||'—')+(me?'<span class="you-tag">VOS</span>':'')+'</div>'+
+      '<div class="sr-body"><div class="sr-n">'+esc(p.nombre||p.email||'—')+
+        (me?'<span class="you-tag">VOS</span>':'')+(pend?'<span class="pend-tag">PENDIENTE</span>':'')+'</div>'+
       '<div class="sr-mail">'+esc(p.email||'')+'</div></div>'+
-      '<span class="spec-chip" style="background:'+sp.color+'">'+esc(sp.label)+'</span></div>';
+      '<span class="spec-chip" style="background:'+sp.color+'">'+esc(sp.label)+'</span>'+del+'</div>';
   }
-  function orgGroup(h,members){
-    const me=(h.id&&h.id===MY.id);
+  function orgGroup(h,members,canManage){
+    const me=(h.user_id&&h.user_id===MY.userId);
     return '<div class="org-group"><div class="hc-head">'+avatar(h.nombre||h.email)+
       '<div class="hc-meta"><div class="hc-n">'+esc(h.nombre||h.email)+(me?'<span class="you-tag">VOS</span>':'')+'</div>'+
       '<div class="hc-r">Head Coach</div></div>'+
-      '<div class="hc-count">'+members.length+(members.length===1?' a cargo':' a cargo')+'</div></div>'+
+      '<div class="hc-count">'+members.length+' a cargo</div></div>'+
       (members.length
-        ?'<div class="staff-list">'+members.map(staffRow).join('')+'</div>'
+        ?'<div class="staff-list">'+members.map(m=>staffRow(m,canManage)).join('')+'</div>'
         :'<div class="staff-list"><div class="staff-empty" style="padding:6px 7px">Sin asistentes asignados todavía.</div></div>')+
     '</div>';
   }
@@ -329,50 +395,84 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
     return '<div class="staff-empty">Para compartir el organigrama entre distintos usuarios falta crear la tabla <b style="color:var(--text)">perfiles</b> en Supabase. Mientras tanto tu rol se guarda en este dispositivo. (El SQL para crearla está al pie de la entrega.)</div>';
   }
 
+  // Formulario para que el head coach precargue a su gente
+  function addFormHTML(){
+    return '<div class="add-card">'+
+      '<div class="add-row">'+
+        '<input id="hcm-name" placeholder="Nombre y apellido">'+
+        '<input id="hcm-email" type="email" placeholder="Email">'+
+        '<select id="hcm-spec">'+ESPECIALIDADES.map(e=>'<option value="'+e.k+'">'+esc(e.label)+'</option>').join('')+'</select>'+
+        '<button class="btn-add" onclick="addMember()">+ Agregar</button>'+
+      '</div>'+
+      '<div class="add-hint" id="hcm-msg">Cargás a tu gente con su email. Cuando se registren con ese email, el cupo se activa solo.</div>'+
+    '</div>';
+  }
+
   function coordinadorView(){
     if(STAFF===null)return '<div class="sec">Organigrama del club</div>'+tableMissingCard();
     const hcs=STAFF.filter(s=>s.rol==='headcoach');
     const asists=STAFF.filter(s=>s.rol==='asistente');
-    const stats='<div class="org-stats">'+stat(hcs.length,'Head coaches')+stat(asists.length,'Asistentes')+stat(STAFF.length,'Personas en total')+'</div>';
-    let groups=hcs.map(h=>orgGroup(h,asists.filter(a=>a.reporta_a===h.id))).join('');
-    const huerfanos=asists.filter(a=>!a.reporta_a||!hcs.some(h=>h.id===a.reporta_a));
+    const pendientes=asists.filter(a=>!a.user_id).length;
+    const stats='<div class="org-stats">'+stat(hcs.length,'Head coaches')+stat(asists.length,'Asistentes')+stat(pendientes,'Cupos pendientes')+stat(STAFF.length,'En total')+'</div>';
+    let groups=hcs.map(h=>orgGroup(h,asists.filter(a=>a.reporta_a===h.user_id),false)).join('');
+    const huerfanos=asists.filter(a=>!a.reporta_a||!hcs.some(h=>h.user_id===a.reporta_a));
     if(huerfanos.length){
       groups+='<div class="org-group"><div class="hc-head">'+avatar('?')+
         '<div class="hc-meta"><div class="hc-n">Sin head coach asignado</div><div class="hc-r">Pendientes de asignar</div></div>'+
         '<div class="hc-count">'+huerfanos.length+'</div></div>'+
-        '<div class="staff-list">'+huerfanos.map(staffRow).join('')+'</div></div>';
+        '<div class="staff-list">'+huerfanos.map(m=>staffRow(m,false)).join('')+'</div></div>';
     }
-    if(!hcs.length&&!asists.length)groups='<div class="staff-empty">Todavía no hay otros funcionarios cargados en este club. A medida que tu cuerpo técnico cree su perfil y elija su rol, los vas a ver acá automáticamente.</div>';
+    if(!hcs.length&&!asists.length)groups='<div class="staff-empty">Todavía no hay otros funcionarios cargados en este club. A medida que tu cuerpo técnico cree su perfil (o que un head coach los precargue), los vas a ver acá.</div>';
     return '<div class="sec">Organigrama del club</div>'+stats+groups;
   }
 
   function headcoachView(){
     if(STAFF===null)return '<div class="sec">Mi cuerpo técnico</div>'+tableMissingCard();
-    const mine=STAFF.filter(s=>s.rol==='asistente'&&s.reporta_a===MY.id);
-    let body;
+    const mine=STAFF.filter(s=>s.rol==='asistente'&&s.reporta_a===MY.userId);
+    const activos=mine.filter(m=>m.user_id).length, pend=mine.length-activos;
+    let body='<div class="sec">Cargar a mi cuerpo técnico</div>'+addFormHTML();
+    body+='<div class="sec">Mi cuerpo técnico</div>';
     if(!mine.length){
-      body='<div class="staff-empty">Todavía no tenés asistentes asignados. Cuando un preparador físico, fisio, psicólogo, etc. cree su perfil y te elija como su head coach, va a aparecer acá.</div>';
+      body+='<div class="staff-empty">Todavía no cargaste a nadie. Sumá a tu gente con el formulario de arriba, o esperá a que te elijan como head coach al registrarse.</div>';
     }else{
-      const specs={};mine.forEach(m=>{specs[m.especialidad||'otro']=1;});
-      body='<div class="org-stats">'+stat(mine.length,'En tu cuerpo técnico')+stat(Object.keys(specs).length,'Especialidades')+'</div>'+
-        '<div class="org-group"><div class="staff-list">'+mine.map(staffRow).join('')+'</div></div>';
+      body+='<div class="org-stats">'+stat(mine.length,'Integrantes')+stat(activos,'Activos')+stat(pend,'Pendientes')+'</div>'+
+        '<div class="org-group"><div class="staff-list">'+mine.map(m=>staffRow(m,true)).join('')+'</div></div>';
     }
-    return '<div class="sec">Mi cuerpo técnico</div>'+body;
+    return body;
   }
 
   function asistenteView(){
     let boss;
-    const hc=(STAFF||[]).find(s=>s.id===MY.reporta_a);
+    const hc=(STAFF||[]).find(s=>s.user_id&&s.user_id===MY.reporta_a);
     if(hc)boss='<div class="boss-card">'+avatar(hc.nombre||hc.email)+'<div><div class="bc-n">'+esc(hc.nombre||hc.email)+'</div><div class="bc-r">Tu head coach</div></div></div>';
     else if(MY.reporta_a_nombre)boss='<div class="boss-card">'+avatar(MY.reporta_a_nombre)+'<div><div class="bc-n">'+esc(MY.reporta_a_nombre)+'</div><div class="bc-r">Tu head coach</div></div></div>';
-    else boss='<div class="staff-empty">Todavía no elegiste tu head coach. Editá tu perfil (✎) para asignarlo.</div>';
+    else boss='<div class="staff-empty">Todavía no tenés head coach asignado. Editá tu perfil (✎) para elegirlo.</div>';
     let colegas='';
     if(hc){
-      const others=(STAFF||[]).filter(s=>s.rol==='asistente'&&s.reporta_a===hc.id&&s.id!==MY.id);
-      if(others.length)colegas='<div class="sec">Colegas del cuerpo técnico</div><div class="org-group"><div class="staff-list">'+others.map(staffRow).join('')+'</div></div>';
+      const others=(STAFF||[]).filter(s=>s.rol==='asistente'&&s.reporta_a===hc.user_id&&!(s.user_id&&s.user_id===MY.userId));
+      if(others.length)colegas='<div class="sec">Colegas del cuerpo técnico</div><div class="org-group"><div class="staff-list">'+others.map(m=>staffRow(m,false)).join('')+'</div></div>';
     }
     return '<div class="sec">Mi rol</div>'+boss+colegas;
   }
+
+  // acciones del head coach
+  window.addMember=async function(){
+    const n=$('hcm-name'),e=$('hcm-email'),s=$('hcm-spec'),msg=$('hcm-msg');
+    const nombre=((n&&n.value)||'').trim(),email=((e&&e.value)||'').trim(),esp=(s&&s.value)||'otro';
+    function err(t){if(msg){msg.textContent=t;msg.className='add-hint err';}}
+    if(!nombre||!email)return err('Completá nombre y email.');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err('Ese email no parece válido.');
+    if((STAFF||[]).some(x=>String(x.email||'').toLowerCase()===email.toLowerCase()))return err('Ya hay alguien con ese email en el club.');
+    const btn=document.querySelector('.btn-add');if(btn)btn.disabled=true;
+    const r=await addPendingMember(nombre,email,esp);
+    if(btn)btn.disabled=false;
+    if(r&&r.error)return err('No se pudo agregar: '+r.error);
+    STAFF=await loadStaff(MY.club);ensureMeInStaff();paintProfile();
+  };
+  window.delMember=async function(id){
+    if(!confirm('¿Quitar este cupo del cuerpo técnico?'))return;
+    await removeMember(id);STAFF=await loadStaff(MY.club);ensureMeInStaff();paintProfile();
+  };
 
   // ────────── editor ──────────
   function rolePillsHTML(sel){
@@ -382,10 +482,10 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
     }).join('');
   }
   function hcPickerHTML(){
-    const hcs=(STAFF||[]).filter(s=>s.rol==='headcoach');
+    const hcs=(STAFF||[]).filter(s=>s.rol==='headcoach'&&s.user_id);
     if(hcs.length){
       return '<select id="ed-hc"><option value="">— Elegí tu head coach —</option>'+
-        hcs.map(h=>'<option value="'+esc(h.id)+'" data-n="'+esc(h.nombre||h.email)+'"'+(MY.reporta_a===h.id?' selected':'')+'>'+esc(h.nombre||h.email)+'</option>').join('')+
+        hcs.map(h=>'<option value="'+esc(h.user_id)+'" data-n="'+esc(h.nombre||h.email)+'"'+(MY.reporta_a===h.user_id?' selected':'')+'>'+esc(h.nombre||h.email)+'</option>').join('')+
         '</select>';
     }
     return '<input type="text" id="ed-hc-name" placeholder="Nombre de tu head coach" value="'+esc(MY.reporta_a_nombre||'')+'">';
@@ -454,15 +554,15 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
   }
 
   function ensureMeInStaff(){
-    if(STAFF===null||!MY.id)return;
-    const mine={id:MY.id,email:EMAIL,nombre:MY.nombre,club:MY.club,rol:MY.rol,especialidad:MY.especialidad,reporta_a:MY.reporta_a,reporta_a_nombre:MY.reporta_a_nombre};
-    if(STAFF.some(s=>s.id===MY.id))STAFF=STAFF.map(s=>s.id===MY.id?Object.assign({},s,mine):s);
+    if(STAFF===null||!MY.userId)return;
+    const mine={id:MY.rowId,user_id:MY.userId,email:EMAIL,nombre:MY.nombre,club:MY.club,rol:MY.rol,especialidad:MY.especialidad,reporta_a:MY.reporta_a,reporta_a_nombre:MY.reporta_a_nombre,estado:'activo'};
+    if(STAFF.some(s=>s.user_id===MY.userId))STAFF=STAFF.map(s=>s.user_id===MY.userId?Object.assign({},s,mine):s);
     else STAFF.push(mine);
   }
 
   async function renderProfile(user){
     EMAIL=(user&&user.email)||'';
-    MY.id=(user&&user.id)||MY.id||'';
+    MY.userId=(user&&user.id)||MY.userId||'';
     const meta=(user&&user.user_metadata)||{};
     const coach=readCoach();
     MY.nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(EMAIL)||'Coach';
@@ -473,8 +573,8 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
     MY.reporta_a_nombre=coach.reporta_a_nombre||meta.reporta_a_nombre||'';
     EDIT_ROL=MY.rol;
     writeCoach({nombre:MY.nombre,club:MY.club,rol:MY.rol,especialidad:MY.especialidad,reporta_a:MY.reporta_a,reporta_a_nombre:MY.reporta_a_nombre});
-    paintProfile();                 // pintado rápido
-    await syncMyProfile(MY);        // subo mi perfil a la base
+    paintProfile();                 // pintado rápido con lo local
+    await ensureMyProfileRow();     // busca/reclama/crea mi fila (puede cambiar mi rol si me precargaron)
     STAFF=await loadStaff(MY.club); // traigo el club
     ensureMeInStaff();
     paintProfile();                 // repinto ya con el organigrama
@@ -498,7 +598,7 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
     MY.nombre=nombre;MY.club=club;MY.rol=rol;MY.especialidad=especialidad;MY.reporta_a=reporta_a;MY.reporta_a_nombre=reporta_a_nombre;
     writeCoach({nombre,club,rol,especialidad,reporta_a,reporta_a_nombre});
     try{if(sb)await sb.auth.updateUser({data:{full_name:nombre,club,rol,especialidad,reporta_a,reporta_a_nombre}});}catch(e){}
-    await syncMyProfile(MY);
+    await saveMyRow();
     STAFF=await loadStaff(MY.club);
     ensureMeInStaff();
     btns.forEach(b=>b.disabled=false);
