@@ -96,7 +96,47 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--body);font-si
 .auth-msg{font-family:var(--mono);font-size:11px;text-align:center;margin-top:13px;min-height:15px;line-height:1.5}
 .auth-msg.err{color:var(--negative)}.auth-msg.ok{color:var(--positive)}
 body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
-@media(max-width:560px){.hero-name{font-size:28px}}
+/* ── ROLES / EDITOR EXTENDIDO ── */
+.ed-block{display:flex;flex-direction:column;gap:7px;width:100%}
+.ed-block>label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.role-pills{display:flex;gap:8px;flex-wrap:wrap}
+.role-pill{flex:1;min-width:150px;background:var(--bg-panel);border:1px solid var(--bm);border-radius:11px;padding:11px 13px;cursor:pointer;transition:all .15s}
+.role-pill:hover{border-color:var(--bs)}
+.role-pill.active{border-color:var(--offense);background:color-mix(in srgb,var(--offense) 11%,transparent)}
+.role-pill .rp-t{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:.3px}
+.role-pill .rp-d{font-family:var(--mono);font-size:9.5px;color:var(--text-2);line-height:1.45;margin-top:3px}
+.editor select{background:var(--bg-panel);border:1px solid var(--bm);border-radius:8px;color:var(--text);font-family:var(--body);font-size:14px;padding:10px 13px;outline:none;min-width:220px;transition:border-color .15s}
+.editor select:focus{border-color:var(--offense)}
+#ed-asist-fields{display:none;flex-direction:column;gap:12px;width:100%}
+
+/* ── STAFF / ORGANIGRAMA ── */
+.staff-empty{font-family:var(--mono);font-size:11px;color:var(--text-3);line-height:1.6;padding:6px 0}
+.org-group{background:var(--bg-raised);border:1px solid var(--bm);border-radius:14px;padding:6px;margin-bottom:12px}
+.hc-head{display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:10px;background:linear-gradient(100deg,#181a23,#13151c)}
+.avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:15px;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.avatar.sm{width:32px;height:32px;font-size:13px}
+.hc-meta{flex:1;min-width:0}
+.hc-meta .hc-n{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:.3px;line-height:1.05}
+.hc-meta .hc-r{font-family:var(--mono);font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);margin-top:3px}
+.hc-count{font-family:var(--mono);font-size:10px;color:var(--text-3);white-space:nowrap}
+.staff-list{padding:4px 6px 6px}
+.staff-row{display:flex;align-items:center;gap:11px;padding:9px 7px;border-radius:9px;transition:background .15s}
+.staff-row:hover{background:var(--bg-panel)}
+.staff-row .sr-n{font-weight:600;font-size:13.5px}
+.staff-row .sr-mail{font-family:var(--mono);font-size:10px;color:var(--text-3);margin-top:1px}
+.staff-row .sr-body{flex:1;min-width:0}
+.spec-chip{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.5px;padding:4px 9px;border-radius:20px;color:#0a0b10;font-weight:600;white-space:nowrap;flex-shrink:0}
+.you-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;color:var(--offense);border:1px solid color-mix(in srgb,var(--offense) 45%,transparent);border-radius:20px;padding:2px 7px;margin-left:6px}
+.org-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.org-stat{flex:1;min-width:120px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:12px;padding:13px 15px}
+.org-stat .os-n{font-family:var(--disp);font-weight:900;font-size:30px;line-height:1;color:var(--offense)}
+.org-stat .os-l{font-family:var(--mono);font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);margin-top:5px}
+.boss-card{display:flex;align-items:center;gap:14px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:14px;padding:16px 18px}
+.boss-card .avatar{width:48px;height:48px;font-size:19px}
+.boss-card .bc-n{font-family:var(--disp);font-weight:800;font-size:21px;letter-spacing:.3px;line-height:1.05}
+.boss-card .bc-r{font-family:var(--mono);font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--text-2);margin-top:3px}
+
+@media(max-width:560px){.hero-name{font-size:28px}.role-pill{min-width:100%}}
 </style>
 </head>
 <body class="auth-locked">
@@ -105,7 +145,7 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
 <div id="auth-gate" style="display:flex">
   <div class="auth-card">
     <div class="auth-logo">SCOUT<span>PRO</span></div>
-    <div class="auth-tag">Perfil del entrenador</div>
+    <div class="auth-tag">Perfil del cuerpo técnico</div>
     <div class="auth-tabs">
       <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
       <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
@@ -175,6 +215,59 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
   const ADMIN_EMAIL='admin@scoutpro.app';
   const $=id=>document.getElementById(id);
   let mode='login', sb=null, EMAIL='';
+
+  // ── jerarquía ──
+  const ROLES={
+    coordinador:{label:'Coordinador de club',tag:'COORDINADOR',desc:'Ve y analiza a todo el club'},
+    headcoach:  {label:'Head Coach',tag:'HEAD COACH',desc:'Dirige a su cuerpo técnico'},
+    asistente:  {label:'Asistente',tag:'ASISTENTE',desc:'Reporta a un head coach'},
+  };
+  const ESPECIALIDADES=[
+    {k:'dt_asistente',    label:'Asistente de DT',   color:'#f97316'},
+    {k:'preparador_fisico',label:'Preparador físico', color:'#34c769'},
+    {k:'fisioterapeuta',  label:'Fisioterapeuta',     color:'#4f8ef7'},
+    {k:'psicologo',       label:'Psicólogo',          color:'#a78bfa'},
+    {k:'nutricionista',   label:'Nutricionista',      color:'#e0b341'},
+    {k:'analista',        label:'Analista de video',  color:'#e879b9'},
+    {k:'medico',          label:'Médico',             color:'#f05050'},
+    {k:'otro',            label:'Otro',               color:'#8891a0'},
+  ];
+  function specInfo(k){return ESPECIALIDADES.find(e=>e.k===k)||{label:(k||'Asistente'),color:'#8891a0'};}
+  function roleTag(rol,espK){if(rol==='asistente')return specInfo(espK).label.toUpperCase();return (ROLES[rol]||ROLES.headcoach).tag;}
+
+  // ── estado en memoria ──
+  const MY={};            // mi perfil
+  let STAFF=[];           // todos los perfiles de mi club (desde Supabase)
+  let EDIT_ROL='headcoach'; // rol seleccionado en el editor
+
+  function avatarColor(name){let h=0;const s=String(name||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',50%,45%)';}
+  function avatarInitials(name){const w=String(name||'').trim().split(/\s+/).filter(Boolean);if(!w.length)return '?';if(w.length===1)return w[0].slice(0,2).toUpperCase();return (w[0][0]+w[1][0]).toUpperCase();}
+  function avatar(name,cls){return '<span class="avatar '+(cls||'')+'" style="background:'+avatarColor(name)+'">'+avatarInitials(name)+'</span>';}
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  // ── Supabase: tabla "perfiles" (organigrama compartido) ──
+  async function loadStaff(club){
+    if(!sb||!club)return [];
+    try{
+      const {data,error}=await sb.from('perfiles').select('*').ilike('club',club.trim());
+      if(error)throw error;
+      return (data||[]).slice().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||'')));
+    }catch(e){console.warn('perfiles load:',e&&e.message||e);return null;} // null = tabla no disponible
+  }
+  async function syncMyProfile(p){
+    if(!sb)return;
+    try{
+      const {data}=await sb.auth.getUser();const u=data&&data.user;if(!u)return;
+      const {error}=await sb.from('perfiles').upsert({
+        id:u.id,email:u.email,nombre:p.nombre||null,club:p.club||null,
+        rol:p.rol||'headcoach',especialidad:(p.rol==='asistente')?(p.especialidad||null):null,
+        reporta_a:(p.rol==='asistente')?(p.reporta_a||null):null,
+        reporta_a_nombre:(p.rol==='asistente')?(p.reporta_a_nombre||null):null,
+        updated_at:new Date().toISOString()
+      },{onConflict:'id'});
+      if(error)throw error;
+    }catch(e){console.warn('perfiles upsert:',e&&e.message||e);}
+  }
   try{ if(window.supabase&&window.supabase.createClient){ sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); } }catch(e){}
 
   function showGate(){document.body.classList.add('auth-locked');if($('auth-gate'))$('auth-gate').style.display='flex';}
@@ -209,73 +302,207 @@ function clubColor(club){let h=0;const s=String(club||'');for(let i=0;i<s.length
   // ── perfil ──
   function firstName(n){return ((n||'').trim().split(/\s+/)[0]||'');}
   function readCoach(){let c={};try{const s=localStorage.getItem('sp_coach');if(s)c=JSON.parse(s)||{};}catch(e){}return c;}
-  function writeCoach(nombre,club){let c=readCoach();if(nombre!=null)c.nombre=nombre;if(club!=null)c.club=club;try{localStorage.setItem('sp_coach',JSON.stringify(c));}catch(e){}return c;}
+  function writeCoach(patch){let c=readCoach();if(patch)Object.keys(patch).forEach(k=>{if(patch[k]!=null)c[k]=patch[k];});try{localStorage.setItem('sp_coach',JSON.stringify(c));}catch(e){}return c;}
   function niceNameFromEmail(email){let b=((email||'').split('@')[0]||'').replace(/[._-]+/g,' ').trim();if(!b||b.indexOf(' ')===-1)return'';return b.replace(/\b\w/g,c=>c.toUpperCase());}
 
-  function renderProfile(user){
-    EMAIL=(user&&user.email)||'';
-    const meta=(user&&user.user_metadata)||{};
-    const coach=readCoach();
-    const nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(EMAIL)||'Coach';
-    const club=((coach.club||'').trim())||((meta.club||'').trim())||'';
-    writeCoach(nombre,club); // mantiene el storage compartido con el resto de secciones
+  // ────────── piezas de UI del organigrama ──────────
+  function stat(n,l){return '<div class="org-stat"><div class="os-n">'+n+'</div><div class="os-l">'+l+'</div></div>';}
+  function staffRow(p){
+    const me=(p.id&&p.id===MY.id);const sp=specInfo(p.especialidad);
+    return '<div class="staff-row">'+avatar(p.nombre||p.email,'sm')+
+      '<div class="sr-body"><div class="sr-n">'+esc(p.nombre||p.email||'—')+(me?'<span class="you-tag">VOS</span>':'')+'</div>'+
+      '<div class="sr-mail">'+esc(p.email||'')+'</div></div>'+
+      '<span class="spec-chip" style="background:'+sp.color+'">'+esc(sp.label)+'</span></div>';
+  }
+  function orgGroup(h,members){
+    const me=(h.id&&h.id===MY.id);
+    return '<div class="org-group"><div class="hc-head">'+avatar(h.nombre||h.email)+
+      '<div class="hc-meta"><div class="hc-n">'+esc(h.nombre||h.email)+(me?'<span class="you-tag">VOS</span>':'')+'</div>'+
+      '<div class="hc-r">Head Coach</div></div>'+
+      '<div class="hc-count">'+members.length+(members.length===1?' a cargo':' a cargo')+'</div></div>'+
+      (members.length
+        ?'<div class="staff-list">'+members.map(staffRow).join('')+'</div>'
+        :'<div class="staff-list"><div class="staff-empty" style="padding:6px 7px">Sin asistentes asignados todavía.</div></div>')+
+    '</div>';
+  }
+  function tableMissingCard(){
+    return '<div class="staff-empty">Para compartir el organigrama entre distintos usuarios falta crear la tabla <b style="color:var(--text)">perfiles</b> en Supabase. Mientras tanto tu rol se guarda en este dispositivo. (El SQL para crearla está al pie de la entrega.)</div>';
+  }
+
+  function coordinadorView(){
+    if(STAFF===null)return '<div class="sec">Organigrama del club</div>'+tableMissingCard();
+    const hcs=STAFF.filter(s=>s.rol==='headcoach');
+    const asists=STAFF.filter(s=>s.rol==='asistente');
+    const stats='<div class="org-stats">'+stat(hcs.length,'Head coaches')+stat(asists.length,'Asistentes')+stat(STAFF.length,'Personas en total')+'</div>';
+    let groups=hcs.map(h=>orgGroup(h,asists.filter(a=>a.reporta_a===h.id))).join('');
+    const huerfanos=asists.filter(a=>!a.reporta_a||!hcs.some(h=>h.id===a.reporta_a));
+    if(huerfanos.length){
+      groups+='<div class="org-group"><div class="hc-head">'+avatar('?')+
+        '<div class="hc-meta"><div class="hc-n">Sin head coach asignado</div><div class="hc-r">Pendientes de asignar</div></div>'+
+        '<div class="hc-count">'+huerfanos.length+'</div></div>'+
+        '<div class="staff-list">'+huerfanos.map(staffRow).join('')+'</div></div>';
+    }
+    if(!hcs.length&&!asists.length)groups='<div class="staff-empty">Todavía no hay otros funcionarios cargados en este club. A medida que tu cuerpo técnico cree su perfil y elija su rol, los vas a ver acá automáticamente.</div>';
+    return '<div class="sec">Organigrama del club</div>'+stats+groups;
+  }
+
+  function headcoachView(){
+    if(STAFF===null)return '<div class="sec">Mi cuerpo técnico</div>'+tableMissingCard();
+    const mine=STAFF.filter(s=>s.rol==='asistente'&&s.reporta_a===MY.id);
+    let body;
+    if(!mine.length){
+      body='<div class="staff-empty">Todavía no tenés asistentes asignados. Cuando un preparador físico, fisio, psicólogo, etc. cree su perfil y te elija como su head coach, va a aparecer acá.</div>';
+    }else{
+      const specs={};mine.forEach(m=>{specs[m.especialidad||'otro']=1;});
+      body='<div class="org-stats">'+stat(mine.length,'En tu cuerpo técnico')+stat(Object.keys(specs).length,'Especialidades')+'</div>'+
+        '<div class="org-group"><div class="staff-list">'+mine.map(staffRow).join('')+'</div></div>';
+    }
+    return '<div class="sec">Mi cuerpo técnico</div>'+body;
+  }
+
+  function asistenteView(){
+    let boss;
+    const hc=(STAFF||[]).find(s=>s.id===MY.reporta_a);
+    if(hc)boss='<div class="boss-card">'+avatar(hc.nombre||hc.email)+'<div><div class="bc-n">'+esc(hc.nombre||hc.email)+'</div><div class="bc-r">Tu head coach</div></div></div>';
+    else if(MY.reporta_a_nombre)boss='<div class="boss-card">'+avatar(MY.reporta_a_nombre)+'<div><div class="bc-n">'+esc(MY.reporta_a_nombre)+'</div><div class="bc-r">Tu head coach</div></div></div>';
+    else boss='<div class="staff-empty">Todavía no elegiste tu head coach. Editá tu perfil (✎) para asignarlo.</div>';
+    let colegas='';
+    if(hc){
+      const others=(STAFF||[]).filter(s=>s.rol==='asistente'&&s.reporta_a===hc.id&&s.id!==MY.id);
+      if(others.length)colegas='<div class="sec">Colegas del cuerpo técnico</div><div class="org-group"><div class="staff-list">'+others.map(staffRow).join('')+'</div></div>';
+    }
+    return '<div class="sec">Mi rol</div>'+boss+colegas;
+  }
+
+  // ────────── editor ──────────
+  function rolePillsHTML(sel){
+    return Object.keys(ROLES).map(k=>{const r=ROLES[k];
+      return '<div class="role-pill'+(sel===k?' active':'')+'" data-rol="'+k+'" onclick="pickRole(\''+k+'\')">'+
+        '<div class="rp-t">'+esc(r.label)+'</div><div class="rp-d">'+esc(r.desc)+'</div></div>';
+    }).join('');
+  }
+  function hcPickerHTML(){
+    const hcs=(STAFF||[]).filter(s=>s.rol==='headcoach');
+    if(hcs.length){
+      return '<select id="ed-hc"><option value="">— Elegí tu head coach —</option>'+
+        hcs.map(h=>'<option value="'+esc(h.id)+'" data-n="'+esc(h.nombre||h.email)+'"'+(MY.reporta_a===h.id?' selected':'')+'>'+esc(h.nombre||h.email)+'</option>').join('')+
+        '</select>';
+    }
+    return '<input type="text" id="ed-hc-name" placeholder="Nombre de tu head coach" value="'+esc(MY.reporta_a_nombre||'')+'">';
+  }
+  function editorHTML(){
+    return '<div class="editor" id="editor">'+
+      '<div class="ed-block"><label>Nombre</label>'+
+        '<input type="text" id="ed-name" placeholder="Tu nombre" value="'+esc(MY.nombre)+'" onkeydown="if(event.key===\'Enter\')saveProfile();if(event.key===\'Escape\')cancelEdit()"></div>'+
+      '<div class="ed-block"><label>Club</label>'+
+        '<input type="text" id="ed-club" placeholder="Tu club (ej: Larrañaga)" value="'+esc(MY.club)+'" onkeydown="if(event.key===\'Enter\')saveProfile();if(event.key===\'Escape\')cancelEdit()"></div>'+
+      '<div class="ed-block"><label>Tu rol en el club</label><div class="role-pills" id="ed-roles">'+rolePillsHTML(EDIT_ROL)+'</div></div>'+
+      '<div id="ed-asist-fields">'+
+        '<div class="ed-block"><label>Especialidad</label><select id="ed-spec">'+
+          ESPECIALIDADES.map(e=>'<option value="'+e.k+'"'+(MY.especialidad===e.k?' selected':'')+'>'+esc(e.label)+'</option>').join('')+
+        '</select></div>'+
+        '<div class="ed-block"><label>Le reportás a (head coach)</label>'+hcPickerHTML()+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn-save" onclick="saveProfile()">Guardar</button><button class="btn-ghost" onclick="cancelEdit()">Cancelar</button></div>'+
+    '</div>';
+  }
+  function syncAsistFields(){const f=$('ed-asist-fields');if(f)f.style.display=(EDIT_ROL==='asistente')?'flex':'none';}
+  window.pickRole=function(k){EDIT_ROL=k;const box=$('ed-roles');if(box)Array.prototype.forEach.call(box.querySelectorAll('.role-pill'),p=>p.classList.toggle('active',p.getAttribute('data-rol')===k));syncAsistFields();};
+
+  // ────────── pintado ──────────
+  function paintProfile(){
+    const club=MY.club,clubTxt=club||'Sin club asignado';
     const isAdmin=EMAIL.toLowerCase()===ADMIN_EMAIL;
     const badgeLg=(typeof clubBadge==='function')?clubBadge(club||'?','lg'):'';
     const badgeSm=(typeof clubBadge==='function')?clubBadge(club||'?',''):'';
-    const clubTxt=club||'Sin club asignado';
-
     const adminCard=isAdmin?(
       '<div class="card"><h3>Administración</h3>'+
       '<p>Tu cuenta es administradora. Gestioná perfiles y el estado de la base desde el panel.</p>'+
       '<div class="actions"><a class="act-btn" href="estadistico.html">Abrir panel de administración →</a></div></div>'):'';
 
+    let roleSection='';
+    if(MY.rol==='coordinador')roleSection=coordinadorView();
+    else if(MY.rol==='asistente')roleSection=asistenteView();
+    else roleSection=headcoachView();
+
     $('profile-body').innerHTML=
       '<div class="hero">'+badgeLg+
         '<div class="hero-info">'+
-          '<div class="hero-name">'+firstName(nombre)+'</div>'+
-          '<div class="hero-mail">'+(EMAIL||'—')+'</div>'+
-          '<span class="hero-tag">DT · '+clubTxt+'</span>'+
+          '<div class="hero-name">'+esc(firstName(MY.nombre))+'</div>'+
+          '<div class="hero-mail">'+esc(EMAIL||'—')+'</div>'+
+          '<span class="hero-tag">'+esc(roleTag(MY.rol,MY.especialidad))+' · '+esc(clubTxt)+'</span>'+
         '</div>'+
         '<button class="hero-edit" title="Editar perfil" onclick="startEdit()">✎</button>'+
       '</div>'+
-      '<div class="editor" id="editor">'+
-        '<input type="text" id="ed-name" placeholder="Tu nombre" value="'+(nombre||'').replace(/"/g,'&quot;')+'" onkeydown="if(event.key===\'Enter\')saveProfile();if(event.key===\'Escape\')cancelEdit()">'+
-        '<input type="text" id="ed-club" placeholder="Tu club (ej: Larrañaga)" value="'+(club||'').replace(/"/g,'&quot;')+'" onkeydown="if(event.key===\'Enter\')saveProfile();if(event.key===\'Escape\')cancelEdit()">'+
-        '<button class="btn-save" onclick="saveProfile()">Guardar</button>'+
-        '<button class="btn-ghost" onclick="cancelEdit()">Cancelar</button>'+
-      '</div>'+
-      '<div class="sec">Mi club y equipos</div>'+
+      editorHTML()+
+      roleSection+
+      '<div class="sec">Mi club y sesión</div>'+
       '<div class="grid">'+
         '<div class="card"><h3>Mi club</h3>'+
-          '<div class="club-line">'+badgeSm+'<b>'+clubTxt+'</b></div>'+
-          '<p>Es el club desde el que se lee toda la plataforma: tus estadísticas, scouting y quintetos quedan vinculados a él.</p>'+
-        '</div>'+
-        '<div class="card"><h3>Mis equipos</h3>'+
-          (club?('<div class="team-row">'+badgeSm+'<span class="tn">'+club+'</span></div>'):'<p>Todavía no asignaste un club. Editá tu perfil para sumarlo.</p>')+
-          '<div class="note">Por ahora tu perfil maneja un club. Si llevás varias categorías (U16, U18, primera…), avisanos y las sumamos acá.</div>'+
+          '<div class="club-line">'+badgeSm+'<b>'+esc(clubTxt)+'</b></div>'+
+          '<p>Es el club desde el que se lee toda la plataforma: estadísticas, scouting y quintetos quedan vinculados a él.</p>'+
         '</div>'+
         '<div class="card"><h3>Sesión</h3>'+
-          '<p>Ingresaste como <b style="color:var(--text)">'+(EMAIL||'—')+'</b>.</p>'+
-          '<div class="actions">'+
-            '<button class="act-btn danger" onclick="authLogout()">Cerrar sesión / entrar con otro usuario</button>'+
-          '</div>'+
+          '<p>Ingresaste como <b style="color:var(--text)">'+esc(EMAIL||'—')+'</b>.</p>'+
+          '<div class="actions"><button class="act-btn danger" onclick="authLogout()">Cerrar sesión / entrar con otro usuario</button></div>'+
         '</div>'+
         adminCard+
       '</div>';
+
+    EDIT_ROL=MY.rol||'headcoach';
+    syncAsistFields();
+  }
+
+  function ensureMeInStaff(){
+    if(STAFF===null||!MY.id)return;
+    const mine={id:MY.id,email:EMAIL,nombre:MY.nombre,club:MY.club,rol:MY.rol,especialidad:MY.especialidad,reporta_a:MY.reporta_a,reporta_a_nombre:MY.reporta_a_nombre};
+    if(STAFF.some(s=>s.id===MY.id))STAFF=STAFF.map(s=>s.id===MY.id?Object.assign({},s,mine):s);
+    else STAFF.push(mine);
+  }
+
+  async function renderProfile(user){
+    EMAIL=(user&&user.email)||'';
+    MY.id=(user&&user.id)||MY.id||'';
+    const meta=(user&&user.user_metadata)||{};
+    const coach=readCoach();
+    MY.nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(EMAIL)||'Coach';
+    MY.club=((coach.club||'').trim())||((meta.club||'').trim())||'';
+    MY.rol=coach.rol||meta.rol||'headcoach';if(!ROLES[MY.rol])MY.rol='headcoach';
+    MY.especialidad=coach.especialidad||meta.especialidad||'';
+    MY.reporta_a=coach.reporta_a||meta.reporta_a||'';
+    MY.reporta_a_nombre=coach.reporta_a_nombre||meta.reporta_a_nombre||'';
+    EDIT_ROL=MY.rol;
+    writeCoach({nombre:MY.nombre,club:MY.club,rol:MY.rol,especialidad:MY.especialidad,reporta_a:MY.reporta_a,reporta_a_nombre:MY.reporta_a_nombre});
+    paintProfile();                 // pintado rápido
+    await syncMyProfile(MY);        // subo mi perfil a la base
+    STAFF=await loadStaff(MY.club); // traigo el club
+    ensureMeInStaff();
+    paintProfile();                 // repinto ya con el organigrama
   }
 
   window.startEdit=function(){var e=$('editor');if(e)e.style.display='flex';var n=$('ed-name');if(n)setTimeout(()=>n.focus(),0);};
-  window.cancelEdit=function(){var e=$('editor');if(e)e.style.display='none';};
+  window.cancelEdit=function(){EDIT_ROL=MY.rol||'headcoach';paintProfile();};
   window.saveProfile=async function(){
     const nombre=(($('ed-name')&&$('ed-name').value)||'').trim();
     const club=(($('ed-club')&&$('ed-club').value)||'').trim();
     if(!nombre){if($('ed-name'))$('ed-name').focus();return;}
+    const rol=EDIT_ROL||'headcoach';
+    let especialidad='',reporta_a='',reporta_a_nombre='';
+    if(rol==='asistente'){
+      especialidad=($('ed-spec')&&$('ed-spec').value)||'otro';
+      const sel=$('ed-hc');
+      if(sel){reporta_a=sel.value||'';const o=sel.options[sel.selectedIndex];reporta_a_nombre=(o&&o.getAttribute('data-n'))||'';}
+      else{reporta_a_nombre=(($('ed-hc-name')&&$('ed-hc-name').value)||'').trim();}
+    }
     const btns=document.querySelectorAll('.btn-save,.btn-ghost');btns.forEach(b=>b.disabled=true);
-    try{if(sb)await sb.auth.updateUser({data:{full_name:nombre,club:club}});}catch(e){}
-    writeCoach(nombre,club);
+    MY.nombre=nombre;MY.club=club;MY.rol=rol;MY.especialidad=especialidad;MY.reporta_a=reporta_a;MY.reporta_a_nombre=reporta_a_nombre;
+    writeCoach({nombre,club,rol,especialidad,reporta_a,reporta_a_nombre});
+    try{if(sb)await sb.auth.updateUser({data:{full_name:nombre,club,rol,especialidad,reporta_a,reporta_a_nombre}});}catch(e){}
+    await syncMyProfile(MY);
+    STAFF=await loadStaff(MY.club);
+    ensureMeInStaff();
     btns.forEach(b=>b.disabled=false);
-    const {data}=await sb.auth.getUser();
-    renderProfile((data&&data.user)||{email:EMAIL,user_metadata:{full_name:nombre,club:club}});
+    paintProfile();
   };
 
   function boot(){
