@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tareas · ScoutPRO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg-base:#08090d;--bg-raised:#0f1117;--bg-panel:#161820;--bg-hover:#1e202a;
+  --bl:rgba(255,255,255,.05);--bm:rgba(255,255,255,.09);--bs:rgba(255,255,255,.18);
+  --offense:#f97316;--insight:#a78bfa;--positive:#34c769;--negative:#f05050;--defense:#4f8ef7;
+  --text:#fff;--text-2:#8891a0;--text-3:#5a6172;
+  --disp:'Barlow Condensed',sans-serif;--body:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg-base);color:var(--text);font-family:var(--body);font-size:13px;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:52px;background:var(--bg-raised);border-bottom:1px solid var(--bm);position:sticky;top:0;z-index:30}
+.tb-logo{font-family:var(--disp);font-weight:800;font-size:18px;letter-spacing:2px;flex-shrink:0}
+.tb-logo span{color:var(--offense)}
+.tb-right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.tb-btn{background:var(--bg-panel);border:1px solid var(--bm);border-radius:5px;color:var(--text-2);font-family:var(--mono);font-size:10px;letter-spacing:.3px;padding:7px 13px;cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap}
+.tb-btn:hover{border-color:var(--offense);color:var(--offense)}
+
+.wrap{max-width:920px;margin:0 auto;padding:24px 20px 70px}
+.intro h1{font-family:var(--disp);font-weight:900;font-size:30px;letter-spacing:.5px;line-height:1}
+.intro p{color:var(--text-2);font-size:13px;margin-top:6px;max-width:680px}
+
+.tabs{display:flex;gap:6px;margin:20px 0 18px;flex-wrap:wrap}
+.tab{background:var(--bg-panel);border:1px solid var(--bm);border-radius:9px;color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.4px;padding:9px 15px;cursor:pointer;transition:all .15s}
+.tab:hover{border-color:var(--bs);color:var(--text)}
+.tab.active{border-color:var(--offense);background:color-mix(in srgb,var(--offense) 12%,transparent);color:var(--offense)}
+
+.sec{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:.4px;text-transform:uppercase;color:var(--text);margin:22px 0 12px;display:flex;align-items:center;gap:10px}
+.sec::before{content:"";width:3px;height:16px;background:var(--offense);border-radius:2px}
+.sec::after{content:"";flex:1;height:1px;background:var(--bm)}
+
+.card{background:var(--bg-raised);border:1px solid var(--bm);border-radius:14px;padding:16px}
+.empty{font-family:var(--mono);font-size:11px;color:var(--text-3);line-height:1.6;padding:8px 0}
+
+/* form */
+.frm{display:flex;flex-direction:column;gap:11px}
+.frm-row{display:flex;gap:10px;flex-wrap:wrap}
+.fld{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px}
+.fld.wide{flex-basis:100%}
+.fld label{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.fld input,.fld select,.fld textarea{background:var(--bg-panel);border:1px solid var(--bm);border-radius:8px;color:var(--text);font-family:var(--body);font-size:13.5px;padding:10px 12px;outline:none;transition:border-color .15s;width:100%}
+.fld textarea{resize:vertical;min-height:62px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--offense)}
+.btn{border:none;border-radius:8px;font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:all .15s;padding:10px 18px}
+.btn-primary{background:var(--offense);color:#fff}
+.btn-primary:hover{background:#ea6c10}
+.btn-primary:disabled{background:var(--bg-hover);color:var(--text-3);cursor:not-allowed}
+.msg{font-family:var(--mono);font-size:10.5px;line-height:1.5;min-height:13px}
+.msg.err{color:var(--negative)}.msg.ok{color:var(--positive)}
+
+/* filtros + chips */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 14px}
+.chip{background:var(--bg-panel);border:1px solid var(--bm);border-radius:20px;color:var(--text-2);font-family:var(--mono);font-size:10px;letter-spacing:.4px;padding:6px 12px;cursor:pointer;transition:all .15s}
+.chip:hover{border-color:var(--bs);color:var(--text)}
+.chip.on{border-color:var(--offense);color:var(--offense);background:color-mix(in srgb,var(--offense) 10%,transparent)}
+
+/* exercise grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.ex{background:var(--bg-raised);border:1px solid var(--bm);border-radius:13px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.ex-top{display:flex;align-items:flex-start;gap:8px}
+.ex-t{font-family:var(--disp);font-weight:700;font-size:17px;line-height:1.1;flex:1}
+.ex-x{background:none;border:1px solid var(--bm);color:var(--text-3);border-radius:7px;width:26px;height:26px;font-size:11px;cursor:pointer;flex-shrink:0;transition:all .15s}
+.ex-x:hover{border-color:var(--negative);color:var(--negative)}
+.ex-d{font-size:12px;color:var(--text-2);line-height:1.5}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.tag{font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;padding:4px 9px;border-radius:20px;color:#0a0b10;font-weight:600;white-space:nowrap}
+.tag.ghost{background:none;color:var(--text-3);border:1px solid var(--bm)}
+.ex-by{font-family:var(--mono);font-size:9px;color:var(--text-3);margin-top:auto}
+
+/* assistant checklist */
+.who{display:flex;gap:8px;flex-wrap:wrap}
+.who label{display:flex;align-items:center;gap:7px;background:var(--bg-panel);border:1px solid var(--bm);border-radius:9px;padding:8px 12px;cursor:pointer;font-size:12.5px;transition:all .15s}
+.who label:hover{border-color:var(--bs)}
+.who input{accent-color:var(--offense)}
+
+/* task rows */
+.task{display:flex;align-items:center;gap:12px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:12px;padding:12px 14px;margin-bottom:9px}
+.task.done{opacity:.6}
+.task-body{flex:1;min-width:0}
+.task-t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.task-t.strike{text-decoration:line-through}
+.task-meta{font-family:var(--mono);font-size:9.5px;color:var(--text-3);margin-top:3px;line-height:1.5}
+.task-note{font-size:12px;color:var(--text-2);margin-top:5px;line-height:1.45}
+.st{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;padding:3px 8px;border-radius:20px;text-transform:uppercase;white-space:nowrap}
+.st.pend{color:#e0b341;border:1px solid color-mix(in srgb,#e0b341 45%,transparent)}
+.st.hecha{color:var(--positive);border:1px solid color-mix(in srgb,var(--positive) 45%,transparent)}
+.task-act{display:flex;gap:6px;flex-shrink:0}
+.mini{background:var(--bg-panel);border:1px solid var(--bm);color:var(--text-2);border-radius:7px;font-family:var(--mono);font-size:10px;padding:7px 11px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.mini:hover{border-color:var(--positive);color:var(--positive)}
+.mini.danger:hover{border-color:var(--negative);color:var(--negative)}
+
+/* resumen por asistente */
+.sum-row{display:flex;align-items:center;gap:12px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:12px;padding:11px 14px;margin-bottom:8px}
+.avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:800;font-size:14px;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.sum-body{flex:1;min-width:0}
+.sum-n{font-weight:600;font-size:13.5px}
+.sum-track{height:7px;background:var(--bg-panel);border-radius:4px;overflow:hidden;margin-top:6px}
+.sum-track span{display:block;height:100%;background:var(--positive);border-radius:4px;transition:width .3s}
+.sum-nums{font-family:var(--mono);font-size:10px;color:var(--text-3);text-align:right;white-space:nowrap;flex-shrink:0}
+.sum-nums b{color:var(--text);font-family:var(--disp);font-size:16px;margin-right:2px}
+.sum-nums .ok{color:var(--positive)}.sum-nums .pn{color:#e0b341}
+
+.loadbox{display:flex;flex-direction:column;align-items:center;gap:14px;padding:80px 20px;color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--bs);border-top-color:var(--offense);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LOGIN GATE */
+#auth-gate{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:22px;background:radial-gradient(130% 100% at 22% 18%,#15171f 0%,#0a0b10 58%,#07080c 100%)}
+.auth-card{width:392px;max-width:100%;background:var(--bg-raised);border:1px solid var(--bm);border-radius:20px;padding:34px 30px;box-shadow:0 30px 90px rgba(0,0,0,.62)}
+.auth-logo{font-family:var(--disp);font-weight:900;font-size:42px;line-height:1;text-align:center}
+.auth-logo span{color:var(--offense)}
+.auth-tag{font-family:var(--mono);font-size:10px;letter-spacing:.34em;text-transform:uppercase;color:var(--text-3);text-align:center;margin:6px 0 24px}
+.auth-tabs{display:flex;gap:5px;background:var(--bg-panel);padding:4px;border-radius:11px;margin-bottom:18px}
+.auth-tab{flex:1;text-align:center;padding:9px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);cursor:pointer;border-radius:8px;border:1px solid transparent;transition:all .15s}
+.auth-tab.active{color:var(--offense);background:color-mix(in srgb,var(--offense) 14%,transparent);border-color:color-mix(in srgb,var(--offense) 40%,transparent)}
+.auth-field{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.auth-field label{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.auth-field input{background:var(--bg-panel);border:1px solid var(--bm);border-radius:9px;padding:11px 13px;font-family:var(--body);font-size:14.5px;color:var(--text);outline:none;transition:border-color .15s}
+.auth-field input:focus{border-color:var(--offense)}
+.auth-btn{width:100%;margin-top:6px;background:var(--offense);color:#fff;border:none;border-radius:9px;padding:12px;font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:background .15s}
+.auth-btn:hover{background:#ea6c10}.auth-btn:disabled{background:var(--bg-hover);color:var(--text-3);cursor:not-allowed}
+.auth-msg{font-family:var(--mono);font-size:11px;text-align:center;margin-top:13px;min-height:15px;line-height:1.5}
+.auth-msg.err{color:var(--negative)}.auth-msg.ok{color:var(--positive)}
+body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
+@media(max-width:560px){.intro h1{font-size:25px}}
+</style>
+</head>
+<body class="auth-locked">
+
+<!-- LOGIN -->
+<div id="auth-gate" style="display:flex">
+  <div class="auth-card">
+    <div class="auth-logo">SCOUT<span>PRO</span></div>
+    <div class="auth-tag">Tareas del cuerpo técnico</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
+      <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
+    </div>
+    <div class="auth-field" id="auth-name-field" style="display:none">
+      <label>Nombre</label>
+      <input type="text" id="auth-name" placeholder="Tu nombre" autocomplete="given-name">
+    </div>
+    <div class="auth-field"><label>Email</label><input type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email"></div>
+    <div class="auth-field"><label>Contraseña</label><input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()"></div>
+    <button class="auth-btn" id="auth-submit" onclick="authSubmit()">Ingresar</button>
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tb-logo">SCOUT<span>PRO</span></div>
+  <div class="tb-right">
+    <a class="tb-btn" href="quintetos.html">🔄 Quintetos</a>
+    <a class="tb-btn" href="estadistico.html">📊 Estadístico</a>
+    <a class="tb-btn" href="defensa.html">🛡 Defensa</a>
+    <a class="tb-btn" href="plantel.html">🏀 Plantel</a>
+    <a class="tb-btn" href="perfil.html">👤 Perfil</a>
+    <a class="tb-btn" href="index.html">🏠 Menú</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Tareas y ejercicios</h1>
+    <p>Una biblioteca de ejercicios que carga todo el cuerpo técnico, y desde la que el head coach le asigna trabajo a sus asistentes.</p>
+  </div>
+  <div id="body">
+    <div class="loadbox"><div class="spinner"></div><div>Cargando…</div></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const SB_URL="https://jqudeomgafqilqmqcqzg.supabase.co";
+  const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8";
+  const $=id=>document.getElementById(id);
+  let mode='login', sb=null;
+  try{ if(window.supabase&&window.supabase.createClient){ sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); } }catch(e){}
+
+  // ── catálogos ──
+  const AREAS=[
+    {k:'tecnico_tactico',label:'Técnico-táctico',color:'#f97316'},
+    {k:'fisico',label:'Físico',color:'#34c769'},
+    {k:'recuperacion',label:'Recuperación / Fisio',color:'#4f8ef7'},
+    {k:'psicologico',label:'Psicológico',color:'#a78bfa'},
+    {k:'nutricional',label:'Nutricional',color:'#e0b341'},
+    {k:'video',label:'Análisis de video',color:'#e879b9'},
+    {k:'otro',label:'Otro',color:'#8891a0'},
+  ];
+  const TIPOS=[
+    {k:'perimetrales',label:'Perimetrales',color:'#4f8ef7'},
+    {k:'internos',label:'Internos / altos',color:'#f97316'},
+    {k:'todos',label:'Todos',color:'#8891a0'},
+  ];
+  const areaInfo=k=>AREAS.find(a=>a.k===k)||{label:k||'—',color:'#8891a0'};
+  const tipoInfo=k=>TIPOS.find(t=>t.k===k)||{label:k||'—',color:'#8891a0'};
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function avColor(n){let h=0;const s=String(n||'');for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',50%,45%)';}
+  function avInit(n){const w=String(n||'').trim().split(/\s+/).filter(Boolean);if(!w.length)return'?';if(w.length===1)return w[0].slice(0,2).toUpperCase();return (w[0][0]+w[1][0]).toUpperCase();}
+  function avatar(n){return '<span class="avatar" style="background:'+avColor(n)+'">'+avInit(n)+'</span>';}
+  function readCoach(){let c={};try{const s=localStorage.getItem('sp_coach');if(s)c=JSON.parse(s)||{};}catch(e){}return c;}
+  function niceNameFromEmail(email){let b=((email||'').split('@')[0]||'').replace(/[._-]+/g,' ').trim();if(!b)return'';return b.replace(/\b\w/g,c=>c.toUpperCase());}
+
+  // ── estado ──
+  const ME={};            // {userId,email,nombre,club,rol}
+  let TEAM=[];            // asistentes a mi cargo (si soy head coach)
+  let EXS=[];             // ejercicios del club
+  let TASKS=[];           // tareas (según rol)
+  let TAB='biblioteca';
+  let fArea='', fTipo=''; // filtros de biblioteca
+
+  // ── auth ──
+  function showGate(){document.body.classList.add('auth-locked');if($('auth-gate'))$('auth-gate').style.display='flex';}
+  function hideGate(){document.body.classList.remove('auth-locked');if($('auth-gate'))$('auth-gate').style.display='none';}
+  function setMsg(t,k){const m=$('auth-msg');if(!m)return;m.textContent=t||'';m.className='auth-msg'+(k?' '+k:'');}
+  window.authSetMode=function(m){mode=m;$('auth-tab-login').classList.toggle('active',m==='login');$('auth-tab-signup').classList.toggle('active',m==='signup');$('auth-submit').textContent=m==='login'?'Ingresar':'Crear cuenta';var nf=$('auth-name-field');if(nf)nf.style.display=(m==='signup')?'flex':'none';setMsg('');};
+  function tradErr(e){const m=(e&&e.message)?e.message:String(e);
+    if(/Invalid login/i.test(m))return'Email o contraseña incorrectos.';
+    if(/already registered|already exists|User already/i.test(m))return'Ese email ya tiene cuenta. Probá ingresar.';
+    if(/at least 6|password should be|weak/i.test(m))return'La contraseña debe tener al menos 6 caracteres.';
+    if(/confirm/i.test(m))return'Confirmá tu email antes de ingresar.';return m;}
+  window.authSubmit=async function(){
+    if(!sb){setMsg('No se pudo conectar al servidor.','err');return;}
+    const email=($('auth-email').value||'').trim(),pass=$('auth-pass').value||'';
+    if(!email||!pass){setMsg('Completá email y contraseña.','err');return;}
+    const btn=$('auth-submit');btn.disabled=true;
+    try{
+      if(mode==='signup'){
+        const name=(($('auth-name')&&$('auth-name').value)||'').trim();
+        const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}});if(error)throw error;
+        if(data&&data.session){hideGate();}else{setMsg('Cuenta creada. Si te pide confirmar por email, hacelo y después ingresá.','ok');window.authSetMode('login');}
+      }else{const {error}=await sb.auth.signInWithPassword({email,password:pass});if(error)throw error;hideGate();}
+    }catch(e){setMsg(tradErr(e),'err');}finally{btn.disabled=false;}
+  };
+  window.authLogout=async function(){try{if(sb)await sb.auth.signOut();}catch(e){}showGate();location.reload();};
+
+  // ── data ──
+  async function loadMe(user){
+    ME.userId=user.id;ME.email=user.email||'';
+    const coach=readCoach();const meta=user.user_metadata||{};
+    ME.nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(ME.email)||'Coach';
+    ME.club=((coach.club||'').trim())||((meta.club||'').trim())||'';
+    ME.rol=coach.rol||meta.rol||'headcoach';
+    // intentar leer mi fila real de perfiles (fuente de verdad de rol/club)
+    try{
+      const {data}=await sb.from('perfiles').select('*').eq('user_id',ME.userId).limit(1);
+      const r=data&&data[0];
+      if(r){ME.nombre=r.nombre||ME.nombre;ME.club=r.club||ME.club;ME.rol=r.rol||ME.rol;}
+    }catch(e){}
+  }
+  async function loadTeam(){
+    TEAM=[];
+    if(!ME.club)return;
+    try{
+      const {data}=await sb.from('perfiles').select('*').eq('reporta_a',ME.userId).eq('rol','asistente');
+      TEAM=(data||[]).filter(p=>p.user_id).sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||'')));
+    }catch(e){console.warn('team',e&&e.message);}
+  }
+  async function loadExercises(){
+    EXS=[];
+    if(!ME.club)return;
+    try{
+      const {data}=await sb.from('ejercicios').select('*').ilike('club',ME.club).order('created_at',{ascending:false});
+      EXS=data||[];
+    }catch(e){console.warn('exs',e&&e.message);}
+  }
+  async function loadTasks(){
+    TASKS=[];
+    try{
+      let q=sb.from('tareas').select('*');
+      if(ME.rol==='asistente')q=q.eq('asignado_a',ME.userId);
+      else if(ME.rol==='coordinador')q=q.ilike('club',ME.club);
+      else q=q.eq('asignado_por',ME.userId); // head coach
+      const {data}=await q.order('created_at',{ascending:false});
+      TASKS=data||[];
+    }catch(e){console.warn('tasks',e&&e.message);}
+  }
+
+  async function addExercise(o){
+    const row={club:ME.club,titulo:o.titulo,descripcion:o.descripcion||null,area:o.area||'otro',
+      tipo_jugador:o.tipo_jugador||'todos',duracion_min:o.duracion_min||null,
+      creado_por:ME.userId,creado_por_nombre:ME.nombre,created_at:new Date().toISOString()};
+    try{const {error}=await sb.from('ejercicios').insert(row);if(error)throw error;return{ok:true};}
+    catch(e){return{error:e&&e.message||String(e)};}
+  }
+  async function delExercise(id){try{await sb.from('ejercicios').delete().eq('id',id);}catch(e){}}
+  async function addTasks(rows){try{const {error}=await sb.from('tareas').insert(rows);if(error)throw error;return{ok:true};}catch(e){return{error:e&&e.message||String(e)};}}
+  async function setTaskEstado(id,estado){try{await sb.from('tareas').update({estado,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}}
+  async function delTask(id){try{await sb.from('tareas').delete().eq('id',id);}catch(e){}}
+
+  // ── render ──
+  function tabsHTML(){
+    const t=[];
+    t.push(['biblioteca','Biblioteca']);
+    if(ME.rol==='headcoach')t.push(['asignar','Asignar tareas']);
+    if(ME.rol==='asistente')t.push(['mias','Mis tareas']);
+    if(ME.rol==='coordinador')t.push(['club','Tareas del club']);
+    return '<div class="tabs">'+t.map(x=>'<div class="tab'+(TAB===x[0]?' active':'')+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+'</div>').join('')+'</div>';
+  }
+  function tagsFor(ex){
+    const a=areaInfo(ex.area),tp=tipoInfo(ex.tipo_jugador);
+    let h='<span class="tag" style="background:'+a.color+'">'+esc(a.label)+'</span>'+
+          '<span class="tag" style="background:'+tp.color+'">'+esc(tp.label)+'</span>';
+    if(ex.duracion_min)h+='<span class="tag ghost">'+ex.duracion_min+' min</span>';
+    return '<div class="tags">'+h+'</div>';
+  }
+
+  function bibliotecaView(){
+    // formulario de carga (todos pueden)
+    const form='<div class="sec">Cargar ejercicio</div>'+
+      '<div class="card"><div class="frm">'+
+        '<div class="frm-row">'+
+          '<div class="fld"><label>Título</label><input id="ex-tit" placeholder="Ej: Rebote ofensivo + salida"></div>'+
+          '<div class="fld"><label>Área</label><select id="ex-area">'+AREAS.map(a=>'<option value="'+a.k+'">'+esc(a.label)+'</option>').join('')+'</select></div>'+
+        '</div>'+
+        '<div class="frm-row">'+
+          '<div class="fld"><label>Tipo de jugador</label><select id="ex-tipo">'+TIPOS.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join('')+'</select></div>'+
+          '<div class="fld"><label>Duración (min, opcional)</label><input id="ex-dur" type="number" min="0" placeholder="Ej: 15"></div>'+
+        '</div>'+
+        '<div class="fld wide"><label>Descripción</label><textarea id="ex-desc" placeholder="Cómo se ejecuta, objetivo, material…"></textarea></div>'+
+        '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="saveExercise()">+ Agregar a la biblioteca</button><span class="msg" id="ex-msg"></span></div>'+
+      '</div></div>';
+
+    // filtros
+    const fa='<span class="chip'+(!fArea?' on':'')+'" onclick="setFArea(\'\')">Todas las áreas</span>'+
+      AREAS.map(a=>'<span class="chip'+(fArea===a.k?' on':'')+'" onclick="setFArea(\''+a.k+'\')">'+esc(a.label)+'</span>').join('');
+    const ft='<span class="chip'+(!fTipo?' on':'')+'" onclick="setFTipo(\'\')">Todos</span>'+
+      TIPOS.map(t=>'<span class="chip'+(fTipo===t.k?' on':'')+'" onclick="setFTipo(\''+t.k+'\')">'+esc(t.label)+'</span>').join('');
+
+    let list=EXS.filter(e=>(!fArea||e.area===fArea)&&(!fTipo||e.tipo_jugador===fTipo));
+    let grid;
+    if(!list.length)grid='<div class="empty">No hay ejercicios'+((fArea||fTipo)?' con ese filtro':' todavía')+'. Cargá el primero arriba.</div>';
+    else grid='<div class="grid">'+list.map(ex=>{
+      const mine=ex.creado_por===ME.userId;
+      return '<div class="ex"><div class="ex-top"><div class="ex-t">'+esc(ex.titulo)+'</div>'+
+        (mine?'<button class="ex-x" title="Borrar" onclick="removeExercise(\''+esc(ex.id)+'\')">✕</button>':'')+'</div>'+
+        tagsFor(ex)+
+        (ex.descripcion?'<div class="ex-d">'+esc(ex.descripcion)+'</div>':'')+
+        '<div class="ex-by">por '+esc(ex.creado_por_nombre||'—')+'</div></div>';
+    }).join('')+'</div>';
+
+    return form+'<div class="sec">Biblioteca ('+EXS.length+')</div>'+'<div class="filters">'+fa+'</div><div class="filters">'+ft+'</div>'+grid;
+  }
+
+  function resumenView(){
+    const by={};
+    TASKS.forEach(t=>{const k=t.asignado_a;if(!by[k])by[k]={nombre:t.asignado_a_nombre,total:0,hechas:0};by[k].total++;if(t.estado==='hecha')by[k].hechas++;});
+    if(TAB==='asignar')TEAM.forEach(p=>{if(!by[p.user_id])by[p.user_id]={nombre:p.nombre||p.email,total:0,hechas:0};});
+    const ids=Object.keys(by);
+    if(!ids.length)return '';
+    const rows=ids.map(k=>by[k]).sort((a,b)=>b.total-a.total).map(r=>{
+      const pend=r.total-r.hechas,pct=r.total?Math.round(r.hechas/r.total*100):0;
+      return '<div class="sum-row">'+avatar(r.nombre)+
+        '<div class="sum-body"><div class="sum-n">'+esc(r.nombre||'—')+'</div>'+
+        '<div class="sum-track"><span style="width:'+pct+'%"></span></div></div>'+
+        '<div class="sum-nums"><b>'+r.total+'</b>tareas · <span class="ok">'+r.hechas+' hechas</span> · <span class="pn">'+pend+' pend.</span></div></div>';
+    }).join('');
+    return '<div class="sec">Resumen por asistente</div>'+rows;
+  }
+
+  function asignarView(){
+    if(!TEAM.length)return '<div class="sec">Asignar tareas</div><div class="empty">Todavía no tenés asistentes activos en tu cuerpo técnico. Cargalos desde tu perfil; cuando se registren vas a poder asignarles tareas.</div>'+misAsignadasView();
+    const exOpts='<option value="">— Tarea libre (la escribís vos) —</option>'+
+      EXS.map(e=>'<option value="'+esc(e.id)+'" data-t="'+esc(e.titulo)+'" data-tp="'+esc(e.tipo_jugador||'todos')+'">'+esc(e.titulo)+' · '+esc(areaInfo(e.area).label)+'</option>').join('');
+    const who=TEAM.map(p=>'<label><input type="checkbox" class="who-cb" value="'+esc(p.user_id)+'" data-n="'+esc(p.nombre||p.email)+'">'+esc(p.nombre||p.email)+'</label>').join('');
+    const form='<div class="sec">Asignar tareas</div>'+
+      '<div class="card"><div class="frm">'+
+        '<div class="fld wide"><label>Ejercicio de la biblioteca</label><select id="as-ex" onchange="onPickEx()">'+exOpts+'</select></div>'+
+        '<div class="fld wide"><label>Título de la tarea</label><input id="as-tit" placeholder="Se completa con el ejercicio, o escribilo"></div>'+
+        '<div class="frm-row">'+
+          '<div class="fld"><label>Tipo de jugador</label><select id="as-tipo">'+TIPOS.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join('')+'</select></div>'+
+          '<div class="fld"><label>Fecha límite (opcional)</label><input id="as-fecha" type="date"></div>'+
+        '</div>'+
+        '<div class="fld wide"><label>Nota / indicaciones</label><textarea id="as-nota" placeholder="Detalle para el asistente…"></textarea></div>'+
+        '<div class="fld wide"><label>Asignar a</label><div class="who">'+who+'</div></div>'+
+        '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="assign()">Asignar</button><span class="msg" id="as-msg"></span></div>'+
+      '</div></div>';
+    return resumenView()+form+misAsignadasView();
+  }
+
+  function taskRow(t,opts){
+    opts=opts||{};
+    const done=t.estado==='hecha';
+    const tp=tipoInfo(t.tipo_jugador);
+    const meta=[];
+    if(opts.showWho)meta.push('para '+esc(t.asignado_a_nombre||'—'));
+    if(opts.showBy)meta.push('de '+esc(t.asignado_por_nombre||'—'));
+    meta.push(esc(tp.label));
+    if(t.fecha_limite)meta.push('límite '+esc(t.fecha_limite));
+    let act='';
+    if(opts.canToggle)act+=done
+      ?'<button class="mini" onclick="toggleTask(\''+esc(t.id)+'\',\'pendiente\')">Reabrir</button>'
+      :'<button class="mini" onclick="toggleTask(\''+esc(t.id)+'\',\'hecha\')">✓ Hecha</button>';
+    if(opts.canDelete)act+='<button class="mini danger" onclick="removeTask(\''+esc(t.id)+'\')">✕</button>';
+    return '<div class="task'+(done?' done':'')+'"><div class="task-body">'+
+      '<div class="task-t'+(done?' strike':'')+'">'+esc(t.titulo)+'<span class="st '+(done?'hecha':'pend')+'">'+(done?'hecha':'pendiente')+'</span></div>'+
+      '<div class="task-meta">'+meta.join(' · ')+'</div>'+
+      (t.nota?'<div class="task-note">'+esc(t.nota)+'</div>':'')+
+      '</div>'+(act?'<div class="task-act">'+act+'</div>':'')+'</div>';
+  }
+  function misAsignadasView(){
+    if(!TASKS.length)return '<div class="sec">Lo que asigné</div><div class="empty">Todavía no asignaste ninguna tarea.</div>';
+    return '<div class="sec">Lo que asigné ('+TASKS.length+')</div>'+TASKS.map(t=>taskRow(t,{showWho:true,canToggle:true,canDelete:true})).join('');
+  }
+  function miasView(){
+    if(!TASKS.length)return '<div class="sec">Mis tareas</div><div class="empty">No tenés tareas asignadas por ahora.</div>';
+    const pend=TASKS.filter(t=>t.estado!=='hecha'),hechas=TASKS.filter(t=>t.estado==='hecha');
+    let h='';
+    h+='<div class="sec">Pendientes ('+pend.length+')</div>'+(pend.length?pend.map(t=>taskRow(t,{showBy:true,canToggle:true})).join(''):'<div class="empty">Nada pendiente. 👌</div>');
+    if(hechas.length)h+='<div class="sec">Hechas ('+hechas.length+')</div>'+hechas.map(t=>taskRow(t,{showBy:true,canToggle:true})).join('');
+    return h;
+  }
+  function clubView(){
+    if(!TASKS.length)return '<div class="sec">Tareas del club</div><div class="empty">Todavía no hay tareas asignadas en el club.</div>';
+    return resumenView()+'<div class="sec">Tareas del club ('+TASKS.length+')</div>'+TASKS.map(t=>taskRow(t,{showWho:true,showBy:true})).join('');
+  }
+
+  function paint(){
+    let view='';
+    if(TAB==='biblioteca')view=bibliotecaView();
+    else if(TAB==='asignar')view=asignarView();
+    else if(TAB==='mias')view=miasView();
+    else if(TAB==='club')view=clubView();
+    $('body').innerHTML=tabsHTML()+view+
+      '<div class="sec">Sesión</div><div class="card"><div class="empty" style="padding:0">Entraste como <b style="color:var(--text)">'+esc(ME.email)+'</b> · '+esc(ME.club||'sin club')+
+      '<div style="margin-top:10px"><button class="mini danger" onclick="authLogout()">Cerrar sesión</button></div></div></div>';
+  }
+
+  // ── acciones de UI ──
+  window.setTab=function(t){TAB=t;paint();};
+  window.setFArea=function(k){fArea=k;paint();};
+  window.setFTipo=function(k){fTipo=k;paint();};
+  window.onPickEx=function(){
+    const sel=$('as-ex');if(!sel)return;const o=sel.options[sel.selectedIndex];
+    if(sel.value){if($('as-tit'))$('as-tit').value=o.getAttribute('data-t')||'';const tp=o.getAttribute('data-tp');if(tp&&$('as-tipo'))$('as-tipo').value=tp;}
+  };
+  window.saveExercise=async function(){
+    const tit=(($('ex-tit')&&$('ex-tit').value)||'').trim();
+    const msg=$('ex-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
+    if(!tit)return err('Poné un título.');
+    const o={titulo:tit,descripcion:(($('ex-desc')&&$('ex-desc').value)||'').trim(),area:($('ex-area')&&$('ex-area').value)||'otro',
+      tipo_jugador:($('ex-tipo')&&$('ex-tipo').value)||'todos',duracion_min:parseInt(($('ex-dur')&&$('ex-dur').value)||'',10)||null};
+    const btn=document.querySelector('.frm .btn-primary');if(btn)btn.disabled=true;
+    const r=await addExercise(o);if(btn)btn.disabled=false;
+    if(r.error)return err('No se pudo guardar: '+r.error);
+    await loadExercises();paint();
+  };
+  window.removeExercise=async function(id){if(!confirm('¿Borrar este ejercicio de la biblioteca?'))return;await delExercise(id);await loadExercises();paint();};
+  window.assign=async function(){
+    const msg=$('as-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
+    const tit=(($('as-tit')&&$('as-tit').value)||'').trim();
+    const exId=($('as-ex')&&$('as-ex').value)||'';
+    const tipo=($('as-tipo')&&$('as-tipo').value)||'todos';
+    const nota=(($('as-nota')&&$('as-nota').value)||'').trim();
+    const fecha=($('as-fecha')&&$('as-fecha').value)||null;
+    const who=[].slice.call(document.querySelectorAll('.who-cb:checked')).map(c=>({id:c.value,n:c.getAttribute('data-n')}));
+    if(!tit)return err('Poné un título o elegí un ejercicio.');
+    if(!who.length)return err('Elegí al menos un asistente.');
+    const rows=who.map(w=>({club:ME.club,ejercicio_id:exId||null,titulo:tit,nota:nota||null,tipo_jugador:tipo,
+      asignado_a:w.id,asignado_a_nombre:w.n,asignado_por:ME.userId,asignado_por_nombre:ME.nombre,
+      fecha_limite:fecha,estado:'pendiente',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
+    const btn=document.querySelectorAll('.btn-primary');btn.forEach(b=>b.disabled=true);
+    const r=await addTasks(rows);btn.forEach(b=>b.disabled=false);
+    if(r.error)return err('No se pudo asignar: '+r.error);
+    if(msg){msg.textContent='✓ Asignada a '+who.length+' '+(who.length===1?'persona':'personas')+'.';msg.className='msg ok';}
+    await loadTasks();paint();
+  };
+  window.toggleTask=async function(id,estado){await setTaskEstado(id,estado);await loadTasks();paint();};
+  window.removeTask=async function(id){if(!confirm('¿Eliminar esta tarea?'))return;await delTask(id);await loadTasks();paint();};
+
+  // ── boot ──
+  async function bootData(user){
+    await loadMe(user);
+    TAB=(ME.rol==='asistente')?'mias':(ME.rol==='coordinador'?'club':'biblioteca');
+    await Promise.all([loadExercises(),loadTasks(), ME.rol==='headcoach'?loadTeam():Promise.resolve()]);
+    paint();
+  }
+  function boot(){
+    if(!sb){showGate();setMsg('No se pudo conectar al servidor. Recargá.','err');return;}
+    showGate();
+    sb.auth.getSession().then(({data})=>{if(data&&data.session){hideGate();bootData(data.session.user);}});
+    sb.auth.onAuthStateChange((ev,session)=>{if(session){hideGate();bootData(session.user);}else showGate();});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+})();
+</script>
+<script src="scoutpro-nav.js"></script>
+</body>
+</html>
