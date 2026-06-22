@@ -119,6 +119,24 @@ body{
   opacity:0; animation:rise .7s .42s ease forwards;
 }
 .section-label::after{content:''; flex:1; height:1px; background:var(--bm)}
+/* ── ÁREAS PLEGABLES (acordeón) ── */
+.area{opacity:0; animation:rise .6s ease forwards; margin-top:26px}
+.area:nth-of-type(1){animation-delay:.42s}
+.area:nth-of-type(2){animation-delay:.5s}
+.area:nth-of-type(3){animation-delay:.58s}
+.area:nth-of-type(4){animation-delay:.66s}
+.area-head{width:100%; display:flex; align-items:center; gap:11px; background:none; border:none; cursor:pointer; padding:8px 0; text-align:left;
+  font-family:var(--mono); font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--text-3); transition:color .15s}
+.area-head:hover{color:var(--text-2)}
+.area-head .chev{width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; color:var(--text-2); transition:transform .22s ease}
+.area-head .chev svg{width:14px; height:14px}
+.area.open .area-head .chev{transform:rotate(90deg); color:var(--offense)}
+.area-head .lbl{white-space:nowrap}
+.area-head .cnt{font-size:10px; letter-spacing:.08em; color:var(--text-3); border:1px solid var(--bm); border-radius:20px; padding:1px 8px}
+.area-head .ln{flex:1; height:1px; background:var(--bm)}
+.area-body{display:none; margin-top:14px}
+.area.open .area-body{display:block; animation:fadeArea .26s ease}
+@keyframes fadeArea{from{opacity:0; transform:translateY(-5px)} to{opacity:1; transform:translateY(0)}}
 
 .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px}
 .card{
@@ -187,7 +205,7 @@ body{
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important; transition:none!important}
-  .card,.brand,.eyebrow,.subtitle,.tagline,.welcome,.section-label,.foot{opacity:1!important; transform:none!important}
+  .card,.brand,.eyebrow,.subtitle,.tagline,.welcome,.section-label,.area,.foot{opacity:1!important; transform:none!important}
 }
 
 /* ── LOGIN (portón de acceso) ── */
@@ -319,7 +337,9 @@ body.auth-locked .stage{display:none!important}
       </div>
     </div>
 
-    <div class="section-label">Cancha · análisis de juego</div>
+    <div class="area" data-area="cancha">
+      <button class="area-head" onclick="toggleArea(this)"><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span><span class="lbl">Cancha · análisis de juego</span><span class="cnt"></span><span class="ln"></span></button>
+      <div class="area-body">
     <div class="grid">
       <a class="card" href="quintetos.html" style="--accent:#f97316">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
@@ -346,8 +366,12 @@ body.auth-locked .stage{display:none!important}
         <span class="go">Abrir →</span>
       </a>
     </div>
+      </div>
+    </div>
 
-    <div class="section-label">Planificación</div>
+    <div class="area" data-area="planificacion">
+      <button class="area-head" onclick="toggleArea(this)"><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span><span class="lbl">Planificación</span><span class="cnt"></span><span class="ln"></span></button>
+      <div class="area-body">
     <div class="grid">
       <a class="card" href="tareas.html" style="--accent:#e0b341">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></span>
@@ -356,8 +380,12 @@ body.auth-locked .stage{display:none!important}
         <span class="go">Abrir →</span>
       </a>
     </div>
+      </div>
+    </div>
 
-    <div class="section-label">Plantel y rendimiento</div>
+    <div class="area" data-area="plantel">
+      <button class="area-head" onclick="toggleArea(this)"><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span><span class="lbl">Plantel y rendimiento</span><span class="cnt"></span><span class="ln"></span></button>
+      <div class="area-body">
     <div class="grid">
       <a class="card" href="plantel.html#jugadores" style="--accent:#f97316">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
@@ -378,8 +406,12 @@ body.auth-locked .stage{display:none!important}
         <span class="go">Abrir →</span>
       </a>
     </div>
+      </div>
+    </div>
 
-    <div class="section-label">Tu cuenta</div>
+    <div class="area" data-area="cuenta">
+      <button class="area-head" onclick="toggleArea(this)"><span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span><span class="lbl">Tu cuenta</span><span class="cnt"></span><span class="ln"></span></button>
+      <div class="area-body">
     <div class="grid">
       <a class="card" href="perfil.html" style="--accent:#8891a0">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H8a1.65 1.65 0 0 0 1-1.51V2a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V8a1.65 1.65 0 0 0 1.51 1H22a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
@@ -387,6 +419,8 @@ body.auth-locked .stage{display:none!important}
         <p>Tu rol, tu club, tu cuerpo técnico y la administración de la plataforma.</p>
         <span class="go">Abrir →</span>
       </a>
+    </div>
+      </div>
     </div>
 
     <div class="foot">
@@ -419,6 +453,29 @@ body.auth-locked .stage{display:none!important}
     nameEl.textContent='Coach';
     footState.innerHTML='<a class="logout-link" onclick="authLogout()">Ingresar con otro usuario</a>';
   }
+})();
+</script>
+<script>
+/* Acordeón de áreas del menú */
+(function(){
+  const KEY='sp_areas';
+  function read(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return {};}}
+  function write(o){try{localStorage.setItem(KEY,JSON.stringify(o));}catch(e){}}
+  const st=read();
+  const areas=document.querySelectorAll('.area');
+  areas.forEach((a,i)=>{
+    const id=a.getAttribute('data-area');
+    const open=(id in st)?!!st[id]:(i===0);
+    a.classList.toggle('open',open);
+    const cnt=a.querySelector('.cnt'); if(cnt){const n=a.querySelectorAll('.area-body .card').length; cnt.textContent=n;}
+  });
+  window.toggleArea=function(btn){
+    const a=btn.closest('.area'); if(!a)return;
+    const id=a.getAttribute('data-area');
+    const open=!a.classList.contains('open');
+    a.classList.toggle('open',open);
+    const s=read(); s[id]=open; write(s);
+  };
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
