@@ -144,6 +144,48 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--body);font-si
 .entry .e-x{background:none;border:1px solid var(--bm);color:var(--text-3);border-radius:6px;width:24px;height:24px;font-size:10px;cursor:pointer;transition:all .15s}
 .entry .e-x:hover{border-color:var(--negative);color:var(--negative)}
 
+/* carga · formulario estructurado */
+.fsub{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:6px 0 -2px;display:flex;align-items:center;gap:8px}
+.fsub::after{content:"";flex:1;height:1px;background:var(--bl)}
+.rpe-seg{display:flex;gap:5px;flex-wrap:wrap}
+.rpe-seg button{flex:1;min-width:34px;background:var(--bg-panel);border:1px solid var(--bm);color:var(--text-2);border-radius:8px;font-family:var(--disp);font-weight:800;font-size:16px;padding:9px 0;cursor:pointer;transition:all .12s}
+.rpe-seg button:hover{border-color:var(--bs);color:var(--text)}
+.rpe-seg button.on{color:#0a0b10;background:var(--rc);border-color:var(--rc);box-shadow:0 4px 14px -4px var(--rc)}
+.scale-seg{display:flex;gap:4px}
+.scale-seg button{flex:1;background:var(--bg-panel);border:1px solid var(--bm);color:var(--text-2);border-radius:7px;font-family:var(--mono);font-size:12px;padding:8px 0;cursor:pointer;transition:all .12s}
+.scale-seg button:hover{border-color:var(--bs);color:var(--text)}
+.scale-seg button.on{color:var(--offense);border-color:var(--offense);background:color-mix(in srgb,var(--offense) 13%,transparent)}
+.cg-live-box{display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:2px}
+.cg-live-l{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+.cg-live{font-family:var(--disp);font-weight:900;font-size:26px;line-height:1;color:var(--defense);margin-top:3px}
+
+/* carga · ficha por jugador */
+.lcard{background:var(--bg-raised);border:1px solid var(--bm);border-radius:14px;padding:15px 16px;margin-bottom:12px}
+.lcard-h{display:flex;align-items:center;gap:12px}
+.pl-num.sm{width:34px;height:34px;font-size:16px;border-radius:9px}
+.lh-id{flex:1;min-width:0}
+.lh-n{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:.3px;line-height:1.05}
+.lh-p{font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-2);margin-top:2px}
+.lh-last{font-family:var(--mono);font-size:10px;color:var(--text-3);white-space:nowrap}
+.lstats{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0 4px}
+.ls{flex:1;min-width:74px;background:var(--bg-panel);border:1px solid var(--bm);border-radius:10px;padding:10px 11px}
+.ls-v{font-family:var(--disp);font-weight:900;font-size:22px;line-height:1;color:var(--text)}
+.ls-v b{color:var(--defense);font-weight:900}
+.ls-l{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-3);margin-top:5px}
+.lrow{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--bl)}
+.lcol{flex:1;min-width:200px}
+.lcol-t{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
+.distbar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--bg-panel)}
+.distbar span{display:block;height:100%}
+.tchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tchip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;color:var(--text-2);background:var(--bg-panel);border:1px solid var(--bm);border-radius:20px;padding:3px 9px}
+.tchip i{width:8px;height:8px;border-radius:50%;flex:none}
+.tchip.sm{font-size:9px;padding:2px 8px;flex-shrink:0}
+.spark-col{max-width:170px}
+.spark{width:100%;height:30px;display:block}
+.spark-x{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:var(--text-3);margin-top:3px;letter-spacing:.5px}
+.muted{font-family:var(--mono);font-size:10px;color:var(--text-3)}
+
 .loadbox{display:flex;flex-direction:column;align-items:center;gap:14px;padding:80px 20px;color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase}
 .spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--bs);border-top-color:var(--offense);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -256,6 +298,26 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   // ── plantel ──
   const POS=[{k:'base',label:'Base'},{k:'escolta',label:'Escolta'},{k:'alero',label:'Alero'},{k:'ala_pivot',label:'Ala-pívot'},{k:'pivot',label:'Pívot'}];
   const ESTADOS=[{k:'disponible',label:'Disponible'},{k:'limitado',label:'Limitado'},{k:'afuera',label:'Afuera'}];
+  const TRABAJO=[
+    {k:'fuerza',   label:'Fuerza',           color:'#f97316'},
+    {k:'potencia', label:'Potencia / Pliom.',color:'#fb7185'},
+    {k:'aerobico', label:'Aeróbico',         color:'#34c769'},
+    {k:'velocidad',label:'Velocidad',        color:'#e0b341'},
+    {k:'tecnico',  label:'Técnico-táctico',  color:'#4f8ef7'},
+    {k:'movilidad',label:'Movilidad / Recup.',color:'#a78bfa'},
+    {k:'partido',  label:'Partido',          color:'#f05050'},
+    {k:'otro',     label:'Otro',             color:'#8891a0'},
+  ];
+  const trabInfo=k=>TRABAJO.find(t=>t.k===k)||{label:(k||'Otro'),color:'#8891a0'};
+  function rpeColor(n){return 'hsl('+Math.round(132-(Math.max(0,Math.min(10,n))/10)*132)+',68%,52%)';}
+  function diasDesde(f){if(!f)return 999;const a=new Date(f+'T00:00:00'),b=new Date(todayStr()+'T00:00:00');return Math.round((b-a)/86400000);}
+  function ultimaLabel(d){return d<=0?'hoy':(d===1?'ayer':'hace '+d+' días');}
+  function sparkline(vals){
+    const w=104,h=28,n=vals.length||7,max=Math.max(1,...vals);let bars='';
+    for(let i=0;i<n;i++){const v=vals[i]||0;const bh=Math.max(2,Math.round(v/max*(h-3)));const cw=w/n,bw=cw*0.62,x=i*cw+(cw-bw)/2,y=h-bh;
+      bars+='<rect x="'+x.toFixed(1)+'" y="'+y+'" width="'+bw.toFixed(1)+'" height="'+bh+'" rx="1.5" fill="var(--defense)" opacity="'+(0.4+0.6*(v/max)).toFixed(2)+'"></rect>';}
+    return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+bars+'</svg>';
+  }
   const posLabel=k=>{const p=POS.find(x=>x.k===k);return p?p.label:(k||'—');};
   let PLAYERS=[],DISPO={},NOTAS={},CARGAS=[];
   function todayStr(){return new Date().toISOString().slice(0,10);}
@@ -355,7 +417,7 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   async function delPlayer(id){try{await sb.from('jugadores').delete().eq('id',id);}catch(e){}}
   async function setDispo(jid,estado){try{await sb.from('disponibilidad').upsert({jugador_id:jid,club:ME.club,estado,por_nombre:ME.nombre,updated_at:new Date().toISOString()},{onConflict:'jugador_id'});}catch(e){console.warn('dispo',e&&e.message);}}
   async function setNota(jid,nota){try{await sb.from('disponibilidad_nota').upsert({jugador_id:jid,club:ME.club,nota,por_nombre:ME.nombre,updated_at:new Date().toISOString()},{onConflict:'jugador_id'});}catch(e){console.warn('nota',e&&e.message);}}
-  async function addCarga(o){const carga=(o.rpe||0)*(o.minutos||0);const row={club:ME.club,jugador_id:o.jugador_id,fecha:o.fecha,rpe:o.rpe||null,minutos:o.minutos||null,carga:carga||null,sueno:o.sueno||null,fatiga:o.fatiga||null,dolor:o.dolor||null,animo:o.animo||null,nota:o.nota||null,cargado_por:ME.userId,cargado_por_nombre:ME.nombre,created_at:new Date().toISOString()};try{const {error}=await sb.from('carga').insert(row);if(error)throw error;return{ok:true};}catch(e){return{error:e&&e.message||String(e)};}}
+  async function addCarga(o){const carga=(o.rpe||0)*(o.minutos||0);const row={club:ME.club,jugador_id:o.jugador_id,fecha:o.fecha,tipo:o.tipo||'otro',rpe:o.rpe||null,minutos:o.minutos||null,carga:carga||null,sueno:o.sueno||null,fatiga:o.fatiga||null,dolor:o.dolor||null,animo:o.animo||null,nota:o.nota||null,cargado_por:ME.userId,cargado_por_nombre:ME.nombre,created_at:new Date().toISOString()};try{const {error}=await sb.from('carga').insert(row);if(error)throw error;return{ok:true};}catch(e){return{error:e&&e.message||String(e)};}}
   async function delCarga(id){try{await sb.from('carga').delete().eq('id',id);}catch(e){}}
 
   // ── render ──
@@ -533,39 +595,72 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     let form='';
     if(canAddCarga()){
       const sel='<select id="cg-jug">'+PLAYERS.map(p=>'<option value="'+esc(p.id)+'">'+(p.dorsal!=null?'#'+p.dorsal+' ':'')+esc(p.nombre)+'</option>').join('')+'</select>';
-      const scale=id=>'<select id="'+id+'"><option value="">—</option>'+[1,2,3,4,5].map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select>';
+      const tsel='<select id="cg-tipo">'+TRABAJO.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join('')+'</select>';
+      const rpeSeg='<div class="rpe-seg" id="cg-rpe-seg">'+Array.from({length:11},(_,n)=>'<button type="button" data-v="'+n+'" style="--rc:'+rpeColor(n)+'" onclick="cgRPE(this)">'+n+'</button>').join('')+'</div><input type="hidden" id="cg-rpe">';
+      const wf=(lbl,id)=>'<div class="fld"><label>'+lbl+'</label><div class="scale-seg" id="'+id+'-seg">'+[1,2,3,4,5].map(v=>'<button type="button" data-v="'+v+'" onclick="cgScale(this,\''+id+'\')">'+v+'</button>').join('')+'</div><input type="hidden" id="'+id+'"></div>';
       form='<div class="sec">Registrar sesión</div><div class="card"><div class="frm">'+
-        '<div class="frm-row"><div class="fld wide"><label>Jugador</label>'+sel+'</div></div>'+
+        '<div class="fsub">Sesión</div>'+
         '<div class="frm-row">'+
+          '<div class="fld"><label>Jugador</label>'+sel+'</div>'+
           '<div class="fld"><label>Fecha</label><input id="cg-fecha" type="date" value="'+todayStr()+'"></div>'+
-          '<div class="fld"><label>RPE (0-10)</label><input id="cg-rpe" type="number" min="0" max="10" placeholder="Ej: 7"></div>'+
-          '<div class="fld"><label>Minutos</label><input id="cg-min" type="number" min="0" placeholder="Ej: 90"></div></div>'+
-        '<div class="frm-row">'+
-          '<div class="fld"><label>Sueño</label>'+scale('cg-sue')+'</div><div class="fld"><label>Fatiga</label>'+scale('cg-fat')+'</div>'+
-          '<div class="fld"><label>Dolor</label>'+scale('cg-dol')+'</div><div class="fld"><label>Ánimo</label>'+scale('cg-ani')+'</div></div>'+
-        '<div class="fld wide"><label>Nota (opcional)</label><input id="cg-nota" placeholder="Observaciones"></div>'+
-        '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="saveCarga()">Registrar</button><span class="msg" id="cg-msg"></span></div>'+
+          '<div class="fld"><label>Tipo de trabajo</label>'+tsel+'</div></div>'+
+        '<div class="fsub">Esfuerzo percibido · RPE 0-10</div>'+rpeSeg+
+        '<div class="frm-row" style="align-items:flex-end">'+
+          '<div class="fld" style="max-width:150px"><label>Minutos</label><input id="cg-min" type="number" min="0" placeholder="Ej: 90" oninput="cgLive()"></div>'+
+          '<div class="cg-live-box"><div class="cg-live-l">Carga de la sesión (RPE × min)</div><div class="cg-live" id="cg-carga-live">—</div></div></div>'+
+        '<div class="fsub">Bienestar · 1 bajo a 5 alto</div>'+
+        '<div class="frm-row">'+wf('Sueño','cg-sue')+wf('Fatiga','cg-fat')+wf('Dolor','cg-dol')+wf('Ánimo','cg-ani')+'</div>'+
+        '<div class="fld wide"><label>Nota (opcional)</label><input id="cg-nota" placeholder="Detalle del trabajo, sensaciones, observaciones…"></div>'+
+        '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="saveCarga()">Registrar sesión</button><span class="msg" id="cg-msg"></span></div>'+
       '</div></div>';
     }
-    const desde=daysAgoStr(6),byp={};
-    CARGAS.forEach(c=>{if(c.fecha>=desde){const o=byp[c.jugador_id]=byp[c.jugador_id]||{carga:0,n:0,rpe:0};o.carga+=c.carga||0;o.n++;o.rpe+=c.rpe||0;}});
-    const maxC=Math.max(1,...Object.values(byp).map(o=>o.carga));
-    let sum='<div class="sec">Carga semanal (últimos 7 días)</div>';
-    const conCarga=PLAYERS.filter(p=>byp[p.id]);
-    if(!conCarga.length)sum+='<div class="empty">Todavía no hay carga registrada esta semana.</div>';
-    else sum+=conCarga.map(p=>{const o=byp[p.id];const pct=Math.round(o.carga/maxC*100);const rpeAvg=o.n?(o.rpe/o.n).toFixed(1):'0';
-      return '<div class="sum-row"><div class="sum-body"><div class="sum-n">'+(p.dorsal!=null?'#'+p.dorsal+' ':'')+esc(p.nombre)+'</div><div class="sum-track"><span style="width:'+pct+'%;background:var(--defense)"></span></div></div>'+
-        '<div class="sum-nums"><b>'+o.carga+'</b>UA · '+o.n+' ses · RPE '+rpeAvg+'</div></div>';
+    // ── agregación semanal por jugador ──
+    const desde=daysAgoStr(6), agg={};
+    const dayIdx=f=>{const d=diasDesde(f);return (d>=0&&d<=6)?(6-d):-1;};
+    CARGAS.forEach(c=>{
+      const o=agg[c.jugador_id]=agg[c.jugador_id]||{carga:0,n:0,rpe:0,min:0,dist:{},days:[0,0,0,0,0,0,0],well:[],last:null};
+      if(!o.last)o.last=c.fecha;
+      if(c.fecha>=desde){
+        o.carga+=c.carga||0;o.n++;o.rpe+=c.rpe||0;o.min+=c.minutos||0;
+        const t=c.tipo||'otro';o.dist[t]=(o.dist[t]||0)+(c.carga||0);
+        const di=dayIdx(c.fecha);if(di>=0)o.days[di]+=c.carga||0;
+        const ws=[];if(c.sueno)ws.push(c.sueno);if(c.animo)ws.push(c.animo);if(c.fatiga)ws.push(6-c.fatiga);if(c.dolor)ws.push(6-c.dolor);
+        if(ws.length)o.well.push(ws.reduce((a,b)=>a+b,0)/ws.length);
+      }
+    });
+    const conCarga=PLAYERS.filter(p=>agg[p.id]&&agg[p.id].n>0);
+    let panel='<div class="sec">Semana de cada jugador (últimos 7 días)</div>';
+    if(!conCarga.length)panel+='<div class="empty">Todavía no hay sesiones registradas esta semana. Cargá la primera arriba.</div>';
+    else panel+=conCarga.map(p=>{
+      const o=agg[p.id];const rpeAvg=o.n?(o.rpe/o.n).toFixed(1):'0';
+      const well=o.well.length?(o.well.reduce((a,b)=>a+b,0)/o.well.length).toFixed(1):null;
+      const distTotal=Object.values(o.dist).reduce((a,b)=>a+b,0);
+      const dseg=TRABAJO.filter(t=>o.dist[t.k]);
+      const distBar=distTotal?('<div class="distbar">'+dseg.map(t=>'<span style="width:'+(o.dist[t.k]/distTotal*100).toFixed(1)+'%;background:'+t.color+'"></span>').join('')+'</div>'+
+        '<div class="tchips">'+dseg.map(t=>'<span class="tchip"><i style="background:'+t.color+'"></i>'+esc(t.label)+' '+Math.round(o.dist[t.k]/distTotal*100)+'%</span>').join('')+'</div>'):'<div class="muted">Sin trabajo etiquetado</div>';
+      const stats=[['<b>'+o.carga+'</b>','UA semana'],[o.n,'sesiones'],[rpeAvg,'RPE medio'],[o.min+"'",'minutos']];
+      if(well)stats.push([well,'bienestar /5']);
+      return '<div class="lcard">'+
+        '<div class="lcard-h"><span class="pl-num sm">'+(p.dorsal!=null?p.dorsal:'–')+'</span>'+
+          '<div class="lh-id"><div class="lh-n">'+esc(p.nombre)+'</div><div class="lh-p">'+esc(posLabel(p.posicion))+'</div></div>'+
+          '<span class="lh-last">última: '+ultimaLabel(diasDesde(o.last))+'</span></div>'+
+        '<div class="lstats">'+stats.map(s=>'<div class="ls"><div class="ls-v">'+s[0]+'</div><div class="ls-l">'+s[1]+'</div></div>').join('')+'</div>'+
+        '<div class="lrow">'+
+          '<div class="lcol"><div class="lcol-t">Distribución del trabajo</div>'+distBar+'</div>'+
+          '<div class="lcol spark-col"><div class="lcol-t">Carga diaria · 7 días</div>'+sparkline(o.days)+'<div class="spark-x">L M M J V S D</div></div>'+
+        '</div></div>';
     }).join('');
+    // ── últimos registros ──
     const nameOf=jid=>{const p=PLAYERS.find(x=>x.id===jid);return p?((p.dorsal!=null?'#'+p.dorsal+' ':'')+p.nombre):'—';};
-    let recent='<div class="sec">Últimos registros</div>';
+    let recent='<div class="sec">Últimas sesiones</div>';
     if(!CARGAS.length)recent+='<div class="empty">Sin registros todavía.</div>';
-    else recent+='<div class="card">'+CARGAS.slice(0,20).map(c=>{const mine=c.cargado_por===ME.userId;
+    else recent+='<div class="card">'+CARGAS.slice(0,24).map(c=>{const mine=c.cargado_por===ME.userId;const ti=trabInfo(c.tipo);
       return '<div class="entry"><span class="e-d">'+esc(c.fecha)+'</span><span class="e-n">'+esc(nameOf(c.jugador_id))+'</span>'+
-        '<span class="e-tag">RPE '+(c.rpe!=null?c.rpe:'–')+' · '+(c.carga!=null?c.carga+' UA':'')+'</span>'+
+        '<span class="tchip sm"><i style="background:'+ti.color+'"></i>'+esc(ti.label)+'</span>'+
+        '<span class="e-tag">RPE '+(c.rpe!=null?c.rpe:'–')+(c.minutos!=null?" · "+c.minutos+"'":'')+(c.carga!=null?' · '+c.carga+' UA':'')+'</span>'+
         (mine?'<button class="e-x" onclick="removeCarga(\''+esc(c.id)+'\')">✕</button>':'')+'</div>';
     }).join('')+'</div>';
-    return form+sum+recent;
+    return form+panel+recent;
   }
 
   function paint(){
@@ -637,17 +732,21 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   window.removePlayer=async function(id){if(!confirm('¿Quitar al jugador del plantel? Se borran también su disponibilidad y su carga.'))return;await delPlayer(id);await Promise.all([loadPlayers(),loadDispo(),loadCargas()]);paint();};
   window.changeDispo=async function(jid,estado){await setDispo(jid,estado);await loadDispo();paint();};
   window.saveNota=async function(jid){const t=$('nt-'+jid);const nota=(t&&t.value||'').trim();await setNota(jid,nota);NOTAS[jid]=nota;const btn=event&&event.target;if(btn){btn.textContent='✓';setTimeout(()=>{if(btn)btn.textContent='Guardar';},1200);}};
+  window.cgRPE=function(btn){const w=btn.parentNode;Array.prototype.forEach.call(w.children,b=>b.classList.remove('on'));btn.classList.add('on');const h=$('cg-rpe');if(h)h.value=btn.getAttribute('data-v');cgLive();};
+  window.cgScale=function(btn,id){const w=btn.parentNode;Array.prototype.forEach.call(w.children,b=>b.classList.remove('on'));btn.classList.add('on');const h=$(id);if(h)h.value=btn.getAttribute('data-v');};
+  window.cgLive=function(){const r=parseInt(($('cg-rpe')&&$('cg-rpe').value)||'',10),m=parseInt(($('cg-min')&&$('cg-min').value)||'',10);const el=$('cg-carga-live');if(el)el.textContent=(!isNaN(r)&&!isNaN(m))?((r*m)+' UA'):'—';};
   window.saveCarga=async function(){
     const msg=$('cg-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
     const jid=($('cg-jug')&&$('cg-jug').value)||'';if(!jid)return err('Elegí un jugador.');
     const rpe=parseInt(($('cg-rpe')&&$('cg-rpe').value)||'',10),min=parseInt(($('cg-min')&&$('cg-min').value)||'',10);
-    if(isNaN(rpe)&&isNaN(min))return err('Cargá al menos RPE o minutos.');
+    if(isNaN(rpe)&&isNaN(min))return err('Marcá el RPE o cargá los minutos.');
     const num=id=>{const v=parseInt(($(id)&&$(id).value)||'',10);return isNaN(v)?null:v;};
-    const o={jugador_id:jid,fecha:($('cg-fecha')&&$('cg-fecha').value)||todayStr(),rpe:isNaN(rpe)?null:rpe,minutos:isNaN(min)?null:min,
+    const o={jugador_id:jid,fecha:($('cg-fecha')&&$('cg-fecha').value)||todayStr(),tipo:($('cg-tipo')&&$('cg-tipo').value)||'otro',
+      rpe:isNaN(rpe)?null:rpe,minutos:isNaN(min)?null:min,
       sueno:num('cg-sue'),fatiga:num('cg-fat'),dolor:num('cg-dol'),animo:num('cg-ani'),nota:(($('cg-nota')&&$('cg-nota').value)||'').trim()||null};
     const btn=document.querySelector('.btn-primary');if(btn)btn.disabled=true;const r=await addCarga(o);if(btn)btn.disabled=false;
     if(r.error)return err('No se pudo registrar: '+r.error);
-    if(msg){msg.textContent='✓ Registrado.';msg.className='msg ok';}
+    if(msg){msg.textContent='✓ Sesión registrada.';msg.className='msg ok';}
     await loadCargas();paint();
   };
   window.removeCarga=async function(id){if(!confirm('¿Borrar este registro?'))return;await delCarga(id);await loadCargas();paint();};
