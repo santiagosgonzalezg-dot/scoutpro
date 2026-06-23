@@ -126,13 +126,15 @@ body{
 .area:nth-of-type(3){animation-delay:.58s}
 .area:nth-of-type(4){animation-delay:.66s}
 .area-head{width:100%; display:flex; align-items:center; gap:11px; background:none; border:none; cursor:pointer; padding:8px 0; text-align:left;
-  font-family:var(--mono); font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--text-3); transition:color .15s}
-.area-head:hover{color:var(--text-2)}
-.area-head .chev{width:16px; height:16px; flex:none; display:flex; align-items:center; justify-content:center; color:var(--text-2); transition:transform .22s ease}
-.area-head .chev svg{width:14px; height:14px}
+  font-family:var(--mono); font-size:12.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--text-2); transition:color .15s}
+.area-head .chev{width:18px; height:18px; flex:none; display:flex; align-items:center; justify-content:center; color:var(--text-2); transition:transform .22s ease, color .15s}
+.area-head .chev svg{width:15px; height:15px; stroke-width:3}
 .area.open .area-head .chev{transform:rotate(90deg); color:var(--offense)}
-.area-head .lbl{white-space:nowrap}
-.area-head .cnt{font-size:10px; letter-spacing:.08em; color:var(--text-3); border:1px solid var(--bm); border-radius:20px; padding:1px 8px}
+.area-head .lbl{white-space:nowrap; color:#eef1f6; font-weight:600; text-shadow:0 1px 10px rgba(0,0,0,.5)}
+.area-head:hover .lbl{color:#fff}
+.area-head:hover .chev{color:var(--offense)}
+.area.open .area-head .lbl{color:#fff}
+.area-head .cnt{font-size:10.5px; letter-spacing:.06em; color:var(--text); font-weight:500; border:1px solid var(--bs); border-radius:20px; padding:2px 9px}
 .area-head .ln{flex:1; height:1px; background:var(--bm)}
 .area-body{display:none; margin-top:14px}
 .area.open .area-body{display:block; animation:fadeArea .26s ease}
