@@ -110,6 +110,40 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--body);font-si
 .sum-nums b{color:var(--text);font-family:var(--disp);font-size:16px;margin-right:2px}
 .sum-nums .ok{color:var(--positive)}.sum-nums .pn{color:#e0b341}
 
+/* plantel */
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
+.pl{display:flex;align-items:center;gap:12px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:13px;padding:12px 13px}
+.pl-num{width:40px;height:40px;border-radius:10px;background:var(--bg-panel);border:1px solid var(--bm);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:900;font-size:19px;color:var(--offense);flex-shrink:0}
+.pl-body{flex:1;min-width:0}
+.pl-n{font-weight:600;font-size:14px;display:flex;align-items:center;gap:7px}
+.pl-pos{font-family:var(--mono);font-size:9.5px;color:var(--text-2);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.pl-x{background:none;border:1px solid var(--bm);color:var(--text-3);border-radius:7px;width:26px;height:26px;font-size:11px;cursor:pointer;flex-shrink:0;transition:all .15s}
+.pl-x:hover{border-color:var(--negative);color:var(--negative)}
+.dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 18%,transparent)}
+.dot.disponible{background:var(--positive);color:var(--positive)}.dot.limitado{background:#e0b341;color:#e0b341}
+.dot.afuera{background:var(--negative);color:var(--negative)}.dot.sindato{background:var(--text-3);color:var(--text-3)}
+.dispo-row{background:var(--bg-raised);border:1px solid var(--bm);border-radius:13px;padding:13px 14px;margin-bottom:9px}
+.dispo-head{display:flex;align-items:center;gap:12px}
+.dispo-head .pl-num{width:34px;height:34px;font-size:16px}
+.dispo-name{flex:1;min-width:0;font-weight:600;font-size:14px}
+.seg{display:flex;gap:5px;flex-shrink:0}
+.seg button{background:var(--bg-panel);border:1px solid var(--bm);color:var(--text-2);border-radius:8px;font-family:var(--mono);font-size:10px;letter-spacing:.3px;padding:7px 10px;cursor:pointer;transition:all .15s}
+.seg button:hover{border-color:var(--bs);color:var(--text)}
+.seg button.on.disponible{border-color:var(--positive);color:var(--positive);background:color-mix(in srgb,var(--positive) 12%,transparent)}
+.seg button.on.limitado{border-color:#e0b341;color:#e0b341;background:color-mix(in srgb,#e0b341 12%,transparent)}
+.seg button.on.afuera{border-color:var(--negative);color:var(--negative);background:color-mix(in srgb,var(--negative) 12%,transparent)}
+.dispo-note{margin-top:10px;display:flex;gap:8px;align-items:flex-start}
+.dispo-note textarea{flex:1;background:var(--bg-panel);border:1px solid var(--bm);border-radius:8px;color:var(--text);font-family:var(--body);font-size:12.5px;padding:8px 11px;outline:none;resize:vertical;min-height:42px}
+.dispo-note textarea:focus{border-color:var(--offense)}
+.note-locked{font-family:var(--mono);font-size:10px;color:var(--text-3);background:var(--bg-panel);border:1px dashed var(--bm);border-radius:8px;padding:8px 11px;margin-top:10px}
+.entry{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--bl);font-size:12.5px}
+.entry:last-child{border-bottom:none}
+.entry .e-d{font-family:var(--mono);font-size:10px;color:var(--text-3);width:78px;flex-shrink:0}
+.entry .e-n{flex:1;font-weight:600}
+.entry .e-tag{font-family:var(--mono);font-size:10px;color:var(--text-2)}
+.entry .e-x{background:none;border:1px solid var(--bm);color:var(--text-3);border-radius:6px;width:24px;height:24px;font-size:10px;cursor:pointer;transition:all .15s}
+.entry .e-x:hover{border-color:var(--negative);color:var(--negative)}
+
 .loadbox{display:flex;flex-direction:column;align-items:center;gap:14px;padding:80px 20px;color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase}
 .spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--bs);border-top-color:var(--offense);animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -172,8 +206,8 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
 
 <div class="wrap">
   <div class="intro">
-    <h1>Tareas y ejercicios</h1>
-    <p>Una biblioteca de ejercicios que carga todo el cuerpo técnico, y desde la que el head coach le asigna trabajo a sus asistentes.</p>
+    <h1>Planificación y plantel</h1>
+    <p>Biblioteca de ejercicios, tareas que el head coach asigna a sus asistentes y el plantel del club con su disponibilidad y carga. Cambiá de sección con las pestañas.</p>
   </div>
   <div id="body">
     <div class="loadbox"><div class="spinner"></div><div>Cargando…</div></div>
@@ -219,6 +253,19 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   let TASKS=[];           // tareas (según rol)
   let TAB='biblioteca';
   let fArea='', fTipo=''; // filtros de biblioteca
+  // ── plantel ──
+  const POS=[{k:'base',label:'Base'},{k:'escolta',label:'Escolta'},{k:'alero',label:'Alero'},{k:'ala_pivot',label:'Ala-pívot'},{k:'pivot',label:'Pívot'}];
+  const ESTADOS=[{k:'disponible',label:'Disponible'},{k:'limitado',label:'Limitado'},{k:'afuera',label:'Afuera'}];
+  const posLabel=k=>{const p=POS.find(x=>x.k===k);return p?p.label:(k||'—');};
+  let PLAYERS=[],DISPO={},NOTAS={},CARGAS=[];
+  function todayStr(){return new Date().toISOString().slice(0,10);}
+  function daysAgoStr(n){const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().slice(0,10);}
+  const isLead=()=>['headcoach','coordinador'].includes(ME.rol);
+  const isMed=()=>['fisioterapeuta','medico'].includes(ME.especialidad);
+  const isPF=()=>ME.especialidad==='preparador_fisico';
+  const canEditDispo=()=>isLead()||isMed();
+  const canSeeNota=()=>isLead()||isMed();
+  const canAddCarga=()=>isLead()||isPF();
 
   // ── auth ──
   function showGate(){document.body.classList.add('auth-locked');if($('auth-gate'))$('auth-gate').style.display='flex';}
@@ -251,12 +298,12 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     const coach=readCoach();const meta=user.user_metadata||{};
     ME.nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(ME.email)||'Coach';
     ME.club=((coach.club||'').trim())||((meta.club||'').trim())||'';
-    ME.rol=coach.rol||meta.rol||'headcoach';
+    ME.rol=coach.rol||meta.rol||'headcoach';ME.especialidad=coach.especialidad||meta.especialidad||'';
     // intentar leer mi fila real de perfiles (fuente de verdad de rol/club)
     try{
       const {data}=await sb.from('perfiles').select('*').eq('user_id',ME.userId).limit(1);
       const r=data&&data[0];
-      if(r){ME.nombre=r.nombre||ME.nombre;ME.club=r.club||ME.club;ME.rol=r.rol||ME.rol;}
+      if(r){ME.nombre=r.nombre||ME.nombre;ME.club=r.club||ME.club;ME.rol=r.rol||ME.rol;ME.especialidad=r.especialidad||ME.especialidad;}
     }catch(e){}
   }
   async function loadTeam(){
@@ -299,6 +346,18 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   async function setTaskEstado(id,estado){try{await sb.from('tareas').update({estado,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}}
   async function delTask(id){try{await sb.from('tareas').delete().eq('id',id);}catch(e){}}
 
+  // ── datos del plantel ──
+  async function loadPlayers(){PLAYERS=[];if(!ME.club)return;try{const {data}=await sb.from('jugadores').select('*').ilike('club',ME.club).order('dorsal',{ascending:true});PLAYERS=data||[];}catch(e){console.warn('players',e&&e.message);}}
+  async function loadDispo(){DISPO={};if(!ME.club)return;try{const {data}=await sb.from('disponibilidad').select('*').ilike('club',ME.club);(data||[]).forEach(d=>DISPO[d.jugador_id]=d);}catch(e){}}
+  async function loadNotas(){NOTAS={};if(!canSeeNota()||!ME.club)return;try{const {data}=await sb.from('disponibilidad_nota').select('*').ilike('club',ME.club);(data||[]).forEach(n=>NOTAS[n.jugador_id]=n.nota||'');}catch(e){}}
+  async function loadCargas(){CARGAS=[];if(!ME.club)return;try{const {data}=await sb.from('carga').select('*').ilike('club',ME.club).order('fecha',{ascending:false}).limit(300);CARGAS=data||[];}catch(e){}}
+  async function addPlayer(o){const row={club:ME.club,nombre:o.nombre,dorsal:o.dorsal,posicion:o.posicion||null,categoria:o.categoria||null,creado_por:ME.userId,created_at:new Date().toISOString()};try{const {error}=await sb.from('jugadores').insert(row);if(error)throw error;return{ok:true};}catch(e){return{error:e&&e.message||String(e)};}}
+  async function delPlayer(id){try{await sb.from('jugadores').delete().eq('id',id);}catch(e){}}
+  async function setDispo(jid,estado){try{await sb.from('disponibilidad').upsert({jugador_id:jid,club:ME.club,estado,por_nombre:ME.nombre,updated_at:new Date().toISOString()},{onConflict:'jugador_id'});}catch(e){console.warn('dispo',e&&e.message);}}
+  async function setNota(jid,nota){try{await sb.from('disponibilidad_nota').upsert({jugador_id:jid,club:ME.club,nota,por_nombre:ME.nombre,updated_at:new Date().toISOString()},{onConflict:'jugador_id'});}catch(e){console.warn('nota',e&&e.message);}}
+  async function addCarga(o){const carga=(o.rpe||0)*(o.minutos||0);const row={club:ME.club,jugador_id:o.jugador_id,fecha:o.fecha,rpe:o.rpe||null,minutos:o.minutos||null,carga:carga||null,sueno:o.sueno||null,fatiga:o.fatiga||null,dolor:o.dolor||null,animo:o.animo||null,nota:o.nota||null,cargado_por:ME.userId,cargado_por_nombre:ME.nombre,created_at:new Date().toISOString()};try{const {error}=await sb.from('carga').insert(row);if(error)throw error;return{ok:true};}catch(e){return{error:e&&e.message||String(e)};}}
+  async function delCarga(id){try{await sb.from('carga').delete().eq('id',id);}catch(e){}}
+
   // ── render ──
   function tabsHTML(){
     const t=[];
@@ -306,6 +365,10 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     if(ME.rol==='headcoach')t.push(['asignar','Asignar tareas']);
     if(ME.rol==='asistente')t.push(['mias','Mis tareas']);
     if(ME.rol==='coordinador')t.push(['club','Tareas del club']);
+    // plantel (todos)
+    t.push(['jugadores','Plantel']);
+    t.push(['disponibilidad','Disponibilidad']);
+    t.push(['carga','Carga & bienestar']);
     return '<div class="tabs">'+t.map(x=>'<div class="tab'+(TAB===x[0]?' active':'')+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+'</div>').join('')+'</div>';
   }
   function tagsFor(ex){
@@ -426,12 +489,94 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     return resumenView()+'<div class="sec">Tareas del club ('+TASKS.length+')</div>'+TASKS.map(t=>taskRow(t,{showWho:true,showBy:true})).join('');
   }
 
+  // ── vistas del plantel ──
+  function estadoOf(jid){const d=DISPO[jid];return d?d.estado:'sindato';}
+  function playerNum(p){return '<div class="pl-num">'+(p.dorsal!=null?p.dorsal:'–')+'</div>';}
+  function jugadoresView(){
+    const form='<div class="sec">Cargar jugador</div><div class="card"><div class="frm">'+
+      '<div class="frm-row">'+
+        '<div class="fld" style="max-width:90px"><label>Dorsal</label><input id="jg-num" type="number" min="0" placeholder="#"></div>'+
+        '<div class="fld"><label>Nombre</label><input id="jg-nom" placeholder="Nombre y apellido"></div></div>'+
+      '<div class="frm-row">'+
+        '<div class="fld"><label>Posición</label><select id="jg-pos">'+POS.map(p=>'<option value="'+p.k+'">'+esc(p.label)+'</option>').join('')+'</select></div>'+
+        '<div class="fld"><label>Categoría (opcional)</label><input id="jg-cat" placeholder="Ej: Primera, U18"></div></div>'+
+      '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="savePlayer()">+ Agregar al plantel</button><span class="msg" id="jg-msg"></span></div>'+
+    '</div></div>';
+    let grid;
+    if(!PLAYERS.length)grid='<div class="empty">Todavía no hay jugadores en el plantel. Cargá el primero arriba.</div>';
+    else grid='<div class="players">'+PLAYERS.map(p=>{const est=estadoOf(p.id);
+      return '<div class="pl">'+playerNum(p)+'<div class="pl-body"><div class="pl-n"><span class="dot '+est+'"></span>'+esc(p.nombre)+'</div>'+
+        '<div class="pl-pos">'+esc(posLabel(p.posicion))+(p.categoria?' · '+esc(p.categoria):'')+'</div></div>'+
+        '<button class="pl-x" title="Quitar" onclick="removePlayer(\''+esc(p.id)+'\')">✕</button></div>';
+    }).join('')+'</div>';
+    return form+'<div class="sec">Plantel ('+PLAYERS.length+')</div>'+grid;
+  }
+  function dispoView(){
+    if(!PLAYERS.length)return '<div class="sec">Disponibilidad</div><div class="empty">Cargá jugadores en la pestaña Plantel para registrar su disponibilidad.</div>';
+    const lead=canEditDispo();
+    const rows=PLAYERS.map(p=>{const est=estadoOf(p.id);
+      const seg=ESTADOS.map(e=>{const on=(est===e.k)?' on '+e.k:'';
+        return lead?'<button class="'+on+'" onclick="changeDispo(\''+esc(p.id)+'\',\''+e.k+'\')">'+esc(e.label)+'</button>'
+                   :'<button class="'+on+'" style="cursor:default" disabled>'+esc(e.label)+'</button>';}).join('');
+      let noteBlock='';
+      if(canSeeNota()){const val=esc(NOTAS[p.id]||'');
+        noteBlock=lead?'<div class="dispo-note"><textarea id="nt-'+esc(p.id)+'" placeholder="Nota clínica (motivo, plazo estimado…)">'+val+'</textarea><button class="mini" onclick="saveNota(\''+esc(p.id)+'\')">Guardar</button></div>'
+                      :(NOTAS[p.id]?'<div class="note-locked">📋 '+esc(NOTAS[p.id])+'</div>':'');
+      }else if(est==='limitado'||est==='afuera'){noteBlock='<div class="note-locked">🔒 El detalle clínico lo ve el cuerpo médico y el head coach.</div>';}
+      return '<div class="dispo-row"><div class="dispo-head">'+playerNum(p)+'<span class="dispo-name">'+esc(p.nombre)+'</span><span class="dot '+est+'"></span><div class="seg">'+seg+'</div></div>'+noteBlock+'</div>';
+    }).join('');
+    const leg='<div class="empty">🟢 disponible · 🟡 limitado · 🔴 afuera'+(lead?'':' · (solo lectura)')+'</div>';
+    return '<div class="sec">Semáforo de disponibilidad</div>'+leg+rows;
+  }
+  function cargaView(){
+    if(!PLAYERS.length)return '<div class="sec">Carga & bienestar</div><div class="empty">Cargá jugadores primero para registrar su carga.</div>';
+    let form='';
+    if(canAddCarga()){
+      const sel='<select id="cg-jug">'+PLAYERS.map(p=>'<option value="'+esc(p.id)+'">'+(p.dorsal!=null?'#'+p.dorsal+' ':'')+esc(p.nombre)+'</option>').join('')+'</select>';
+      const scale=id=>'<select id="'+id+'"><option value="">—</option>'+[1,2,3,4,5].map(n=>'<option value="'+n+'">'+n+'</option>').join('')+'</select>';
+      form='<div class="sec">Registrar sesión</div><div class="card"><div class="frm">'+
+        '<div class="frm-row"><div class="fld wide"><label>Jugador</label>'+sel+'</div></div>'+
+        '<div class="frm-row">'+
+          '<div class="fld"><label>Fecha</label><input id="cg-fecha" type="date" value="'+todayStr()+'"></div>'+
+          '<div class="fld"><label>RPE (0-10)</label><input id="cg-rpe" type="number" min="0" max="10" placeholder="Ej: 7"></div>'+
+          '<div class="fld"><label>Minutos</label><input id="cg-min" type="number" min="0" placeholder="Ej: 90"></div></div>'+
+        '<div class="frm-row">'+
+          '<div class="fld"><label>Sueño</label>'+scale('cg-sue')+'</div><div class="fld"><label>Fatiga</label>'+scale('cg-fat')+'</div>'+
+          '<div class="fld"><label>Dolor</label>'+scale('cg-dol')+'</div><div class="fld"><label>Ánimo</label>'+scale('cg-ani')+'</div></div>'+
+        '<div class="fld wide"><label>Nota (opcional)</label><input id="cg-nota" placeholder="Observaciones"></div>'+
+        '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="saveCarga()">Registrar</button><span class="msg" id="cg-msg"></span></div>'+
+      '</div></div>';
+    }
+    const desde=daysAgoStr(6),byp={};
+    CARGAS.forEach(c=>{if(c.fecha>=desde){const o=byp[c.jugador_id]=byp[c.jugador_id]||{carga:0,n:0,rpe:0};o.carga+=c.carga||0;o.n++;o.rpe+=c.rpe||0;}});
+    const maxC=Math.max(1,...Object.values(byp).map(o=>o.carga));
+    let sum='<div class="sec">Carga semanal (últimos 7 días)</div>';
+    const conCarga=PLAYERS.filter(p=>byp[p.id]);
+    if(!conCarga.length)sum+='<div class="empty">Todavía no hay carga registrada esta semana.</div>';
+    else sum+=conCarga.map(p=>{const o=byp[p.id];const pct=Math.round(o.carga/maxC*100);const rpeAvg=o.n?(o.rpe/o.n).toFixed(1):'0';
+      return '<div class="sum-row"><div class="sum-body"><div class="sum-n">'+(p.dorsal!=null?'#'+p.dorsal+' ':'')+esc(p.nombre)+'</div><div class="sum-track"><span style="width:'+pct+'%;background:var(--defense)"></span></div></div>'+
+        '<div class="sum-nums"><b>'+o.carga+'</b>UA · '+o.n+' ses · RPE '+rpeAvg+'</div></div>';
+    }).join('');
+    const nameOf=jid=>{const p=PLAYERS.find(x=>x.id===jid);return p?((p.dorsal!=null?'#'+p.dorsal+' ':'')+p.nombre):'—';};
+    let recent='<div class="sec">Últimos registros</div>';
+    if(!CARGAS.length)recent+='<div class="empty">Sin registros todavía.</div>';
+    else recent+='<div class="card">'+CARGAS.slice(0,20).map(c=>{const mine=c.cargado_por===ME.userId;
+      return '<div class="entry"><span class="e-d">'+esc(c.fecha)+'</span><span class="e-n">'+esc(nameOf(c.jugador_id))+'</span>'+
+        '<span class="e-tag">RPE '+(c.rpe!=null?c.rpe:'–')+' · '+(c.carga!=null?c.carga+' UA':'')+'</span>'+
+        (mine?'<button class="e-x" onclick="removeCarga(\''+esc(c.id)+'\')">✕</button>':'')+'</div>';
+    }).join('')+'</div>';
+    return form+sum+recent;
+  }
+
   function paint(){
     let view='';
     if(TAB==='biblioteca')view=bibliotecaView();
     else if(TAB==='asignar')view=asignarView();
     else if(TAB==='mias')view=miasView();
     else if(TAB==='club')view=clubView();
+    else if(TAB==='jugadores')view=jugadoresView();
+    else if(TAB==='disponibilidad')view=dispoView();
+    else if(TAB==='carga')view=cargaView();
     $('body').innerHTML=tabsHTML()+view+
       '<div class="sec">Sesión</div><div class="card"><div class="empty" style="padding:0">Entraste como <b style="color:var(--text)">'+esc(ME.email)+'</b> · '+esc(ME.club||'sin club')+
       '<div style="margin-top:10px"><button class="mini danger" onclick="authLogout()">Cerrar sesión</button></div></div></div>';
@@ -479,11 +624,45 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   window.toggleTask=async function(id,estado){await setTaskEstado(id,estado);await loadTasks();paint();};
   window.removeTask=async function(id){if(!confirm('¿Eliminar esta tarea?'))return;await delTask(id);await loadTasks();paint();};
 
+  // acciones del plantel
+  window.savePlayer=async function(){
+    const nom=(($('jg-nom')&&$('jg-nom').value)||'').trim();const msg=$('jg-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
+    if(!nom)return err('Poné el nombre.');
+    const dorsal=parseInt(($('jg-num')&&$('jg-num').value)||'',10);
+    const o={nombre:nom,dorsal:isNaN(dorsal)?null:dorsal,posicion:($('jg-pos')&&$('jg-pos').value)||null,categoria:(($('jg-cat')&&$('jg-cat').value)||'').trim()||null};
+    const btn=document.querySelector('.btn-primary');if(btn)btn.disabled=true;const r=await addPlayer(o);if(btn)btn.disabled=false;
+    if(r.error)return err('No se pudo guardar: '+r.error);
+    await loadPlayers();paint();
+  };
+  window.removePlayer=async function(id){if(!confirm('¿Quitar al jugador del plantel? Se borran también su disponibilidad y su carga.'))return;await delPlayer(id);await Promise.all([loadPlayers(),loadDispo(),loadCargas()]);paint();};
+  window.changeDispo=async function(jid,estado){await setDispo(jid,estado);await loadDispo();paint();};
+  window.saveNota=async function(jid){const t=$('nt-'+jid);const nota=(t&&t.value||'').trim();await setNota(jid,nota);NOTAS[jid]=nota;const btn=event&&event.target;if(btn){btn.textContent='✓';setTimeout(()=>{if(btn)btn.textContent='Guardar';},1200);}};
+  window.saveCarga=async function(){
+    const msg=$('cg-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
+    const jid=($('cg-jug')&&$('cg-jug').value)||'';if(!jid)return err('Elegí un jugador.');
+    const rpe=parseInt(($('cg-rpe')&&$('cg-rpe').value)||'',10),min=parseInt(($('cg-min')&&$('cg-min').value)||'',10);
+    if(isNaN(rpe)&&isNaN(min))return err('Cargá al menos RPE o minutos.');
+    const num=id=>{const v=parseInt(($(id)&&$(id).value)||'',10);return isNaN(v)?null:v;};
+    const o={jugador_id:jid,fecha:($('cg-fecha')&&$('cg-fecha').value)||todayStr(),rpe:isNaN(rpe)?null:rpe,minutos:isNaN(min)?null:min,
+      sueno:num('cg-sue'),fatiga:num('cg-fat'),dolor:num('cg-dol'),animo:num('cg-ani'),nota:(($('cg-nota')&&$('cg-nota').value)||'').trim()||null};
+    const btn=document.querySelector('.btn-primary');if(btn)btn.disabled=true;const r=await addCarga(o);if(btn)btn.disabled=false;
+    if(r.error)return err('No se pudo registrar: '+r.error);
+    if(msg){msg.textContent='✓ Registrado.';msg.className='msg ok';}
+    await loadCargas();paint();
+  };
+  window.removeCarga=async function(id){if(!confirm('¿Borrar este registro?'))return;await delCarga(id);await loadCargas();paint();};
+
   // ── boot ──
   async function bootData(user){
     await loadMe(user);
-    TAB=(ME.rol==='asistente')?'mias':(ME.rol==='coordinador'?'club':'biblioteca');
-    await Promise.all([loadExercises(),loadTasks(), ME.rol==='headcoach'?loadTeam():Promise.resolve()]);
+    const PLANTEL=['jugadores','disponibilidad','carga'];
+    const h=(location.hash||'').replace('#','');
+    if(['biblioteca','asignar','mias','club'].concat(PLANTEL).includes(h))TAB=h;
+    else TAB=(ME.rol==='asistente')?'mias':(ME.rol==='coordinador'?'club':'biblioteca');
+    await Promise.all([
+      loadExercises(),loadTasks(),ME.rol==='headcoach'?loadTeam():Promise.resolve(),
+      loadPlayers(),loadDispo(),loadNotas(),loadCargas()
+    ]);
     paint();
   }
   function boot(){
