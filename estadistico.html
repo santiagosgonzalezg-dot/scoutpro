@@ -301,6 +301,25 @@ table.t tr:hover td{background:var(--bg-hover)}
 .lu-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px}
 .lu-meta{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
 @media(max-width:680px){.arm-dest{grid-template-columns:1fr}}
+/* ── Top factores hacia la victoria (correlaciones) ── */
+.wf-wrap{background:linear-gradient(180deg,rgba(167,139,250,.10),rgba(167,139,250,.02));border:1px solid rgba(167,139,250,.32);border-radius:var(--r-lg);padding:var(--sp-4);margin-bottom:var(--sp-4)}
+.wf-head{font-family:var(--font-disp);font-weight:800;font-size:16px;letter-spacing:.4px;text-transform:uppercase;color:var(--text);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:var(--sp-3)}
+.wf-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.4px;text-transform:none;color:var(--insight);font-weight:500}
+.wf-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(max-width:680px){.wf-grid{grid-template-columns:1fr}}
+.wf-card{display:flex;align-items:center;gap:12px;text-align:left;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:6px;padding:12px 14px;cursor:pointer;transition:all var(--t-fast);width:100%;font-family:inherit}
+.wf-card:hover{border-color:var(--insight);transform:translateY(-1px)}
+.wf-card.sel{border-color:var(--insight);background:rgba(167,139,250,.10)}
+.wf-rank{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-disp);font-weight:800;font-size:14px;color:var(--insight);background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.3)}
+.wf-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+.wf-label{font-family:var(--font-ui);font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wf-dir{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.3px}
+.wf-meter{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:5px;width:86px}
+.wf-rv{font-family:var(--font-mono);font-size:11px;color:var(--text-2);font-weight:500}
+.wf-bar{width:100%;height:5px;border-radius:3px;background:var(--bg-hover);overflow:hidden}
+.wf-bar i{display:block;height:100%;border-radius:3px}
+.wf-foot{font-family:var(--font-mono);font-size:9.5px;line-height:1.7;color:var(--text-3);margin-top:var(--sp-3)}
+.wf-empty{font-family:var(--font-mono);font-size:11px;color:var(--text-2);padding:14px 4px}
 </style>
 </head>
 <body>
@@ -1171,6 +1190,7 @@ function renderTiros(){
 let corrLevel='game',corrX='ts',corrY='efOff';
 function setCorr(which,v){if(which==='lvl')corrLevel=v;if(which==='x')corrX=v;if(which==='y')corrY=v;renderCorrel();}
 const CORR_METRICS=[
+  {key:'diff',label:'Diferencial (resultado)',cnt:1},
   {key:'efg',label:'eFG%'},
   {key:'ts',label:'TS% (True Shooting)'},
   {key:'threeVol',label:'Volumen de 3 (%)'},
@@ -1262,10 +1282,56 @@ function setCorrHL(v){corrHL=v;renderCorrel();}
 function toggleCorrHL(i){const t=(window.__corrTeams||[])[i]||'';corrHL=(corrHL===t)?'':t;renderCorrel();}
 function setCorrPreset(i){const p=CORR_PRESETS[i];corrX=p.x;corrY=p.y;renderCorrel();}
 function swapCorr(){const t=corrX;corrX=corrY;corrY=t;renderCorrel();}
+// ── Top factores que más acercan a la victoria ──
+function pearson(xs,ys){
+  const n=xs.length;if(n<2)return 0;
+  const mx=xs.reduce((s,v)=>s+v,0)/n,my=ys.reduce((s,v)=>s+v,0)/n;
+  let sxy=0,sxx=0,syy=0;
+  for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}
+  return (sxx&&syy)?sxy/Math.sqrt(sxx*syy):0;
+}
+function setCorrFactor(key){corrX=key;corrY='diff';renderCorrel();}
+function winFactorsPanel(ents){
+  const lvlTxt=corrLevel==='team'?'comparando equipos · temporada':'partido a partido';
+  const cand=CORR_METRICS.filter(m=>m.key!=='diff'&&m.key!=='ptsF'&&m.key!=='ptsC');
+  const tgt=ents.map(e=>metricVal(e.a,'diff'));
+  const rows=[];
+  cand.forEach(m=>{
+    const xs=[],ys=[];
+    ents.forEach((e,i)=>{const v=metricVal(e.a,m.key),t=tgt[i];if(isFinite(v)&&isFinite(t)){xs.push(v);ys.push(t);}});
+    if(xs.length<3)return;
+    const r=pearson(xs,ys);
+    if(!isFinite(r))return;
+    rows.push({key:m.key,label:m.label,r:r,abs:Math.abs(r)});
+  });
+  rows.sort((a,b)=>b.abs-a.abs);
+  const top=rows.slice(0,4);
+  if(!top.length)return '<div class="wf-wrap"><div class="wf-head">🎯 Lo que más te acerca a ganar</div><div class="wf-empty">Necesito al menos 3 partidos para medir qué factores pesan más en el resultado. Guardá más partidos.</div></div>';
+  const cards=top.map((f,idx)=>{
+    const up=f.r>=0;
+    const pct=Math.min(100,Math.round(f.abs*100));
+    const sel=(corrX===f.key&&corrY==='diff');
+    const arrow=up?'▲':'▼';
+    const acol=up?'var(--positive)':'#e0a83b';
+    const dir=up?'Cuanto más alto, más cerca del triunfo':'Cuanto más bajo, más cerca del triunfo';
+    return '<button class="wf-card'+(sel?' sel':'')+'" onclick="setCorrFactor(\''+f.key+'\')">'+
+      '<span class="wf-rank">'+(idx+1)+'</span>'+
+      '<span class="wf-main"><span class="wf-label">'+f.label+'</span>'+
+      '<span class="wf-dir" style="color:'+acol+'">'+arrow+' '+dir+'</span></span>'+
+      '<span class="wf-meter"><span class="wf-rv">r '+(f.r>=0?'+':'')+f.r.toFixed(2)+'</span>'+
+      '<span class="wf-bar"><i style="width:'+pct+'%;background:'+acol+'"></i></span></span>'+
+      '</button>';
+  }).join('');
+  return '<div class="wf-wrap"><div class="wf-head">🎯 Lo que más te acerca a ganar'+
+    '<span class="wf-sub">'+lvlTxt+' · top 4 por relación con el diferencial</span></div>'+
+    '<div class="wf-grid">'+cards+'</div>'+
+    '<div class="wf-foot">Ordenamos cada métrica por su correlación (r) con el diferencial de puntos —el resultado—. Tocá una tarjeta para verla en el gráfico contra el resultado. No contamos «puntos a favor/en contra» porque son el resultado en sí.</div></div>';
+}
 function renderCorrel(){
   const el=document.getElementById('view-correl');
   if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
   const ents=corrLevel==='team'?leagueTeamStats():teamGameStats();
+  const winHTML=winFactorsPanel(ents);
   const pts=ents.map(e=>({x:metricVal(e.a,corrX),y:metricVal(e.a,corrY),team:e.team,label:e.label||e.team,sub:e.sub||''})).filter(p=>isFinite(p.x)&&isFinite(p.y));
   const mOpts=sel=>CORR_METRICS.map(m=>'<option value="'+m.key+'"'+(m.key===sel?' selected':'')+'>'+m.label+'</option>').join('');
   const xlab=(CORR_METRICS.find(m=>m.key===corrX)||{}).label,ylab=(CORR_METRICS.find(m=>m.key===corrY)||{}).label;
@@ -1282,7 +1348,7 @@ function renderCorrel(){
     '<button class="tb-btn" onclick="swapCorr()" title="Invertir ejes">⇄</button>'+
     '<span class="zone-lbl">Eje Y</span><select onchange="setCorr(\'y\',this.value)">'+mOpts(corrY)+'</select>'+
     '<select onchange="setCorrHL(this.value)">'+hlOpts+'</select></div>';
-  if(pts.length<3){el.innerHTML=presets+ctl+'<div class="empty">Faltan datos para correlacionar (necesito al menos 3 puntos). Guardá más partidos.</div>';return;}
+  if(pts.length<3){el.innerHTML=winHTML+presets+ctl+'<div class="empty">Faltan datos para correlacionar (necesito al menos 3 puntos). Guardá más partidos.</div>';return;}
   const res=scatterSVG(pts,xlab,ylab,corrLevel==='team',corrHL);
   const ar=Math.abs(res.r);
   const fuerza=ar<0.2?'casi nula':ar<0.4?'débil':ar<0.6?'moderada':ar<0.8?'fuerte':'muy fuerte';
@@ -1297,7 +1363,7 @@ function renderCorrel(){
     '<div class="zone-row"><span class="zone-lbl">r² (varianza explicada)</span><span class="zone-val">'+Math.round(res.r*res.r*100)+'%</span></div>'+
     '<div class="zone-sub" style="margin-top:8px;color:#cfd5e3">'+interp+'</div>'+
     '<div class="zone-sub" style="margin-top:6px">'+res.n+' puntos · línea punteada violeta = tendencia · pasá el mouse por un punto para ver el detalle.</div></div>';
-  el.innerHTML=presets+ctl+'<div class="sec">'+ylab+' vs '+xlab+'</div><div class="court-box">'+res.svg+legend+'</div>'+panel;
+  el.innerHTML=winHTML+presets+ctl+'<div class="sec">'+ylab+' vs '+xlab+'</div><div class="court-box">'+res.svg+legend+'</div>'+panel;
   attachScatterTips(xlab,ylab);
 }
 function attachScatterTips(xlabel,ylabel){
