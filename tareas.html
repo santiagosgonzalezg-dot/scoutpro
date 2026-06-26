@@ -141,39 +141,83 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--body);font-si
 .tag.ghost{background:none;color:var(--text-3);border:1px solid var(--bm)}
 .ex-by{font-family:var(--mono);font-size:9px;color:var(--text-3);margin-top:auto}
 
-/* assistant checklist */
-.who{display:flex;gap:8px;flex-wrap:wrap}
-.who label{display:flex;align-items:center;gap:7px;background:var(--bg-panel);border:1px solid var(--bm);border-radius:9px;padding:8px 12px;cursor:pointer;font-size:12.5px;transition:all .15s}
-.who label:hover{border-color:var(--bs)}
-.who input{accent-color:var(--offense)}
-
-/* task rows */
-.task{background:var(--bg-raised);border:1px solid var(--bm);border-radius:12px;padding:12px 14px;margin-bottom:9px}
-.task.done{opacity:.62}
-.task-main{display:flex;align-items:center;gap:12px}
-.task-body{flex:1;min-width:0}
-.task-t{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.task-t.strike{text-decoration:line-through}
-.task-meta{font-family:var(--mono);font-size:9.5px;color:var(--text-3);margin-top:3px;line-height:1.5}
-.task-note{font-size:12px;color:var(--text-2);margin-top:5px;line-height:1.45}
-.st{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;padding:3px 8px;border-radius:20px;text-transform:uppercase;white-space:nowrap}
-.st.pend{color:var(--amber);border:1px solid color-mix(in srgb,var(--amber) 45%,transparent)}
-.st.hecha{color:var(--positive);border:1px solid color-mix(in srgb,var(--positive) 45%,transparent)}
-.task-act{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
 .mini{background:var(--bg-panel);border:1px solid var(--bm);color:var(--text-2);border-radius:7px;font-family:var(--mono);font-size:10px;padding:7px 11px;cursor:pointer;white-space:nowrap;transition:all .15s}
 .mini:hover{border-color:var(--positive);color:var(--positive)}
 .mini.danger:hover{border-color:var(--negative);color:var(--negative)}
 .mini.neutral:hover{border-color:var(--bs);color:var(--text)}
 
-/* resumen por asistente */
-.sum-row{display:flex;align-items:center;gap:12px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:12px;padding:11px 14px;margin-bottom:8px}
-.sum-body{flex:1;min-width:0}
-.sum-n{font-weight:600;font-size:13.5px}
-.sum-track{height:7px;background:var(--bg-panel);border-radius:4px;overflow:hidden;margin-top:6px}
-.sum-track span{display:block;height:100%;background:var(--positive);border-radius:4px;transition:width .3s}
-.sum-nums{font-family:var(--mono);font-size:10px;color:var(--text-3);text-align:right;white-space:nowrap;flex-shrink:0}
-.sum-nums b{color:var(--text);font-family:var(--disp);font-size:16px;margin-right:2px}
-.sum-nums .ok{color:var(--positive)}.sum-nums .pn{color:var(--amber)}
+/* ───────── COMPOSER NUEVA TAREA ───────── */
+.ntask{background:linear-gradient(180deg,color-mix(in srgb,var(--offense) 7%,var(--bg-raised)),var(--bg-raised));border:1px solid var(--bm);border-radius:16px;overflow:hidden;margin-bottom:16px}
+.ntask-h{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--bm)}
+.ntask-h .dotmark{width:8px;height:8px;border-radius:50%;background:var(--offense);box-shadow:0 0 0 4px color-mix(in srgb,var(--offense) 18%,transparent)}
+.ntask-h h3{font-family:var(--disp);font-weight:800;font-size:16px;letter-spacing:.4px;text-transform:uppercase}
+.ntask-h span{font-family:var(--mono);font-size:9.5px;color:var(--text-3);margin-left:auto}
+.ntask-b{padding:16px}
+.flabel{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:7px;display:block}
+.field+.field{margin-top:14px}
+.src-toggle{display:flex;gap:6px;background:var(--bg-panel);border:1px solid var(--bm);border-radius:10px;padding:4px}
+.src-toggle button{flex:1;background:none;border:1px solid transparent;border-radius:7px;color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.3px;padding:9px;cursor:pointer;transition:all .15s}
+.src-toggle button.on{color:var(--offense);background:color-mix(in srgb,var(--offense) 13%,transparent);border-color:color-mix(in srgb,var(--offense) 38%,transparent)}
+.exlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px;max-height:230px;overflow:auto;padding:2px}
+.expick{text-align:left;background:var(--bg-panel);border:1px solid var(--bm);border-radius:11px;padding:11px 12px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:6px}
+.expick:hover{border-color:var(--bs)}
+.expick.on{border-color:var(--offense);background:color-mix(in srgb,var(--offense) 9%,transparent);box-shadow:0 0 0 1px var(--offense) inset}
+.expick-t{font-family:var(--disp);font-weight:700;font-size:15px;line-height:1.1}
+.expick-tags{display:flex;gap:5px;flex-wrap:wrap}
+.inp{background:var(--bg-panel);border:1px solid var(--bm);border-radius:9px;color:var(--text);font-family:var(--body);font-size:13.5px;padding:10px 12px;outline:none;width:100%;transition:border-color .15s}
+.inp:focus{border-color:var(--offense)}
+textarea.inp{resize:vertical;min-height:58px}
+.two{display:flex;gap:12px;flex-wrap:wrap}
+.two>.field{flex:1;min-width:150px;margin-top:0}
+.whogrid{display:flex;gap:8px;flex-wrap:wrap}
+.whochip{display:flex;align-items:center;gap:8px;background:var(--bg-panel);border:1px solid var(--bm);border-radius:30px;padding:5px 13px 5px 5px;cursor:pointer;transition:all .15s;user-select:none}
+.whochip:hover{border-color:var(--bs)}
+.whochip.on{border-color:var(--offense);background:color-mix(in srgb,var(--offense) 11%,transparent)}
+.whochip .nm{font-size:12.5px;font-weight:600}
+.whochip .ck{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--bm);display:flex;align-items:center;justify-content:center;font-size:9px;color:transparent;flex-shrink:0}
+.whochip.on .ck{background:var(--offense);border-color:var(--offense);color:#fff}
+.savelib{display:flex;align-items:center;gap:10px;margin-top:14px;background:var(--bg-panel);border:1px dashed var(--bm);border-radius:10px;padding:10px 13px;cursor:pointer}
+.savelib .sw{width:38px;height:22px;border-radius:20px;background:var(--bg-hover);position:relative;flex-shrink:0;transition:background .15s}
+.savelib .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--text-3);transition:all .15s}
+.savelib.on .sw{background:color-mix(in srgb,var(--offense) 60%,transparent)}
+.savelib.on .sw::after{left:18px;background:#fff}
+.savelib .sl{font-size:12.5px;color:var(--text-2)}.savelib .sl b{color:var(--text);font-weight:600}
+.ntask-foot{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+.btn-lg{padding:11px 22px;font-size:15px}
+
+/* ───────── RESUMEN POR ASISTENTE ───────── */
+.coachgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:11px;margin-bottom:6px}
+.coach{display:flex;align-items:center;gap:13px;background:var(--bg-raised);border:1px solid var(--bm);border-radius:14px;padding:13px 15px}
+.ring{--p:0;width:48px;height:48px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(var(--positive) calc(var(--p)*1%),var(--bg-panel) 0);position:relative}
+.ring::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--bg-raised)}
+.ring b{position:relative;font-family:var(--disp);font-weight:800;font-size:14px;color:var(--text)}
+.coach-id{flex:1;min-width:0}
+.coach-n{font-weight:700;font-size:13.5px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coach-s{font-family:var(--mono);font-size:9.5px;color:var(--text-3);margin-top:4px}
+.coach-s .ok{color:var(--positive)}.coach-s .pn{color:var(--amber)}
+
+/* ───────── FILAS DE TAREA ───────── */
+.task{position:relative;background:var(--bg-raised);border:1px solid var(--bm);border-radius:13px;padding:13px 15px 13px 17px;margin-bottom:10px;overflow:hidden}
+.task::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--amber)}
+.task.done::before{background:var(--positive)}
+.task.done{opacity:.66}
+.task-main{display:flex;align-items:flex-start;gap:12px}
+.task-av{flex-shrink:0}
+.task-body{flex:1;min-width:0}
+.task-t{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;line-height:1.25}
+.task-t.strike{text-decoration:line-through;text-decoration-color:var(--text-3)}
+.task-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px}
+.pill{font-family:var(--mono);font-size:9px;letter-spacing:.3px;padding:3px 9px;border-radius:20px;border:1px solid var(--bm);color:var(--text-2);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.pill.who-p{border-color:var(--bm)}
+.pill.due{color:var(--text-2)}
+.pill.due.soon{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 40%,transparent)}
+.pill.due.late{color:var(--negative);border-color:color-mix(in srgb,var(--negative) 40%,transparent)}
+.task-note{font-size:12.5px;color:var(--text-2);margin-top:8px;line-height:1.5;background:var(--bg-panel);border-radius:9px;padding:8px 11px;border:1px solid var(--bl)}
+.st{font-family:var(--mono);font-size:8.5px;letter-spacing:.5px;padding:4px 9px;border-radius:20px;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.st.pend{color:var(--amber);background:color-mix(in srgb,var(--amber) 12%,transparent);border:1px solid color-mix(in srgb,var(--amber) 38%,transparent)}
+.st.hecha{color:var(--positive);background:color-mix(in srgb,var(--positive) 12%,transparent);border:1px solid color-mix(in srgb,var(--positive) 38%,transparent)}
+.task-act{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.task-act .st{margin-right:2px}
 
 /* plantel */
 .players{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:11px}
@@ -423,6 +467,8 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   let FEED=[], REPLIES={}, COMS={};   // muro + respuestas + comentarios contextuales
   let TAB='feed', faFeed='', expanded={};
   let fArea='', fTipo='';
+  // estado del compositor de asignación
+  let asgSrc='lib', asgEx='', asgWho={}, asgSaveLib=true;
   // plantel
   const POS=[{k:'base',label:'Base'},{k:'escolta',label:'Escolta'},{k:'alero',label:'Alero'},{k:'ala_pivot',label:'Ala-pívot'},{k:'pivot',label:'Pívot'}];
   const ESTADOS=[{k:'disponible',label:'Disponible'},{k:'limitado',label:'Limitado'},{k:'afuera',label:'Afuera'}];
@@ -693,7 +739,7 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
 
   // ── biblioteca ──
   function bibliotecaView(){
-    const form='<div class="sec">Cargar ejercicio</div><div class="card"><div class="frm">'+
+    const form='<div class="sec">Sumar ejercicio</div><div class="legend" style="margin:-4px 0 12px">Biblioteca compartida del cuerpo técnico: cargás vos (head coach o asistente) y lo ve y lo usa todo el equipo.</div><div class="card"><div class="frm">'+
         '<div class="frm-row"><div class="fld"><label>Título</label><input id="ex-tit" placeholder="Ej: 3v3 con ayuda y recuperación"></div>'+
           '<div class="fld"><label>Área</label><select id="ex-area">'+EX_AREAS.map(a=>'<option value="'+a.k+'">'+esc(a.label)+'</option>').join('')+'</select></div></div>'+
         '<div class="frm-row"><div class="fld"><label>Duración (min)</label><input id="ex-dur" type="number" min="0" placeholder="Ej: 15"></div>'+
@@ -714,50 +760,92 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   }
 
   // ── tareas ──
+  function dueInfo(f){
+    if(!f)return null;const d=diasDesde(f); // d>0 => fecha en el pasado
+    if(d>0)return{cls:'late',label:'venció '+(d===1?'ayer':'hace '+d+'d')};
+    if(d===0)return{cls:'soon',label:'vence hoy'};
+    if(d===-1)return{cls:'soon',label:'vence mañana'};
+    if(d>=-2)return{cls:'soon',label:'vence en '+Math.abs(d)+'d'};
+    return{cls:'',label:'vence '+dParse(f).toLocaleDateString('es-UY',{day:'2-digit',month:'short'})};
+  }
   function resumenView(){
     const by={};TASKS.forEach(t=>{const k=t.asignado_a;if(!by[k])by[k]={nombre:t.asignado_a_nombre,total:0,hechas:0};by[k].total++;if(t.estado==='hecha')by[k].hechas++;});
     if(TAB==='asignar')TEAM.forEach(p=>{if(!by[p.user_id])by[p.user_id]={nombre:p.nombre||p.email,total:0,hechas:0};});
     const rows=Object.values(by);if(!rows.length)return'';
     const html=rows.map(r=>{const pct=r.total?Math.round(r.hechas/r.total*100):0;const pend=r.total-r.hechas;
-      return '<div class="sum-row">'+avatar(r.nombre)+'<div class="sum-body"><div class="sum-n">'+esc(r.nombre||'—')+'</div><div class="sum-track"><span style="width:'+pct+'%"></span></div></div>'+
-        '<div class="sum-nums"><b>'+r.total+'</b>tareas · <span class="ok">'+r.hechas+' hechas</span> · <span class="pn">'+pend+' pend.</span></div></div>';
+      return '<div class="coach">'+
+        '<div class="ring" style="--p:'+pct+'"><b>'+pct+'%</b></div>'+
+        '<div class="coach-id"><div class="coach-n">'+esc(r.nombre||'—')+'</div>'+
+          '<div class="coach-s"><b style="font-family:var(--disp);color:var(--text)">'+r.total+'</b> tareas · <span class="ok">'+r.hechas+' ✓</span> · <span class="pn">'+pend+' pend.</span></div></div></div>';
     }).join('');
-    return '<div class="sec">Resumen por asistente</div>'+html;
+    return '<div class="sec">Resumen por asistente</div><div class="coachgrid">'+html+'</div>';
   }
   function asignarView(){
-    if(!TEAM.length)return '<div class="sec">Asignar tareas</div><div class="empty">Todavía no tenés asistentes activos en tu cuerpo técnico. Cargalos desde tu Perfil; cuando se registren vas a poder asignarles tareas.</div>'+misAsignadasView();
-    const exOpts='<option value="">— Tarea libre (la escribís vos) —</option>'+EXS.map(e=>'<option value="'+esc(e.id)+'" data-t="'+esc(e.titulo)+'" data-tp="'+esc(e.tipo_jugador||'todos')+'">'+esc(e.titulo)+'</option>').join('');
-    const who=TEAM.map(p=>'<label><input type="checkbox" class="who-cb" value="'+esc(p.user_id)+'" data-n="'+esc(p.nombre||p.email)+'">'+esc(p.nombre||p.email)+'</label>').join('');
-    const form='<div class="sec">Asignar tareas</div><div class="card"><div class="frm">'+
-        '<div class="fld wide"><label>Ejercicio de la biblioteca</label><select id="as-ex" onchange="onPickEx()">'+exOpts+'</select></div>'+
-        '<div class="fld wide"><label>Título de la tarea</label><input id="as-tit" placeholder="Se completa con el ejercicio, o escribilo"></div>'+
-        '<div class="frm-row"><div class="fld"><label>Tipo de jugador</label><select id="as-tipo">'+TIPOS.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join('')+'</select></div>'+
-          '<div class="fld"><label>Fecha límite</label><input id="as-fecha" type="date"></div></div>'+
-        '<div class="fld wide"><label>Nota / indicaciones</label><textarea id="as-nota" placeholder="Detalle para el asistente…"></textarea></div>'+
-        '<div class="fld wide"><label>Asignar a</label><div class="who">'+who+'</div></div>'+
-        '<div class="frm-row" style="align-items:center"><button class="btn btn-primary" onclick="assign()">Asignar</button><span class="msg" id="as-msg"></span></div>'+
+    if(!TEAM.length)return '<div class="sec">Asignar tareas</div><div class="empty">Todavía no tenés asistentes activos en tu cuerpo técnico. Cargalos desde tu Perfil; cuando se registren vas a poder asignarles tareas.</div>';
+    // panel biblioteca
+    let libPanel;
+    if(!EXS.length)libPanel='<div class="empty">La biblioteca está vacía. Pasá a «Tarea nueva» para crear una, o cargá ejercicios en la pestaña Biblioteca.</div>';
+    else libPanel='<div class="exlist">'+EXS.map(e=>{const ai=areaInfo(e.area),ti=tipoInfo(e.tipo_jugador);const on=(asgEx===e.id);
+      return '<button type="button" class="expick'+(on?' on':'')+'" data-id="'+esc(e.id)+'" data-t="'+esc(e.titulo)+'" data-tp="'+esc(e.tipo_jugador||'todos')+'" onclick="asgPickEx(this)">'+
+        '<span class="expick-t">'+esc(e.titulo)+'</span>'+
+        '<span class="expick-tags"><span class="tag" style="background:'+ai.color+'">'+esc(ai.label)+'</span><span class="tag ghost">'+esc(ti.label)+'</span>'+(e.duracion_min?'<span class="tag ghost">'+esc(e.duracion_min)+"'</span>":'')+'</span></button>';
+    }).join('')+'</div>';
+    // panel nueva
+    const newPanel='<div class="field"><label class="flabel">Título del ejercicio</label><input class="inp" id="as-tit" placeholder="Ej: 3v3 con ayuda y recuperación"></div>'+
+      '<div class="two" style="margin-top:14px"><div class="field"><label class="flabel">Área</label><select class="inp" id="as-area">'+EX_AREAS.map(a=>'<option value="'+a.k+'">'+esc(a.label)+'</option>').join('')+'</select></div>'+
+        '<div class="field"><label class="flabel">Duración (min)</label><input class="inp" id="as-dur" type="number" min="0" placeholder="Opcional"></div></div>'+
+      '<div class="field" style="margin-top:14px"><label class="flabel">Descripción</label><textarea class="inp" id="as-desc" placeholder="Cómo se ejecuta, objetivo, material…"></textarea></div>'+
+      '<div class="savelib'+(asgSaveLib?' on':'')+'" id="as-savelib" onclick="asgToggleLib(this)"><span class="sw"></span><span class="sl"><b>Guardar en la biblioteca</b> — queda disponible para todo el cuerpo técnico.</span></div>';
+    // asistentes
+    const who=TEAM.map(p=>{const id=p.user_id,nm=p.nombre||p.email,on=!!asgWho[id];
+      return '<div class="whochip'+(on?' on':'')+'" data-id="'+esc(id)+'" onclick="asgToggleWho(this)">'+avatar(nm,'sm')+'<span class="nm">'+esc(nm)+'</span><span class="ck">✓</span></div>';
+    }).join('');
+    const form='<div class="sec">Asignar tarea</div>'+
+      '<div class="ntask"><div class="ntask-h"><span class="dotmark"></span><h3>Nueva tarea</h3><span>la ve solo el head coach</span></div><div class="ntask-b">'+
+        '<div class="field"><label class="flabel">¿De dónde sale?</label><div class="src-toggle">'+
+          '<button type="button" class="'+(asgSrc==='lib'?'on':'')+'" onclick="asgSetSrc(\'lib\')">📚 Desde la biblioteca</button>'+
+          '<button type="button" class="'+(asgSrc==='new'?'on':'')+'" onclick="asgSetSrc(\'new\')">✏️ Tarea nueva</button></div></div>'+
+        '<div class="field" id="as-lib-panel" style="display:'+(asgSrc==='lib'?'block':'none')+'">'+libPanel+'</div>'+
+        '<div id="as-new-panel" style="display:'+(asgSrc==='new'?'block':'none')+'">'+newPanel+'</div>'+
+        '<div class="two" style="margin-top:16px"><div class="field"><label class="flabel">Tipo de jugador</label><select class="inp" id="as-tipo">'+TIPOS.map(t=>'<option value="'+t.k+'">'+esc(t.label)+'</option>').join('')+'</select></div>'+
+          '<div class="field"><label class="flabel">Fecha límite</label><input class="inp" id="as-fecha" type="date"></div></div>'+
+        '<div class="field" style="margin-top:14px"><label class="flabel">Nota / indicaciones para el asistente</label><textarea class="inp" id="as-nota" placeholder="Bajada de línea, foco, a qué jugadores apunta…"></textarea></div>'+
+        '<div class="field" style="margin-top:16px"><label class="flabel">Asignar a</label><div class="whogrid">'+who+'</div></div>'+
+        '<div class="ntask-foot"><button class="btn btn-primary btn-lg" onclick="assign()">Asignar tarea</button><span class="msg" id="as-msg"></span></div>'+
       '</div></div>';
     return resumenView()+form+misAsignadasView();
   }
   function taskRow(t,opts){
     opts=opts||{};const done=t.estado==='hecha';const ti=tipoInfo(t.tipo_jugador);
-    const meta=[];if(t.fecha_limite)meta.push('límite '+esc(t.fecha_limite));
-    if(opts.showWho)meta.push('para '+esc(t.asignado_a_nombre||'—'));
-    if(opts.showBy)meta.push('de '+esc(t.asignado_por_nombre||'—'));
+    const who=opts.showWho?(t.asignado_a_nombre||'—'):null;
+    const by=opts.showBy?(t.asignado_por_nombre||'—'):null;
+    const avName=opts.showWho?who:(opts.showBy?by:t.titulo);
+    const due=dueInfo(t.fecha_limite);
+    const pills=[];
+    if(who)pills.push('<span class="pill who-p">👤 para '+esc(who)+'</span>');
+    if(by)pills.push('<span class="pill who-p">↳ de '+esc(by)+'</span>');
+    pills.push('<span class="pill">'+esc(ti.label)+'</span>');
+    if(due&&!done)pills.push('<span class="pill due '+due.cls+'">📅 '+esc(due.label)+'</span>');
     let act='';
-    if(opts.canToggle)act+=done?'<button class="mini" onclick="toggleTask(\''+esc(t.id)+'\',\'pendiente\')">Reabrir</button>':'<button class="mini" onclick="toggleTask(\''+esc(t.id)+'\',\'hecha\')">✓ Hecha</button>';
+    if(opts.canToggle)act+=done?'<button class="mini neutral" onclick="toggleTask(\''+esc(t.id)+'\',\'pendiente\')">↺ Reabrir</button>':'<button class="mini" onclick="toggleTask(\''+esc(t.id)+'\',\'hecha\')">✓ Hecha</button>';
     if(opts.canDelete)act+='<button class="mini danger" onclick="removeTask(\''+esc(t.id)+'\')">✕</button>';
-    return '<div class="task'+(done?' done':'')+'"><div class="task-main"><div class="task-body">'+
-      '<div class="task-t'+(done?' strike':'')+'">'+esc(t.titulo)+' <span class="tag ghost">'+esc(ti.label)+'</span></div>'+
-      (meta.length?'<div class="task-meta">'+meta.join(' · ')+'</div>':'')+
-      (t.nota?'<div class="task-note">'+esc(t.nota)+'</div>':'')+'</div>'+
-      '<div><span class="st '+(done?'hecha':'pend')+'">'+(done?'hecha':'pendiente')+'</span></div>'+
-      (act?'<div class="task-act">'+act+'</div>':'')+'</div>'+
-      comThread('tarea',t.id)+'</div>';
+    return '<div class="task'+(done?' done':'')+'"><div class="task-main">'+
+      '<div class="task-av">'+avatar(avName,'')+'</div>'+
+      '<div class="task-body">'+
+        '<div class="task-t'+(done?' strike':'')+'">'+esc(t.titulo)+'</div>'+
+        '<div class="task-meta">'+pills.join('')+'</div>'+
+        (t.nota?'<div class="task-note">'+esc(t.nota)+'</div>':'')+
+        comThread('tarea',t.id)+
+      '</div>'+
+      '<div class="task-act"><span class="st '+(done?'hecha':'pend')+'">'+(done?'hecha':'pendiente')+'</span>'+act+'</div>'+
+    '</div></div>';
   }
   function misAsignadasView(){
-    if(!TASKS.length)return '<div class="sec">Lo que asigné</div><div class="empty">Todavía no asignaste ninguna tarea.</div>';
-    return '<div class="sec">Lo que asigné ('+TASKS.length+')</div>'+TASKS.map(t=>taskRow(t,{showWho:true,canToggle:true,canDelete:true})).join('');
+    if(!TASKS.length)return '<div class="sec">Lo que asigné</div><div class="empty">Todavía no asignaste ninguna tarea. Creá la primera arriba.</div>';
+    const pend=TASKS.filter(t=>t.estado!=='hecha'),hechas=TASKS.filter(t=>t.estado==='hecha');
+    let h='<div class="sec">Pendientes ('+pend.length+')</div>'+(pend.length?pend.map(t=>taskRow(t,{showWho:true,canToggle:true,canDelete:true})).join(''):'<div class="empty">Todo al día. 👌</div>');
+    if(hechas.length)h+='<div class="sec">Hechas ('+hechas.length+')</div>'+hechas.map(t=>taskRow(t,{showWho:true,canToggle:true,canDelete:true})).join('');
+    return h;
   }
   function miasView(){
     if(!TASKS.length)return '<div class="sec">Mis tareas</div><div class="empty">No tenés tareas asignadas por ahora.</div>';
@@ -982,8 +1070,50 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   };
   window.removeCom=async function(id){if(!confirm('¿Borrar comentario?'))return;await delCom(id);await loadComs();paint();};
 
-  window.onPickEx=function(){const sel=$('as-ex');if(!sel)return;const o=sel.options[sel.selectedIndex];
-    if(sel.value){if($('as-tit'))$('as-tit').value=o.getAttribute('data-t')||'';const tp=o.getAttribute('data-tp');if(tp&&$('as-tipo'))$('as-tipo').value=tp;}};
+  window.onPickEx=function(){}; // (legacy, ya no se usa el select)
+  window.asgSetSrc=function(m){asgSrc=m;
+    const lib=$('as-lib-panel'),nw=$('as-new-panel');if(lib)lib.style.display=(m==='lib')?'block':'none';if(nw)nw.style.display=(m==='new')?'block':'none';
+    document.querySelectorAll('.src-toggle button').forEach((b,i)=>b.classList.toggle('on',(i===0)===(m==='lib')));
+    const msg=$('as-msg');if(msg){msg.textContent='';msg.className='msg';}
+  };
+  window.asgPickEx=function(el){
+    const id=el.getAttribute('data-id');asgEx=(asgEx===id)?'':id;
+    document.querySelectorAll('.expick').forEach(x=>x.classList.toggle('on',x.getAttribute('data-id')===asgEx&&asgEx!==''));
+    if(asgEx){const tp=el.getAttribute('data-tp');if(tp&&$('as-tipo'))$('as-tipo').value=tp;}
+  };
+  window.asgToggleWho=function(el){const id=el.getAttribute('data-id');if(asgWho[id])delete asgWho[id];else asgWho[id]=true;el.classList.toggle('on',!!asgWho[id]);};
+  window.asgToggleLib=function(el){asgSaveLib=!asgSaveLib;el.classList.toggle('on',asgSaveLib);};
+  async function addExerciseRet(o){const row={club:ME.club,titulo:o.titulo,descripcion:o.descripcion||null,area:o.area||'otro',tipo_jugador:o.tipo_jugador||'todos',duracion_min:o.duracion_min||null,creado_por:ME.userId,creado_por_nombre:ME.nombre,created_at:new Date().toISOString()};
+    try{const {data,error}=await sb.from('ejercicios').insert(row).select('id').single();if(error)throw error;return{ok:true,id:data&&data.id};}catch(e){return{error:e&&e.message||String(e)};}}
+  window.assign=async function(){
+    const msg=$('as-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
+    const tipo=$v('as-tipo')||'todos';const nota=($v('as-nota')||'').trim();const fecha=$v('as-fecha')||null;
+    const whoIds=Object.keys(asgWho);
+    if(!whoIds.length)return err('Elegí al menos un asistente.');
+    let titulo='',exId=null;
+    if(asgSrc==='lib'){
+      if(!asgEx)return err('Elegí un ejercicio de la biblioteca (o pasá a «Tarea nueva»).');
+      const ex=EXS.find(e=>e.id===asgEx);if(!ex)return err('No encontré ese ejercicio, recargá.');
+      titulo=ex.titulo;exId=ex.id;
+    }else{
+      titulo=($v('as-tit')||'').trim();
+      if(!titulo)return err('Poné un título para la tarea nueva.');
+    }
+    const btns=document.querySelectorAll('.btn-primary');btns.forEach(b=>b.disabled=true);
+    // guardar en biblioteca si corresponde
+    if(asgSrc==='new'&&asgSaveLib){
+      const r=await addExerciseRet({titulo,descripcion:($v('as-desc')||'').trim(),area:$v('as-area')||'otro',tipo_jugador:tipo,duracion_min:parseInt($v('as-dur')||'',10)||null});
+      if(r.error){btns.forEach(b=>b.disabled=false);return err('No se pudo guardar en la biblioteca: '+r.error);}
+      exId=r.id||null;await loadExercises();
+    }
+    const whoArr=whoIds.map(id=>{const p=TEAM.find(x=>x.user_id===id);return{id,n:p?(p.nombre||p.email):'—'};});
+    const rows=whoArr.map(w=>({club:ME.club,ejercicio_id:exId||null,titulo,nota:nota||null,tipo_jugador:tipo,asignado_a:w.id,asignado_a_nombre:w.n,asignado_por:ME.userId,asignado_por_nombre:ME.nombre,fecha_limite:fecha,estado:'pendiente',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
+    const r=await addTasks(rows);btns.forEach(b=>b.disabled=false);
+    if(r.error)return err('No se pudo asignar: '+r.error);
+    // reset del compositor
+    asgEx='';asgWho={};
+    await loadTasks();paint();
+  };
   window.saveExercise=async function(){
     const tit=($v('ex-tit')||'').trim();const msg=$('ex-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
     if(!tit)return err('Poné un título.');
@@ -993,18 +1123,6 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     if(r.error)return err('No se pudo guardar: '+r.error);await loadExercises();paint();
   };
   window.removeExercise=async function(id){if(!confirm('¿Borrar este ejercicio de la biblioteca?'))return;await delExercise(id);await loadExercises();paint();};
-  window.assign=async function(){
-    const msg=$('as-msg');function err(t){if(msg){msg.textContent=t;msg.className='msg err';}}
-    const tit=($v('as-tit')||'').trim();const exId=$v('as-ex')||'';const tipo=$v('as-tipo')||'todos';const nota=($v('as-nota')||'').trim();const fecha=$v('as-fecha')||null;
-    const who=[].slice.call(document.querySelectorAll('.who-cb:checked')).map(c=>({id:c.value,n:c.getAttribute('data-n')}));
-    if(!tit)return err('Poné un título o elegí un ejercicio.');if(!who.length)return err('Elegí al menos un asistente.');
-    const rows=who.map(w=>({club:ME.club,ejercicio_id:exId||null,titulo:tit,nota:nota||null,tipo_jugador:tipo,asignado_a:w.id,asignado_a_nombre:w.n,asignado_por:ME.userId,asignado_por_nombre:ME.nombre,fecha_limite:fecha,estado:'pendiente',created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));
-    const btn=document.querySelectorAll('.btn-primary');btn.forEach(b=>b.disabled=true);
-    const r=await addTasks(rows);btn.forEach(b=>b.disabled=false);
-    if(r.error)return err('No se pudo asignar: '+r.error);
-    if(msg){msg.textContent='✓ Asignada a '+who.length+' '+(who.length===1?'persona':'personas')+'.';msg.className='msg ok';}
-    await loadTasks();paint();
-  };
   window.toggleTask=async function(id,estado){await setTaskEstado(id,estado);await loadTasks();paint();};
   window.removeTask=async function(id){if(!confirm('¿Eliminar esta tarea?'))return;await delTask(id);await loadTasks();paint();};
 
