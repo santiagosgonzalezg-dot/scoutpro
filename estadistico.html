@@ -129,6 +129,17 @@ table.t tr:hover td{background:var(--bg-hover)}
 .wk-lead b{color:var(--offense)}
 .dup-rk{font-family:var(--font-mono);font-size:11px;color:var(--text-3);font-weight:600}
 .dup-rk.top1{color:var(--offense)}
+.dd-head{margin:2px 0 10px}
+.dd-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px}
+@media(max-width:760px){.dd-grid{grid-template-columns:repeat(3,1fr)}}
+.dd-grid .kpi{padding:10px 8px;text-align:center}
+.dd-grid .kpi .v{font-size:22px}
+.dd-sub{font-family:var(--font-mono);font-size:10.5px;color:var(--text-2);margin:0 0 10px;line-height:1.6}
+.dd-close{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:9px;letter-spacing:.3px;padding:3px 8px;cursor:pointer;margin-left:8px;text-transform:none}
+.dd-close:hover{border-color:var(--offense);color:var(--offense)}
+.t tbody tr[onclick]{cursor:pointer}
+.t tbody tr[onclick]:hover{background:var(--bg-hover)}
+.t tbody tr.selrow{background:var(--offense-bg)!important;box-shadow:inset 2px 0 0 var(--offense)}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-5)}
 .lb-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4) var(--sp-4)}
 .lb-title{font-family:var(--font-disp);font-weight:800;font-size:16px;letter-spacing:.5px;margin-bottom:var(--sp-3);display:flex;align-items:center;gap:7px}
@@ -480,7 +491,7 @@ function allRowsFiltered(){const f=document.getElementById('selFase').value;retu
 
 // ── tabla ordenable genérica ──
 const sortState={};
-function sortableTable(elId,title,cols,rows,stateKey){
+function sortableTable(elId,title,cols,rows,stateKey,onRow){
   if(!sortState[stateKey])sortState[stateKey]={key:cols.find(c=>c.sortable).key,dir:-1};
   const ss=sortState[stateKey];
   const col=cols.find(c=>c.key===ss.key)||cols[0];
@@ -492,7 +503,7 @@ function sortableTable(elId,title,cols,rows,stateKey){
     const cls=(c.left?'l ':'')+(c.sortable?'s ':'')+(on?'sorted':'');
     return '<th class="'+cls+'"'+(c.sortable?' onclick="doSort(\''+stateKey+'\',\''+c.key+'\')"':'')+'>'+c.label+(on?' '+arrow:'')+'</th>';
   }).join('');
-  const body=sorted.map((r,i)=>'<tr>'+cols.map(c=>{
+  const body=sorted.map((r,i)=>'<tr'+(onRow?onRow(r):'')+'>'+cols.map(c=>{
     const active=c.key===ss.key&&c.sortable;
     const cls=(c.left?'l ':'')+(active?'active':'');
     const st=c.color?(' style="color:'+c.color(r)+'"'):'';
@@ -1814,9 +1825,31 @@ function bsApply(){
 }
 
 // ── VISTA DUPLAS / TRÍOS ──
-let duplasMode='dup';                 // 'dup' | 'trio' | 'quint' | 'liga'
+let duplasMode='dup';                 // 'dup' | 'trio' | 'liga'
 const MODE_SIZE={dup:2,trio:3};
-function setDuplasMode(m){duplasMode=m;renderDuplas();}
+let duplaSel=null;                    // key de la dupla/terna seleccionada (click)
+function setDuplasMode(m){duplasMode=m;duplaSel=null;renderDuplas();}
+function selectDupla(enc){const k=enc?decodeURIComponent(enc):'';duplaSel=(!k||duplaSel===k)?null:k;renderDuplas();}
+function dcCls(v){return v>0?'pos':v<0?'neg':'';}
+// panel central: cómo está la dupla/terna seleccionada
+function duplaDetail(c,size){
+  const a=c.a, la=agg(allRowsFiltered());
+  const noun=size===2?'Dupla':'Trío';
+  const offGood=a.efOff>=la.efOff, defGood=a.efDef<=la.efDef;
+  const kpis=kpi(sgn2(c.score),'IMPACTO',dcCls(c.score))+kpi(sgn2(c.net),'NET/40',dcCls(c.net))+
+    kpi(a.min.toFixed(1),'MIN')+kpi(sgn(a.diff),'DIF',dcCls(a.diff))+
+    kpi(pp(a.efOff),'EF.OF',offGood?'pos':'neg')+kpi(pp(a.efDef),'EF.DEF',defGood?'pos':'neg');
+  const sub='eFG '+(a.efg||0).toFixed(1)+'% · TS '+(a.ts||0).toFixed(1)+'% · '+a.ast+' AST · '+a.per+' PÉR · '+
+    a.ptsF+'–'+a.ptsC+' pts (favor–contra) · '+a.pj+' partido'+(a.pj===1?'':'s')+' juntos';
+  const verd='Con esta '+noun.toLowerCase()+' en cancha: ataque <b style="color:'+(offGood?'var(--positive)':'var(--negative)')+'">'+(offGood?'por encima':'por debajo')+
+    ' de la liga</b> y defensa <b style="color:'+(defGood?'var(--positive)':'var(--negative)')+'">'+(defGood?'mejor':'peor')+' que la liga</b>.';
+  return '<div class="sec" style="font-size:13px;margin-top:6px">'+noun+' seleccionada · '+c.team+
+    '<button class="dd-close" onclick="selectDupla(\'\')">× volver a debilidades</button></div>'+
+    '<div class="dd-head">'+chips(c.players)+'</div>'+
+    '<div class="dd-grid">'+kpis+'</div>'+
+    '<div class="dd-sub">'+sub+'</div>'+
+    '<div class="wk-lead">'+verd+'</div>';
+}
 function combos(arr,k){const res=[];(function go(start,cur){if(cur.length===k){res.push(cur.slice());return;}for(let i=start;i<arr.length;i++){cur.push(arr[i]);go(i+1,cur);cur.pop();}})(0,[]);return res;}
 // Constante de confianza por minutos: una dupla/terna con pocos minutos juntos
 // ve su impacto "encogido" hacia 0, para que no se cuelen muestras chicas.
@@ -1835,7 +1868,8 @@ function leagueCombos(size,ignoreTeam){
     const net=a.min>0?Math.round(a.diff/a.min*40*10)/10:0;
     const conf=a.min/(a.min+DUP_MIN_K);          // los minutos importan
     const score=Math.round(net*conf*10)/10;       // impacto ajustado por minutos
-    return {team:g.team,players:g.players,a,net,conf,score};
+    const key=g.team+'#'+g.players.map(pkey).sort().join('|');
+    return {team:g.team,players:g.players,a,net,conf,score,key};
   });
   let f=lus.filter(l=>l.a.min>=10);if(f.length<5)f=lus.filter(l=>l.a.min>=5);if(f.length<5)f=lus.filter(l=>l.a.min>=2);
   return f;
@@ -1903,14 +1937,15 @@ function comboCols(showTeam,size){
 }
 const DUP_NOTE='IMPACTO = NET/40 ajustado por los minutos que comparten (los que juegan poco juntos pesan menos). NET/40 = diferencia de puntos por 40\' con ellos en cancha. Tocá un encabezado para reordenar.';
 // arma un bloque título + tabla rankeada (rows ya vienen en el orden deseado)
-function comboBlock(title,sub,rows,stateKey,showTeam,size,dir){
+function comboBlock(title,sub,rows,stateKey,showTeam,size,dir,selKey){
   rows.forEach((r,i)=>r.rk=i+1);
   const cols=comboCols(showTeam,size);
   const ds=sortState[stateKey];
   if(!ds||!cols.some(c=>c.key===ds.key&&c.sortable))sortState[stateKey]={key:'score',dir:dir||-1};
+  const onRow=r=>' onclick="selectDupla(\''+encodeURIComponent(r.key)+'\')"'+(selKey&&r.key===selKey?' class="selrow"':'');
   return '<div class="sec" style="font-size:13px;margin-top:18px">'+title+'</div>'+
     (sub?'<div class="zone-sub" style="margin:4px 0 12px">'+sub+'</div>':'')+
-    sortableTable('vd-'+stateKey,'',cols,rows,stateKey);
+    sortableTable('vd-'+stateKey,'',cols,rows,stateKey,onRow);
 }
 function renderDuplas(){
   const el=document.getElementById('view-duplas');
@@ -1929,8 +1964,11 @@ function renderDuplas(){
     let h='<div class="sec">Top de toda la liga</div>'+tog;
     if(team)h+='<div class="zone-sub" style="margin:0 0 6px">Mostrando <b>toda la liga</b> (sin importar el equipo elegido arriba).</div>';
     if(!dup.length&&!tri.length){h+='<div class="empty">Faltan minutos para armar combinaciones. Guardá más partidos.</div>';el.innerHTML=h;return;}
-    h+=comboBlock('Las 10 mejores duplas de la liga',DUP_NOTE,dup,'ligaDup',true,2,-1);
-    h+=comboBlock('Los 10 mejores tríos de la liga','',tri,'ligaTrio',true,3,-1);
+    const selD=duplaSel?dup.find(x=>x.key===duplaSel):null, selT=duplaSel?tri.find(x=>x.key===duplaSel):null;
+    const sel=selD||selT;
+    if(sel)h+=duplaDetail(sel,selD?2:3);
+    h+=comboBlock('Las 10 mejores duplas de la liga',DUP_NOTE,dup,'ligaDup',true,2,-1,duplaSel);
+    h+=comboBlock('Los 10 mejores tríos de la liga','',tri,'ligaTrio',true,3,-1,duplaSel);
     el.innerHTML=h;return;
   }
 
@@ -1938,15 +1976,24 @@ function renderDuplas(){
   let lus=leagueCombos(size);
   if(!lus.length){el.innerHTML='<div class="sec">Duplas y tríos</div>'+tog+(team?teamWeakness(team):'')+'<div class="empty">Faltan minutos para armar combinaciones. Guardá más partidos.</div>';return;}
 
-  // ── MODO DUPLAS / TRÍOS: top 15 liga / top 5 equipo que más lastiman ──
-  const nounP=size===2?'duplas':'tríos';
-  lus.sort((a,b)=>b.score-a.score);
+  // ── MODO DUPLAS / TRÍOS: que más lastiman + más vulnerables (top 5 equipo / top 15 liga) ──
+  const noun=size===2?'Dupla':'Trío', nounP=size===2?'duplas':'tríos';
+  const byDesc=lus.slice().sort((a,b)=>b.score-a.score);
+  const byAsc=lus.slice().sort((a,b)=>a.score-b.score);
   const LIMIT=team?5:15;
-  const top=lus.slice(0,LIMIT);
-  const titulo=team?'Top '+LIMIT+' '+nounP+' de '+team+' que más lastiman':'Mejores '+LIMIT+' '+nounP+' de la liga';
+  const top=byDesc.slice(0,LIMIT);
+  const vuln=byAsc.slice(0,LIMIT);
+  // panel central: detalle de la dupla tocada, o debilidades del equipo
+  const sel=duplaSel?lus.find(l=>l.key===duplaSel):null;
+  const ambito=team?'de '+team:'de la liga';
   let html='<div class="sec">'+(team?team+' · duplas y tríos':'Duplas y tríos de la liga')+'</div>'+tog;
-  if(team)html+=teamWeakness(team);
-  html+=comboBlock(titulo,DUP_NOTE,top,'duplas',!team,size,-1);
+  html+=sel?duplaDetail(sel,size):(team?teamWeakness(team):'');
+  if(!sel)html+='<div class="zone-sub" style="margin:8px 0 0">💡 Tocá cualquier '+noun.toLowerCase()+' de las tablas para ver acá cómo está esa '+noun.toLowerCase()+'.</div>';
+  html+=comboBlock((team?'Top '+LIMIT+' '+nounP+' de '+team+' que más lastiman':'Mejores '+LIMIT+' '+nounP+' de la liga'),
+    DUP_NOTE,top,'duplas',!team,size,-1,duplaSel);
+  html+=comboBlock('Top '+LIMIT+' '+nounP+' '+ambito+' más vulnerables',
+    'Las que peor la pasan: peor IMPACTO (diferencia por 40\' ajustada por minutos). Mirá EF.DEF: cuántos puntos por posesión les anota el rival con ellas en cancha.',
+    vuln,'duplasVuln',!team,size,1,duplaSel);
   el.innerHTML=html;
 }
 
@@ -2282,9 +2329,9 @@ let paretoTeam='',paretoMetric='ro';
 const PARETO_METR=[{k:'ro',label:'Rebote ofensivo',unit:'reb of.'},{k:'fga',label:'Tiros tomados',unit:'tiros'},{k:'tpa',label:'Triples tomados',unit:'triples'},{k:'pts',label:'Puntos',unit:'pts'},{k:'reb',label:'Rebote total',unit:'reb'},{k:'ast',label:'Asistencias',unit:'ast'}];
 function setParetoTeam(v){paretoTeam=v;renderPareto();}
 function setParetoMetric(v){paretoMetric=v;renderPareto();}
-function paretoChart(items){
+function paretoChart(items,totalOverride){
   const W=680,H=330,M={l:40,r:46,t:18,b:78},n=items.length;
-  const total=items.reduce((s,it)=>s+it.val,0)||1,maxVal=Math.max(...items.map(it=>it.val),1);
+  const total=(totalOverride||items.reduce((s,it)=>s+it.val,0))||1,maxVal=Math.max(...items.map(it=>it.val),1);
   const innerW=W-M.l-M.r,innerH=H-M.t-M.b,step=innerW/n,bw=Math.min(46,step*0.6);
   const cx=i=>M.l+step*(i+0.5),syL=v=>H-M.b-(v/maxVal)*innerH,syR=p=>H-M.b-(p/100)*innerH;
   let grid='';for(let i=0;i<=4;i++){const v=maxVal*i/4,y=syL(v).toFixed(1);
@@ -2309,20 +2356,35 @@ function renderPareto(){
   const pool=playersAgg().filter(p=>p.g>0);
   if(!pool.length){el.innerHTML='<div class="empty">No hay box scores individuales todavía. Re-guardá partidos desde Quintetos.</div>';return;}
   const teams=[...new Set(pool.map(p=>p.equipo))].sort();
-  if(paretoTeam&&!teams.includes(paretoTeam))paretoTeam='';
+  const LIGA='__LIGA__';
+  if(paretoTeam&&paretoTeam!==LIGA&&!teams.includes(paretoTeam))paretoTeam='';
   if(!paretoTeam)paretoTeam=teams[0];
+  const liga=paretoTeam===LIGA;
   const m=PARETO_METR.find(x=>x.k===paretoMetric)||PARETO_METR[0];
-  const sel='<div class="tiros-ctl"><span class="zone-lbl">Equipo</span><select onchange="setParetoTeam(this.value)">'+teams.map(t=>'<option'+(t===paretoTeam?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
+  const teamOpts='<option value="'+LIGA+'"'+(liga?' selected':'')+'>★ Toda la liga</option>'+
+    teams.map(t=>'<option value="'+t+'"'+(t===paretoTeam?' selected':'')+'>'+t+'</option>').join('');
+  const sel='<div class="tiros-ctl"><span class="zone-lbl">Equipo</span><select onchange="setParetoTeam(this.value)">'+teamOpts+'</select>'+
     '<span class="zone-lbl">Métrica</span><select onchange="setParetoMetric(this.value)">'+PARETO_METR.map(x=>'<option value="'+x.k+'"'+(x.k===paretoMetric?' selected':'')+'>'+x.label+'</option>').join('')+'</select></div>';
-  const items=pool.filter(p=>p.equipo===paretoTeam&&(+p[paretoMetric]||0)>0).map(p=>({name:p.nombre,num:p.num,val:+p[paretoMetric]||0})).sort((a,b)=>b.val-a.val);
-  if(!items.length){el.innerHTML=sel+'<div class="empty">'+paretoTeam+' no tiene datos de esa métrica.</div>';return;}
-  const total=items.reduce((s,it)=>s+it.val,0);let cum=0;
-  const rows=items.map((it,i)=>{cum+=it.val;return {...it,share:Math.round(it.val/total*100),acum:Math.round(cum/total*100),i:i+1};});
-  el.innerHTML=sel+'<div class="sec">Reparto de '+m.label.toLowerCase()+' · '+paretoTeam+'</div>'+
-    '<div class="court-box">'+paretoChart(items)+
-    '<div class="zone-sub" style="margin-top:8px">Barras verdes = '+m.unit+' de cada jugador (su % del equipo arriba). Línea naranja = % acumulado. La cortada marca el 80%. Total del equipo: '+total+' '+m.unit+'.</div></div>'+
-    '<div class="court-box" style="margin-top:14px;overflow-x:auto"><table class="bs-table"><thead><tr><th>#</th><th class="l">Jugador</th><th>'+m.unit+'</th><th>% equipo</th><th>% acum.</th></tr></thead><tbody>'+
-    rows.map(r=>'<tr><td>'+r.i+'</td><td class="l">'+(r.num?'#'+r.num+' ':'')+r.name+'</td><td>'+r.val+'</td><td class="pc" style="color:#34c769">'+r.share+'%</td><td>'+r.acum+'%</td></tr>').join('')+'</tbody></table></div>';
+  const src=liga?pool:pool.filter(p=>p.equipo===paretoTeam);
+  const all=src.filter(p=>(+p[paretoMetric]||0)>0).map(p=>({name:p.nombre,num:p.num,team:p.equipo,val:+p[paretoMetric]||0})).sort((a,b)=>b.val-a.val);
+  const ambito=liga?'toda la liga':paretoTeam;
+  if(!all.length){el.innerHTML=sel+'<div class="empty">No hay datos de esa métrica en '+ambito+'.</div>';return;}
+  const total=all.reduce((s,it)=>s+it.val,0);                 // total real (liga o equipo)
+  // en modo liga recortamos los líderes de volumen para que el gráfico se lea
+  const CHART_MAX=liga?22:all.length, TBL_MAX=liga?30:all.length;
+  const chartItems=all.slice(0,CHART_MAX), tblItems=all.slice(0,TBL_MAX);
+  let cum=0;const rows=tblItems.map((it,i)=>{cum+=it.val;return {...it,share:Math.round(it.val/total*100),acum:Math.round(cum/total*100),i:i+1};});
+  const pctLbl=liga?'% liga':'% equipo';
+  const teamTh=liga?'<th class="l">Equipo</th>':'';
+  const note=liga
+    ? 'Barras verdes = '+m.unit+' de cada jugador (su % sobre toda la liga). Línea naranja = % acumulado. Total de la liga: <b>'+total+'</b> '+m.unit+'. Mostrando los '+chartItems.length+' jugadores de mayor volumen'+(all.length>CHART_MAX?' (de '+all.length+' en total)':'')+'.'
+    : 'Barras verdes = '+m.unit+' de cada jugador (su % del equipo arriba). Línea naranja = % acumulado. La cortada marca el 80%. Total del equipo: '+total+' '+m.unit+'.';
+  el.innerHTML=sel+'<div class="sec">Reparto de '+m.label.toLowerCase()+' · '+(liga?'Toda la liga':paretoTeam)+'</div>'+
+    '<div class="court-box">'+paretoChart(chartItems,total)+
+    '<div class="zone-sub" style="margin-top:8px">'+note+'</div></div>'+
+    '<div class="court-box" style="margin-top:14px;overflow-x:auto"><table class="bs-table"><thead><tr><th>#</th><th class="l">Jugador</th>'+teamTh+'<th>'+m.unit+'</th><th>'+pctLbl+'</th><th>% acum.</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+r.i+'</td><td class="l">'+(r.num?'#'+r.num+' ':'')+r.name+'</td>'+(liga?'<td class="l">'+r.team+'</td>':'')+'<td>'+r.val+'</td><td class="pc" style="color:#34c769">'+r.share+'%</td><td>'+r.acum+'%</td></tr>').join('')+'</tbody></table>'+
+    (liga&&all.length>TBL_MAX?'<div class="zone-sub" style="margin-top:8px">Tabla recortada a los '+TBL_MAX+' de mayor volumen (hay '+all.length+' jugadores con registro).</div>':'')+'</div>';
 }
 
 function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderPartido();}
