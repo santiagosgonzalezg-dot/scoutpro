@@ -1815,7 +1815,7 @@ function bsApply(){
 
 // ── VISTA DUPLAS / TRÍOS ──
 let duplasMode='dup';                 // 'dup' | 'trio' | 'quint' | 'liga'
-const MODE_SIZE={dup:2,trio:3,quint:5};
+const MODE_SIZE={dup:2,trio:3};
 function setDuplasMode(m){duplasMode=m;renderDuplas();}
 function combos(arr,k){const res=[];(function go(start,cur){if(cur.length===k){res.push(cur.slice());return;}for(let i=start;i<arr.length;i++){cur.push(arr[i]);go(i+1,cur);cur.pop();}})(0,[]);return res;}
 // Constante de confianza por minutos: una dupla/terna con pocos minutos juntos
@@ -1888,7 +1888,7 @@ function teamWeakness(team){
 }
 // columnas reutilizables para tablas de combinaciones
 function comboCols(showTeam,size){
-  const noun=size===2?'Dupla':size===3?'Trío':'Quinteto';
+  const noun=size===2?'Dupla':'Trío';
   return [
     {key:'rk',label:'#',left:true,cell:r=>'<span class="dup-rk'+(r.rk===1?' top1':'')+'">'+r.rk+'</span>'},
     {key:'combo',label:noun,left:true,cell:r=>chips(r.players)},
@@ -1919,7 +1919,6 @@ function renderDuplas(){
   const tog='<div class="lid-toggle">'+
     '<button class="'+(duplasMode==='dup'?'on':'')+'" onclick="setDuplasMode(\'dup\')">Duplas</button>'+
     '<button class="'+(duplasMode==='trio'?'on':'')+'" onclick="setDuplasMode(\'trio\')">Tríos</button>'+
-    '<button class="'+(duplasMode==='quint'?'on':'')+'" onclick="setDuplasMode(\'quint\')">Quintetos</button>'+
     '<button class="'+(duplasMode==='liga'?'on':'')+'" onclick="setDuplasMode(\'liga\')">★ Top liga 10+10</button>'+
     '</div>';
 
@@ -1935,24 +1934,9 @@ function renderDuplas(){
     el.innerHTML=h;return;
   }
 
-  const size=MODE_SIZE[duplasMode];
+  const size=MODE_SIZE[duplasMode]||2;
   let lus=leagueCombos(size);
-  if(!lus.length){el.innerHTML='<div class="sec">Duplas, tríos y quintetos</div>'+tog+(team?teamWeakness(team):'')+'<div class="empty">Faltan minutos para armar combinaciones. Guardá más partidos.</div>';return;}
-
-  // ── MODO QUINTETOS: 5 más vulnerables + 5 que más lastiman ──
-  if(duplasMode==='quint'){
-    const byScore=lus.slice().sort((a,b)=>a.score-b.score);   // ascendente: peores primero
-    const vuln=byScore.slice(0,5);
-    const top=byScore.slice().reverse().slice(0,5);
-    let h='<div class="sec">'+(team?team+' · quintetos':'Quintetos de la liga')+'</div>'+tog;
-    if(team)h+=teamWeakness(team);
-    const ambito=team?'de '+team:'de la liga';
-    h+=comboBlock('Los 5 quintetos más vulnerables '+ambito,
-      'Los quintetos que peor la pasan: peor diferencia por 40\' (ajustada por minutos). Mirá EF.DEF: cuántos puntos por posesión les anota el rival.',
-      vuln,'quintVuln',!team,5,1);
-    h+=comboBlock('Los 5 quintetos que más lastiman '+ambito,'',top,'quintTop',!team,5,-1);
-    el.innerHTML=h;return;
-  }
+  if(!lus.length){el.innerHTML='<div class="sec">Duplas y tríos</div>'+tog+(team?teamWeakness(team):'')+'<div class="empty">Faltan minutos para armar combinaciones. Guardá más partidos.</div>';return;}
 
   // ── MODO DUPLAS / TRÍOS: top 15 liga / top 5 equipo que más lastiman ──
   const nounP=size===2?'duplas':'tríos';
