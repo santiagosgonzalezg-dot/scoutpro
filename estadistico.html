@@ -1834,21 +1834,20 @@ function dcCls(v){return v>0?'pos':v<0?'neg':'';}
 // panel central: cómo está la dupla/terna seleccionada
 function duplaDetail(c,size){
   const a=c.a, la=agg(allRowsFiltered());
-  const noun=size===2?'Dupla':'Trío';
+  const noun=size===2?'Dupla':'Trío', nl=noun.toLowerCase();
   const offGood=a.efOff>=la.efOff, defGood=a.efDef<=la.efDef;
   const kpis=kpi(sgn2(c.score),'IMPACTO',dcCls(c.score))+kpi(sgn2(c.net),'NET/40',dcCls(c.net))+
     kpi(a.min.toFixed(1),'MIN')+kpi(sgn(a.diff),'DIF',dcCls(a.diff))+
     kpi(pp(a.efOff),'EF.OF',offGood?'pos':'neg')+kpi(pp(a.efDef),'EF.DEF',defGood?'pos':'neg');
-  const sub='eFG '+(a.efg||0).toFixed(1)+'% · TS '+(a.ts||0).toFixed(1)+'% · '+a.ast+' AST · '+a.per+' PÉR · '+
-    a.ptsF+'–'+a.ptsC+' pts (favor–contra) · '+a.pj+' partido'+(a.pj===1?'':'s')+' juntos';
-  const verd='Con esta '+noun.toLowerCase()+' en cancha: ataque <b style="color:'+(offGood?'var(--positive)':'var(--negative)')+'">'+(offGood?'por encima':'por debajo')+
-    ' de la liga</b> y defensa <b style="color:'+(defGood?'var(--positive)':'var(--negative)')+'">'+(defGood?'mejor':'peor')+' que la liga</b>.';
+  const sub='TS '+(a.ts||0).toFixed(1)+'% · '+a.ptsF+'–'+a.ptsC+' pts (favor–contra) · '+
+    a.pj+' partido'+(a.pj===1?'':'s')+' juntos · '+a.min.toFixed(1)+' min';
   return '<div class="sec" style="font-size:13px;margin-top:6px">'+noun+' seleccionada · '+c.team+
     '<button class="dd-close" onclick="selectDupla(\'\')">× volver a debilidades</button></div>'+
     '<div class="dd-head">'+chips(c.players)+'</div>'+
     '<div class="dd-grid">'+kpis+'</div>'+
     '<div class="dd-sub">'+sub+'</div>'+
-    '<div class="wk-lead">'+verd+'</div>';
+    weaknessPanel(a,la,'esta '+nl,'Cómo está esta '+nl+' vs la liga',
+      'Con esta '+nl+' en cancha, comparado con el promedio de la liga. Rojo = peor que la liga.');
 }
 function combos(arr,k){const res=[];(function go(start,cur){if(cur.length===k){res.push(cur.slice());return;}for(let i=start;i<arr.length;i++){cur.push(arr[i]);go(i+1,cur);cur.pop();}})(0,[]);return res;}
 // Constante de confianza por minutos: una dupla/terna con pocos minutos juntos
@@ -1874,22 +1873,21 @@ function leagueCombos(size,ignoreTeam){
   let f=lus.filter(l=>l.a.min>=10);if(f.length<5)f=lus.filter(l=>l.a.min>=5);if(f.length<5)f=lus.filter(l=>l.a.min>=2);
   return f;
 }
-// ── Panel de debilidades del equipo (3 métricas vs promedio de la liga) ──
-function teamWeakness(team){
-  const ta=agg(teamRows(team)), la=agg(allRowsFiltered());
-  if(ta.pos<=0)return '';
+// ── Panel de 3 tarjetas (pelota / tiro / defensa) vs promedio de la liga ──
+// 'a' = agregado del sujeto (equipo o dupla/terna), 'la' = agregado de toda la liga
+function weaknessPanel(a,la,subj,heading,intro){
+  if(a.pos<=0)return '';
   const rt=(n,d)=>d>0?n/d:0;
   // 1) PELOTA — pérdidas por asistencia + pérdidas cada 100 posesiones
-  const toAstT=rt(ta.per,ta.ast), toAstL=rt(la.per,la.ast);
-  const to100T=rt(ta.per,ta.pos)*100, to100L=rt(la.per,la.pos)*100;
+  const toAstT=rt(a.per,a.ast), toAstL=rt(la.per,la.ast);
+  const to100T=rt(a.per,a.pos)*100, to100L=rt(la.per,la.pos)*100;
   // 2) TIRO — volumen (tiros x 100 pos) + dependencia del triple + eFG
-  const fga100T=rt(ta.fga,ta.pos)*100, fga100L=rt(la.fga,la.pos)*100;
-  const threeT=rt(ta.pt3i,ta.fga)*100, threeL=rt(la.pt3i,la.fga)*100;
-  const efgT=ta.efg, efgL=la.efg;
+  const fga100T=rt(a.fga,a.pos)*100, fga100L=rt(la.fga,la.pos)*100;
+  const threeT=rt(a.pt3i,a.fga)*100, threeL=rt(la.pt3i,la.fga)*100;
+  const efgT=a.efg, efgL=la.efg;
   // 3) DEFENSA — puntos recibidos por posesión
-  const efdT=ta.efDef, efdL=la.efDef;
-
-  function card(tag,col,val,unit,sub,lg,worse){
+  const efdT=a.efDef, efdL=la.efDef;
+  function card(tag,val,unit,sub,lg,worse){
     const cc=worse?'var(--negative)':'var(--positive)';
     const badge=worse?'⚠ peor que la liga':'✓ mejor que la liga';
     return '<div class="wk-card"><div class="wk-top"><span class="wk-tag">'+tag+'</span>'+
@@ -1897,28 +1895,31 @@ function teamWeakness(team){
       '<div class="wk-val" style="color:'+cc+'">'+val+' <span class="wk-u">'+unit+'</span></div>'+
       '<div class="wk-sub">'+sub+'</div><div class="wk-lg">Liga: '+lg+'</div></div>';
   }
-  const c1=card('🟠 PELOTA','',pp(toAstT),'PÉR x AST',
+  const c1=card('🟠 PELOTA',pp(toAstT),'PÉR x AST',
     to100T.toFixed(1)+' pérdidas cada 100 posesiones',
     pp(toAstL)+' pér/ast · '+to100L.toFixed(1)+'/100', toAstT>toAstL);
   const threeRisk=(threeT>threeL+3)&&(efgT<efgL);
-  const c2=card('🟠 TIRO','',fga100T.toFixed(1),'TIROS x 100 POS',
+  const c2=card('🟠 TIRO',fga100T.toFixed(1),'TIROS x 100 POS',
     threeT.toFixed(0)+'% son triples · eFG '+efgT.toFixed(1)+'%',
     fga100L.toFixed(1)+' tiros/100 · '+threeL.toFixed(0)+'% de 3 · eFG '+efgL.toFixed(1)+'%', threeRisk);
-  const c3=card('🔵 DEFENSA','',pp(efdT),'PTS RECIB x POS',
+  const c3=card('🔵 DEFENSA',pp(efdT),'PTS RECIB x POS',
     'cuánto te anota el rival por cada posesión',
     pp(efdL)+' pts/pos', efdT>efdL);
-
   const flags=[];
   if(toAstT>toAstL)flags.push({n:'el cuidado de la pelota',d:(toAstT-toAstL)/(toAstL||1)});
-  if(efdT>efdL)flags.push({n:'la defensa (te anotan fácil)',d:(efdT-efdL)/(efdL||1)});
+  if(efdT>efdL)flags.push({n:'la defensa (le anotan fácil)',d:(efdT-efdL)/(efdL||1)});
   if(threeRisk)flags.push({n:'la dependencia del triple',d:(threeT-threeL)/(threeL||1)});
   flags.sort((a,b)=>b.d-a.d);
   const lead=flags.length
-    ? '<div class="wk-lead">El punto más flojo de <b>'+team+'</b> es <b>'+flags[0].n+'</b> comparado con el promedio de la liga.</div>'
-    : '<div class="wk-lead"><b>'+team+'</b> no muestra debilidades marcadas vs la liga en estas tres métricas. 👏</div>';
-  return '<div class="sec" style="font-size:13px;margin-top:6px">Debilidades de '+team+'</div>'+
-    '<div class="zone-sub" style="margin:4px 0 10px">Comparado con el promedio de la liga (mismo filtro de fase). Rojo = peor que la liga.</div>'+
+    ? '<div class="wk-lead">El punto más flojo de <b>'+subj+'</b> es <b>'+flags[0].n+'</b> comparado con el promedio de la liga.</div>'
+    : '<div class="wk-lead"><b>'+subj+'</b> no muestra debilidades marcadas vs la liga en estas tres métricas. 👏</div>';
+  return (heading?'<div class="sec" style="font-size:13px;margin-top:6px">'+heading+'</div>':'')+
+    (intro?'<div class="zone-sub" style="margin:4px 0 10px">'+intro+'</div>':'')+
     '<div class="wk-grid">'+c1+c2+c3+'</div>'+lead;
+}
+function teamWeakness(team){
+  return weaknessPanel(agg(teamRows(team)),agg(allRowsFiltered()),team,
+    'Debilidades de '+team,'Comparado con el promedio de la liga (mismo filtro de fase). Rojo = peor que la liga.');
 }
 // columnas reutilizables para tablas de combinaciones
 function comboCols(showTeam,size){
