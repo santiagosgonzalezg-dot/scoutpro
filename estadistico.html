@@ -384,6 +384,7 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
     <button class="tab" data-v="evolucion" onclick="switchView('evolucion')">Evolución</button>
     <button class="tab" data-v="armador" onclick="switchView('armador')">🧪 Armador</button>
+    <button class="tab" data-v="situacion" onclick="switchView('situacion')">🎯 Por situación</button>
     <button class="tab" data-v="partido" onclick="switchView('partido')">📋 Partido</button>
   </div>
 
@@ -402,6 +403,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view" id="view-jugadores"></div>
   <div class="view" id="view-evolucion"></div>
   <div class="view" id="view-armador"></div>
+  <div class="view" id="view-situacion"></div>
   <div class="view" id="view-partido"></div>
 
   <div id="msg" class="empty"><div class="loadbox"><div class="spinner"></div><div>Cargando datos…</div></div></div>
@@ -2388,7 +2390,7 @@ function renderPareto(){
     (liga&&all.length>TBL_MAX?'<div class="zone-sub" style="margin-top:8px">Tabla recortada a los '+TBL_MAX+' de mayor volumen (hay '+all.length+' jugadores con registro).</div>':'')+'</div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderPartido();}
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();}
 
 // ── ARMADOR DE QUINTETOS ──
 let armTeam='',armSel=[];
@@ -2466,6 +2468,154 @@ function renderArmador(){
     }
   }
   el.innerHTML=teamSel+chipsHtml+result+armDestacados(armTeam);
+}
+
+// ── VISTA: QUINTETO IDEAL POR SITUACIÓN ──
+// Idea: no comparamos quintetos exactos (poca muestra), sino TIPOS de quinteto.
+// 1) Cada quinteto se clasifica Alto/Bajo según un criterio que elige el usuario.
+// 2) Para cada situación (rival, cuarto, marcador) sumamos los tramos de cada tipo
+//    y comparamos el NET (EF.OF − EF.DEF). Así se ve qué TIPO conviene en cada caso.
+let sitTeam='',sitDim='rival',sitCrit='ritmo',sitCut='auto';
+const SIT_MIN=4;        // minutos mínimos para clasificar un quinteto
+const SIT_MIN_CELL=6;   // por debajo de esto, una celda se marca como muestra chica
+const SIT_CRITS={
+  ritmo:{lbl:'Ritmo · posesiones por 40\'', short:'ritmo', val:a=>a.min>0?a.pos/a.min*40:0, dec:1, hi:'de ritmo alto', lo:'de ritmo bajo'},
+  triple:{lbl:'Volumen de triple · % de tiros que son de 3', short:'volumen de 3', val:a=>{const fga=a.pt2i+a.pt3i;return fga>0?a.pt3i/fga*100:0;}, dec:1, suf:'%', hi:'tiradores', lo:'de adentro'},
+  rebof:{lbl:'Rebote ofensivo · rebotes of. por 40\'', short:'rebote of.', val:a=>a.min>0?a.ro/a.min*40:0, dec:1, hi:'reboteadores', lo:'livianos'},
+  gen:{lbl:'Generación · asistencias por posesión', short:'ast/pos', val:a=>a.pos>0?a.ast/a.pos:0, dec:2, hi:'asociadores', lo:'directos'},
+  seg:{lbl:'Cuidado de la pelota · pérdidas por posesión', short:'pér/pos', val:a=>a.pos>0?a.per/a.pos:0, dec:2, hi:'descuidados', lo:'seguros'},
+  def:{lbl:'Perfil defensivo · puntos que concede por posesión', short:'ef.def', val:a=>a.efDef||0, dec:2, hi:'permisivos', lo:'firmes'},
+};
+function setSitTeam(v){sitTeam=v;renderSituacion();}
+function setSitDim(v){sitDim=v;renderSituacion();}
+function setSitCrit(v){sitCrit=v;sitCut='auto';renderSituacion();}
+function setSitCut(v){sitCut=(v===''||v==null)?'auto':v;renderSituacion();}
+function sitNet(a){return (a.efOff||0)-(a.efDef||0);}
+function sitMedian(arr){if(!arr.length)return 0;const s=arr.slice().sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2;}
+
+function renderSituacion(){
+  const el=document.getElementById('view-situacion');if(!el)return;
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay quintetos cargados.</div>';return;}
+  const teams=[...new Set(DATA.map(r=>r.equipo))].sort();
+  if(sitTeam&&!teams.includes(sitTeam))sitTeam='';
+  if(!sitTeam)sitTeam=(document.getElementById('selTeam')||{}).value||teams[0];
+  const rows=teamRows(sitTeam).filter(r=>Array.isArray(r.jugadores)&&r.jugadores.length===5);
+
+  // ── 1) clasificar cada quinteto (muestra completa) por el criterio elegido ──
+  const crit=SIT_CRITS[sitCrit];
+  const groups={};
+  rows.forEach(r=>{const k=r.jugadores_key||pkeyArr(r.jugadores);(groups[k]=groups[k]||{players:r.jugadores,rows:[]}).rows.push(r);});
+  const lus=Object.entries(groups).map(([k,g])=>{const a=agg(g.rows);return {k,players:g.players,a,val:crit.val(a)};});
+  const elig=lus.filter(l=>l.a.min>=SIT_MIN);
+  const cut=(sitCut==='auto')?sitMedian(elig.map(l=>l.val)):(+sitCut||0);
+  const classOf={};
+  elig.forEach(l=>{classOf[l.k]=l.val>=cut?'hi':'lo';});
+
+  // ── controles ──
+  const teamSel='<div class="tiros-ctl"><span class="zone-lbl">Equipo</span>'+
+    '<select onchange="setSitTeam(this.value)">'+teams.map(t=>'<option'+(t===sitTeam?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
+    '<span class="zone-lbl" style="margin-left:8px">Situación</span>'+
+    '<select onchange="setSitDim(this.value)">'+
+      ['rival|Contra cada rival','cuarto|Por cuarto','marcador|Ganando vs perdiendo']
+        .map(o=>{const[v,t]=o.split('|');return '<option value="'+v+'"'+(v===sitDim?' selected':'')+'>'+t+'</option>';}).join('')+
+    '</select></div>';
+  const critSel='<div class="tiros-ctl" style="margin-top:8px"><span class="zone-lbl">Tipo de quinteto según</span>'+
+    '<select onchange="setSitCrit(this.value)">'+Object.entries(SIT_CRITS).map(([v,c])=>'<option value="'+v+'"'+(v===sitCrit?' selected':'')+'>'+c.lbl+'</option>').join('')+'</select>'+
+    '<span class="zone-lbl" style="margin-left:8px">Corte</span>'+
+    '<select onchange="setSitCut(this.value===\'auto\'?\'auto\':document.getElementById(\'sitCutN\').value)">'+
+      '<option value="auto"'+(sitCut==='auto'?' selected':'')+'>Automático (mediana)</option>'+
+      '<option value="manual"'+(sitCut!=='auto'?' selected':'')+'>Manual…</option></select>'+
+    '<input id="sitCutN" type="number" step="any" value="'+(sitCut==='auto'?cut.toFixed(crit.dec):sitCut)+'" '+
+      'oninput="setSitCut(this.value)" style="width:90px;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r);padding:7px 9px;color:var(--text);font-family:var(--font-mono);font-size:12px"'+
+      (sitCut==='auto'?' disabled':'')+'>'+
+    '<span class="zone-sub" style="margin-left:auto">Corte usado: <b>'+cut.toFixed(crit.dec)+(crit.suf||'')+'</b> · quintetos clasificados: '+elig.length+'/'+lus.length+'</span></div>';
+
+  // ── miembros de cada tipo ──
+  const fmt=v=>v.toFixed(crit.dec)+(crit.suf||'');
+  const memCard=(cls,title,clsCol)=>{
+    const list=elig.filter(l=>classOf[l.k]===cls).sort((a,b)=>(b.val-a.val)*(cls==='hi'?1:-1));
+    const items=list.length?list.map(l=>'<div class="lu-item"><div class="lu-body"><div class="lu-chips">'+chips(l.players)+'</div>'+
+      '<div class="lu-meta">'+crit.short+' '+fmt(l.val)+' · '+Math.round(l.a.min)+' min · NET '+sitNet(l.a).toFixed(2)+'</div></div></div>').join(''):
+      '<div class="zone-sub" style="font-size:11px">Ninguno por encima del mínimo de minutos.</div>';
+    return '<div class="lu-card '+clsCol+'"><div class="lu-h">'+title+'</div>'+items+'</div>';
+  };
+  const buckets='<div class="sec">Cómo quedaron clasificados</div>'+
+    '<div class="zone-sub" style="margin-bottom:6px">El "tipo" se calcula con la muestra completa de cada quinteto ('+SIT_MIN+'+ min juntos). Después se cruza con la situación.</div>'+
+    '<div class="arm-dest">'+
+      memCard('hi','▲ Quintetos '+crit.hi,'good')+
+      memCard('lo','▼ Quintetos '+crit.lo,'bad')+
+    '</div>';
+
+  // ── 2) cruce situación × tipo ──
+  let body='';
+  if(sitDim==='cuarto'&&!DATA.some(r=>r.cuarto!=null)){
+    body=sitMissing('por cuarto','cuarto',
+      'Hoy cada quinteto está sumado por TODO el partido, no por cuarto. Para abrir esto necesitás que <b>Quintetos</b> guarde un tramo por cada cuarto.',
+      'alter table quintetos_log add column if not exists cuarto int;',
+      'En el guardado, escribí una fila por (quinteto × cuarto) con su <code>cuarto</code> (1–4, 5+ para alargues). Cuando re-guardes los partidos, esta vista se prende sola.');
+  }else if(sitDim==='marcador'&&!DATA.some(r=>r.margen!=null)){
+    body=sitMissing('ganando vs perdiendo','margen',
+      'Falta saber con qué diferencia en el marcador jugó cada quinteto. Hay que guardar el margen promedio (puntos propios − rival) mientras ese cinco estuvo en cancha.',
+      'alter table quintetos_log add column if not exists margen numeric;',
+      'En el guardado, calculá <code>margen</code> = (tanteador propio − rival) promedio del tramo. Al re-guardar, agrupo en <b>ganando</b> (+4 o más), <b>parejo</b> (±3) y <b>perdiendo</b> (−4 o menos).');
+  }else{
+    const sitOf = sitDim==='rival'   ? (r=>r.rival||null)
+               : sitDim==='cuarto'  ? (r=>r.cuarto!=null?('Cuarto '+r.cuarto):null)
+               : (r=>{const m=r.margen;if(m==null)return null;return m>=4?'Ganando (+4 o más)':m<=-4?'Perdiendo (−4 o menos)':'Parejo (±3)';});
+    const sits={};
+    rows.forEach(r=>{const s=sitOf(r);if(s==null||s==='')return;const k=r.jugadores_key||pkeyArr(r.jugadores);const cls=classOf[k];if(!cls)return;(sits[s]=sits[s]||{hi:[],lo:[]})[cls].push(r);});
+    let mat=Object.entries(sits).map(([s,o])=>{const hi=agg(o.hi),lo=agg(o.lo);return {sit:s,hi,lo,nHi:sitNet(hi),nLo:sitNet(lo),mHi:hi.min,mLo:lo.min,delta:sitNet(hi)-sitNet(lo)};});
+    mat=mat.filter(m=>m.mHi>0||m.mLo>0).sort((a,b)=>b.delta-a.delta);
+
+    if(!mat.length){
+      body='<div class="empty" style="padding:30px">No hay tramos suficientes para cruzar. Probá con otro criterio o bajá el mínimo de minutos.</div>';
+    }else{
+      // pooled
+      const allHi=[],allLo=[];rows.forEach(r=>{const cls=classOf[r.jugadores_key||pkeyArr(r.jugadores)];if(cls==='hi')allHi.push(r);else if(cls==='lo')allLo.push(r);});
+      const pHi=agg(allHi),pLo=agg(allLo),pd=sitNet(pHi)-sitNet(pLo);
+      const verdict=Math.abs(pd)<0.02
+        ? 'En general rinden parejo; lo que manda es la situación de abajo.'
+        : 'En conjunto conviene el quinteto <b>'+(pd>0?crit.hi:crit.lo)+'</b>: NET '+sgn2(Math.abs(pd))+' por encima del otro tipo. Igual, mirá fila por fila — casi siempre depende de la situación.';
+      const cell=(net,min)=>{const muestra=min>0&&min<SIT_MIN_CELL;return min<=0?'<span style="color:var(--text-3)">—</span>':
+        '<span style="color:'+dc(net)+'">'+net.toFixed(2)+'</span><span style="color:var(--text-3);font-size:11px"> · '+Math.round(min)+'m'+(muestra?' ⚠':'')+'</span>';};
+      const head='<th class="l">'+({rival:'Rival',cuarto:'Momento',marcador:'Marcador'}[sitDim])+'</th>'+
+        '<th>▲ '+crit.hi+'<br><span style="font-weight:400;color:var(--text-3)">NET · min</span></th>'+
+        '<th>▼ '+crit.lo+'<br><span style="font-weight:400;color:var(--text-3)">NET · min</span></th>'+
+        '<th>Δ (▲−▼)</th><th class="l">Quién conviene</th>';
+      const rowsHtml=mat.map(m=>{
+        const conv=m.mHi<=0?('▼ '+crit.lo):m.mLo<=0?('▲ '+crit.hi):(m.delta>0.02?'▲ '+crit.hi:m.delta<-0.02?'▼ '+crit.lo:'parejo');
+        return '<tr><td class="l"><b>'+m.sit+'</b></td>'+
+          '<td>'+cell(m.nHi,m.mHi)+'</td><td>'+cell(m.nLo,m.mLo)+'</td>'+
+          '<td style="color:'+dc(m.delta)+'">'+(m.mHi>0&&m.mLo>0?sgn2(m.delta):'—')+'</td>'+
+          '<td class="l">'+conv+'</td></tr>';
+      }).join('');
+      const table='<div class="board"><div class="board-title">Tipo de quinteto que conviene · '+({rival:'por rival',cuarto:'por momento',marcador:'por marcador'}[sitDim])+'</div>'+
+        '<div class="tblwrap"><table class="t"><thead><tr>'+head+'</tr></thead><tbody>'+rowsHtml+'</tbody></table></div></div>';
+      body='<div class="sec">Lectura general</div>'+
+        '<div class="kpis ficha-kpis">'+
+          kpi(sitNet(pHi).toFixed(2),'NET ▲ '+crit.hi.toUpperCase(),'acc')+
+          kpi(sitNet(pLo).toFixed(2),'NET ▼ '+crit.lo.toUpperCase(),'def')+
+          kpi(sgn2(pd),'DIFERENCIA',pd>=0?'pos':'neg')+'</div>'+
+        '<div class="court-box" style="margin:8px 0 4px">'+verdict+'</div>'+
+        '<div class="sec">'+({rival:'Contra cada rival',cuarto:'Por momento del partido',marcador:'Según el marcador'}[sitDim])+'</div>'+
+        '<div class="zone-sub" style="margin-bottom:6px">NET = puntos por posesión a favor − en contra (más alto = mejor). ⚠ = pocos minutos, tomalo con pinzas. Ordenado por dónde más se nota la diferencia.</div>'+
+        table;
+    }
+  }
+
+  el.innerHTML=
+    '<div class="sec">Quinteto ideal por situación · '+sitTeam+'</div>'+
+    '<div class="zone-sub" style="margin-bottom:8px">En vez de comparar los 5 nombres exactos (poca muestra), clasificamos los quintetos por <b>tipo</b> y miramos qué tipo rinde mejor en cada situación. Vos elegís el criterio.</div>'+
+    teamSel+critSel+body+buckets;
+}
+function sitMissing(nombre,col,desc,sql,como){
+  return '<div class="board" style="border-color:rgba(224,168,59,.4)"><div class="board-title" style="color:#e0a83b">⚠ El cruce «'+nombre+'» todavía no tiene datos</div>'+
+    '<div style="padding:14px 16px">'+
+    '<p style="color:var(--text-2);margin-bottom:10px">'+desc+'</p>'+
+    '<p class="zone-sub" style="margin-bottom:6px">1 · Agregá la columna en Supabase:</p>'+
+    '<pre style="background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:6px;padding:10px 12px;font-family:var(--font-mono);font-size:12px;color:var(--text);overflow-x:auto;margin-bottom:10px">'+sql+'</pre>'+
+    '<p class="zone-sub" style="margin-bottom:4px">2 · '+como+'</p>'+
+    '</div></div>';
 }
 
 // ── VISTA DE UN PARTIDO ──
