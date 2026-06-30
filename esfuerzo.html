@@ -71,18 +71,17 @@ table.t tbody tr:hover{background:var(--bg-hover)}
 .rchip .tot{font-family:var(--font-mono);font-size:10px;color:var(--text-2);border-left:1px solid var(--border-light);padding-left:7px;margin-left:1px}
 .rchip.sel .tot{color:var(--offense)}
 /* barra de jugadores fija (sticky) para cambiar rápido sin perder el scroll */
-.player-bar{position:sticky;top:var(--topbar-h,49px);z-index:9;display:flex;align-items:stretch;gap:6px;background:var(--bg-base);border-bottom:1px solid var(--border-light);padding:8px 0 9px;margin:0 0 12px}
-.player-bar .pnav{flex:none;width:34px;border:1px solid var(--border-light);background:var(--bg-panel);color:var(--text-2);border-radius:9px;cursor:pointer;font-size:13px;transition:all var(--t-fast)}
+.player-bar{position:sticky;top:var(--topbar-h,49px);z-index:9;display:flex;align-items:center;gap:6px;background:var(--bg-base);border-bottom:1px solid var(--border-light);padding:7px 0 8px;margin:0 0 12px}
+.player-bar .pnav{flex:none;width:28px;height:32px;border:1px solid var(--border-light);background:var(--bg-panel);color:var(--text-2);border-radius:8px;cursor:pointer;font-size:12px;transition:all var(--t-fast)}
 .player-bar .pnav:hover{color:var(--offense);border-color:var(--offense)}
-.pbtns{display:flex;gap:8px;overflow-x:auto;scroll-behavior:smooth;padding:2px;flex:1}
-.pbtns::-webkit-scrollbar{height:6px}.pbtns::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
-.pbtn{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:78px;padding:8px 11px;border:1px solid var(--border-light);background:var(--bg-raised);border-radius:11px;cursor:pointer;transition:all var(--t-fast)}
-.pbtn:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.pbtns{display:flex;flex-wrap:wrap;gap:5px;flex:1}
+.pbtn{flex:none;display:flex;flex-direction:row;align-items:center;gap:6px;padding:4px 9px 4px 4px;border:1px solid var(--border-light);background:var(--bg-raised);border-radius:8px;cursor:pointer;line-height:1;transition:background var(--t-fast),border-color var(--t-fast)}
+.pbtn:hover{border-color:var(--border-strong)}
 .pbtn.sel{border-color:var(--offense);background:var(--offense-bg);box-shadow:0 0 0 1px var(--offense) inset}
-.pbtn .pn{font-family:var(--font-mono);font-size:11px;font-weight:600;color:#000;background:var(--text-2);border-radius:4px;padding:1px 7px;min-width:22px;text-align:center}
+.pbtn .pn{font-family:var(--font-mono);font-size:10px;font-weight:600;color:#000;background:var(--text-2);border-radius:4px;padding:2px 5px;min-width:20px;text-align:center}
 .pbtn.sel .pn{background:var(--offense)}
-.pbtn .pnm{font-size:12.5px;color:var(--text);max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pbtn .pt{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+.pbtn .pnm{font-size:12px;color:var(--text);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbtn .pt{font-family:var(--font-mono);font-size:9.5px;color:var(--text-2);min-width:12px;text-align:right}
 .pbtn.sel .pt{color:var(--offense);font-weight:600}
 /* stats personalizadas */
 .tag-own{font-family:var(--font-mono);font-size:8px;letter-spacing:.5px;text-transform:uppercase;color:var(--insight);border:1px solid rgba(167,139,250,.4);border-radius:3px;padding:1px 4px;vertical-align:middle}
@@ -109,7 +108,9 @@ table.t tbody tr:hover{background:var(--bg-hover)}
 .cat-h{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-3);margin:14px 0 6px;border-bottom:1px solid var(--border-subtle);padding-bottom:4px}
 .met{display:flex;align-items:center;gap:10px;padding:5px 0}
 .met-l{flex:1;font-size:12.5px;color:var(--text)}
-.met-w{font-family:var(--font-mono);font-size:9px;color:var(--text-3);border:1px solid var(--border-subtle);border-radius:3px;padding:0 4px}
+.met-w{font-family:var(--font-mono);font-size:9px;color:var(--text-3);border:1px solid var(--border-subtle);border-radius:3px;padding:1px 5px;cursor:pointer;transition:all var(--t-fast)}
+.met-w:hover{color:var(--offense);border-color:var(--offense)}
+.w-inp{width:46px;background:var(--bg-base);border:1px solid var(--offense);border-radius:3px;color:var(--text);font-family:var(--font-mono);font-size:11px;padding:1px 4px;text-align:right;outline:none}
 .step{display:flex;align-items:center;gap:0;background:var(--bg-base);border:1px solid var(--border-light);border-radius:6px;overflow:hidden}
 .step button{width:30px;height:28px;background:none;border:none;color:var(--text-2);font-size:16px;cursor:pointer;font-family:var(--font-mono);transition:all var(--t-fast)}
 .step button:hover{background:var(--bg-hover);color:var(--text)}
@@ -341,7 +342,7 @@ function renderCargar(){
       const cats=[...new Set(AM().filter(m=>m.side===side).map(m=>m.cat))];
       const inner=cats.map(cat=>'<div class="cat-h">'+esc(cat)+'</div>'+
         AM().filter(m=>m.side===side&&m.cat===cat).map(m=>{const v=n(cur[m.k]);
-          return '<div class="met"><span class="met-l">'+esc(m.l)+(m.custom?' <span class="tag-own">propia</span>':'')+'</span><span class="met-w">×'+(WEIGHTS[m.k]||0)+'</span>'+
+          return '<div class="met"><span class="met-l">'+esc(m.l)+(m.custom?' <span class="tag-own">propia</span>':'')+'</span><span class="met-w" data-k="'+m.k+'" title="Tocá para cambiar el puntaje" onclick="editWeight(this,\''+m.k+'\')">×'+(WEIGHTS[m.k]||0)+'</span>'+
             '<div class="step"><button onclick="bump(\''+m.k+'\',-1)">−</button>'+
             '<span class="val'+(v>0?' nz':'')+'" id="v-'+m.k+'">'+v+'</span>'+
             '<button class="plus" onclick="bump(\''+m.k+'\',1)">+</button></div></div>';
@@ -356,6 +357,7 @@ function renderCargar(){
         '<div class="kpi"><div class="v def" id="curIdxD">'+idxOf(cur,'df').toFixed(1)+'</div><div class="k">Índice defensivo</div></div>'+
         '<div class="kpi" style="flex:0 0 auto"><div class="field"><label>Minutos jugados</label><input id="capMin" type="number" min="0" step="1" value="'+(cur._min||0)+'" oninput="setMin(this.value)" style="min-width:90px"></div></div>'+
       '</div>'+
+      '<div class="zone-sub" style="margin:2px 0 8px">Tocá el <b>×N</b> de cada acción para cambiarle el puntaje en el índice (sirve para las fijas y las propias).</div>'+
       sideBlock('of','of','▲ Ofensivas')+sideBlock('df','df','▼ Defensivas');
   }
 
@@ -553,6 +555,22 @@ function setWeight(k,v){WEIGHTS[k]=Math.max(0,n(v));persistW();
   renderEvaluar();}
 function resetWeights(){AM().forEach(m=>WEIGHTS[m.k]=m.w);persistW();renderEvaluar();}
 function persistW(){try{localStorage.setItem('esf_weights',JSON.stringify(WEIGHTS));}catch(_){}}
+function editWeight(badge,k){
+  if(!badge||badge.querySelector('input'))return;
+  const cur=WEIGHTS[k]||0;
+  badge.innerHTML='<input class="w-inp" type="number" step="0.5" min="0" value="'+cur+'">';
+  const inp=badge.querySelector('input');inp.focus();inp.select();
+  let done=false;
+  const finish=function(save){
+    if(done)return;done=true;
+    if(save){const nv=Math.max(0,n(inp.value));WEIGHTS[k]=nv;persistW();
+      if(isCustom(k)){const m=CUSTOM.find(x=>x.k===k);if(m)m.w=nv;try{getSB().from('esfuerzo_metricas').update({peso:nv}).eq('k',k).then(()=>{});}catch(_){}}}
+    document.querySelectorAll('.met-w[data-k="'+k+'"]').forEach(b=>{b.textContent='×'+(WEIGHTS[k]||0);});
+    updateCapTotals();try{renderEvaluar();}catch(_){}
+  };
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();finish(true);}else if(e.key==='Escape'){finish(false);}});
+  inp.addEventListener('blur',function(){finish(true);});
+}
 
 /* ════════ SETUP (si falta la tabla) ════════ */
 function tableSetup(){
