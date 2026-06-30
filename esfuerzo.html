@@ -70,6 +70,34 @@ table.t tbody tr:hover{background:var(--bg-hover)}
 .rchip.sel .pn{background:var(--offense)}
 .rchip .tot{font-family:var(--font-mono);font-size:10px;color:var(--text-2);border-left:1px solid var(--border-light);padding-left:7px;margin-left:1px}
 .rchip.sel .tot{color:var(--offense)}
+/* barra de jugadores fija (sticky) para cambiar rápido sin perder el scroll */
+.player-bar{position:sticky;top:var(--topbar-h,49px);z-index:9;display:flex;align-items:stretch;gap:6px;background:var(--bg-base);border-bottom:1px solid var(--border-light);padding:8px 0 9px;margin:0 0 12px}
+.player-bar .pnav{flex:none;width:34px;border:1px solid var(--border-light);background:var(--bg-panel);color:var(--text-2);border-radius:9px;cursor:pointer;font-size:13px;transition:all var(--t-fast)}
+.player-bar .pnav:hover{color:var(--offense);border-color:var(--offense)}
+.pbtns{display:flex;gap:8px;overflow-x:auto;scroll-behavior:smooth;padding:2px;flex:1}
+.pbtns::-webkit-scrollbar{height:6px}.pbtns::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+.pbtn{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:78px;padding:8px 11px;border:1px solid var(--border-light);background:var(--bg-raised);border-radius:11px;cursor:pointer;transition:all var(--t-fast)}
+.pbtn:hover{border-color:var(--border-strong);transform:translateY(-1px)}
+.pbtn.sel{border-color:var(--offense);background:var(--offense-bg);box-shadow:0 0 0 1px var(--offense) inset}
+.pbtn .pn{font-family:var(--font-mono);font-size:11px;font-weight:600;color:#000;background:var(--text-2);border-radius:4px;padding:1px 7px;min-width:22px;text-align:center}
+.pbtn.sel .pn{background:var(--offense)}
+.pbtn .pnm{font-size:12.5px;color:var(--text);max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbtn .pt{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+.pbtn.sel .pt{color:var(--offense);font-weight:600}
+/* stats personalizadas */
+.tag-own{font-family:var(--font-mono);font-size:8px;letter-spacing:.5px;text-transform:uppercase;color:var(--insight);border:1px solid rgba(167,139,250,.4);border-radius:3px;padding:1px 4px;vertical-align:middle}
+.cust-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border-subtle)}
+.cust-side{font-family:var(--font-mono);font-size:9px;font-weight:600;border-radius:4px;padding:2px 6px;color:#000;min-width:30px;text-align:center}
+.cust-side.of{background:var(--offense)}.cust-side.df{background:var(--defense)}
+.cust-name{flex:1;font-size:13px;color:var(--text)}
+.cust-cat{font-family:var(--font-mono);font-size:10px;color:var(--text-3)}
+.cust-w{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+.cust-del{background:none;border:1px solid var(--border-light);border-radius:6px;color:var(--text-3);width:26px;height:26px;cursor:pointer;font-size:12px;flex:none;transition:all var(--t-fast)}
+.cust-del:hover{color:var(--negative);border-color:var(--negative)}
+.cust-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-light)}
+.cust-form input,.cust-form select{background:var(--bg-base);border:1px solid var(--border-light);border-radius:7px;padding:9px 11px;color:var(--text);font-family:var(--font-ui);font-size:13px;outline:none}
+.cust-form input[type=text]{flex:1;min-width:160px}
+.cust-form input:focus,.cust-form select:focus{border-color:var(--offense)}
 /* capture grid */
 .side{border:1px solid var(--border-light);border-radius:var(--r-lg);overflow:hidden;margin-bottom:var(--sp-3)}
 .side>summary{list-style:none;cursor:pointer;padding:11px 15px;font-family:var(--font-disp);font-weight:700;font-size:15px;letter-spacing:.5px;display:flex;align-items:center;gap:8px;background:var(--bg-raised)}
@@ -171,6 +199,12 @@ const METRICS=[
 ];
 const MK=METRICS.map(m=>m.k);
 let WEIGHTS={};METRICS.forEach(m=>WEIGHTS[m.k]=m.w);
+let CUSTOM=[];           // stats personalizadas: {k,l,side,cat,w,custom:true}
+let METRICAS_OK=true;    // existe la tabla esfuerzo_metricas
+function AM(){return METRICS.concat(CUSTOM);}   // todas las métricas (fijas + propias)
+function AMK(){return AM().map(m=>m.k);}        // todas las keys
+function isCustom(k){return CUSTOM.some(m=>m.k===k);}
+function slug(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,24)||'stat';}
 try{const sw=localStorage.getItem('esf_weights');if(sw)WEIGHTS=Object.assign(WEIGHTS,JSON.parse(sw));}catch(_){}
 
 /* ════════ ESTADO ════════ */
@@ -191,8 +225,8 @@ function n(x){return +x||0;}
 function matchId(){return 'ESF|'+capTeam+'|'+capRival+'|'+capFecha;}
 
 /* índice de esfuerzo de una fila/acumulado */
-function idxOf(o,side){let s=0;METRICS.forEach(m=>{if(side&&m.side!==side)return;s+=n(o[m.k])*(WEIGHTS[m.k]||0);});return s;}
-function rawOf(o,side){let s=0;METRICS.forEach(m=>{if(side&&m.side!==side)return;s+=n(o[m.k]);});return s;}
+function idxOf(o,side){let s=0;AM().forEach(m=>{if(side&&m.side!==side)return;s+=n(o[m.k])*(WEIGHTS[m.k]||0);});return s;}
+function rawOf(o,side){let s=0;AM().forEach(m=>{if(side&&m.side!==side)return;s+=n(o[m.k]);});return s;}
 
 /* ════════ CARGA ════════ */
 async function loadAll(){
@@ -211,11 +245,22 @@ async function loadAll(){
     ROSTERS={};Object.entries(rmap).forEach(([t,m])=>{ROSTERS[t]=Object.values(m).sort((a,b)=>(n(a.num)-n(b.num))||String(a.name).localeCompare(b.name));});
     TEAMS=Object.keys(ROSTERS).sort();
   }catch(_){ROSTERS={};TEAMS=[];}
+  // stats personalizadas (definiciones)
+  try{
+    const mr=await c.from('esfuerzo_metricas').select('*').order('created_at',{ascending:true});
+    if(mr.error){METRICAS_OK=false;CUSTOM=[];}
+    else{METRICAS_OK=true;CUSTOM=(mr.data||[]).map(m=>({k:m.k,l:m.label||m.k,side:(m.side==='of'?'of':'df'),cat:m.cat||'Personalizadas',w:n(m.peso),custom:true}));}
+  }catch(_){METRICAS_OK=false;CUSTOM=[];}
+  // pesos de las custom (respetando un override local si existe)
+  let savedW={};try{const sw=localStorage.getItem('esf_weights');if(sw)savedW=JSON.parse(sw)||{};}catch(_){}
+  CUSTOM.forEach(m=>{WEIGHTS[m.k]=(m.k in savedW)?n(savedW[m.k]):m.w;});
   // esfuerzo_log
   try{
     const er=await c.from('esfuerzo_log').select('*').limit(50000);
     if(er.error){TABLE_OK=false;ESF=[];}else{TABLE_OK=true;ESF=er.data||[];}
   }catch(_){TABLE_OK=false;ESF=[];}
+  // aplanar la columna extra (valores de stats personalizadas) sobre cada fila
+  ESF.forEach(r=>{let ex=r.extra;if(typeof ex==='string'){try{ex=JSON.parse(ex);}catch(_){ex=null;}}if(ex&&typeof ex==='object')Object.keys(ex).forEach(k=>{r[k]=n(ex[k]);});});
 
   if(!capTeam)capTeam=TEAMS[0]||'';
   if(!evTeam)evTeam=TEAMS[0]||'';
@@ -232,7 +277,19 @@ function switchView(v){
 /* ════════ TAB CARGAR ════════ */
 function setCapTeam(v){capTeam=v;capPlayer='';renderCargar();}
 function setCapField(f,v){if(f==='rival')capRival=v;else if(f==='fecha')capFecha=v;else if(f==='local')capLocal=(v==='1');}
-function selPlayer(k){capPlayer=k;renderCargar();}
+function selPlayer(k){capPlayer=k;applyPlayer();scrollPlayerIntoView();}
+function shiftPlayer(d){const r=ROSTERS[capTeam]||[];if(!r.length)return;const keys=r.map(pk);let i=keys.indexOf(capPlayer);if(i<0)i=0;capPlayer=keys[(i+d+keys.length)%keys.length];applyPlayer();scrollPlayerIntoView();}
+function scrollPlayerIntoView(){const b=document.querySelector('.pbtn.sel');if(b&&b.scrollIntoView){try{b.scrollIntoView({inline:'center',block:'nearest'});}catch(_){}}}
+function applyPlayer(){
+  const cur=tally[capPlayer]||{};
+  AMK().forEach(m=>{const e=document.getElementById('v-'+m);if(e){const v=n(cur[m]);e.textContent=v;e.classList.toggle('nz',v>0);}});
+  const mi=document.getElementById('capMin');if(mi)mi.value=cur._min||0;
+  const curP=cur._p||{};const w=document.getElementById('capWho');if(w)w.textContent=(curP.name||'')+(curP.num!=null?' · #'+curP.num:'');
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.toggle('sel',b.dataset.k===capPlayer));
+  updateCapTotals();
+}
+function setTopbarH(){const tb=document.querySelector('.topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}
+window.addEventListener('resize',setTopbarH);
 function ensureP(k,p){if(!tally[k])tally[k]={_min:0,_p:p};return tally[k];}
 function bump(k,d){
   if(!capPlayer)return;
@@ -266,20 +323,25 @@ function renderCargar(){
     '<div class="field"><label>Condición</label><select onchange="setCapField(\'local\',this.value)"><option value="1"'+(capLocal?' selected':'')+'>Local</option><option value="0"'+(!capLocal?' selected':'')+'>Visitante</option></select></div>'+
     '</div>';
 
-  const chips='<div class="zone-sub" style="margin-bottom:4px">Jugador (tocá para cargar el suyo · el número es su índice acumulado)</div>'+
-    '<div class="roster">'+roster.map(p=>{const k=pk(p);const sel=k===capPlayer;
-      return '<div class="rchip'+(sel?' sel':'')+'" onclick="selPlayer(\''+k.replace(/'/g,"\\'")+'\')"><span class="pn">'+(p.num!=null?p.num:'·')+'</span>'+esc(p.name||'?')+
-        '<span class="tot" id="tot-'+esc(k)+'">'+Math.round(idxOf(tally[k]||{}))+'</span></div>';
-    }).join('')+'</div>';
+  const playerBar='<div class="player-bar" id="playerBar">'+
+    '<button class="pnav" onclick="shiftPlayer(-1)" title="Jugador anterior">◀</button>'+
+    '<div class="pbtns" id="pbtns">'+roster.map(p=>{const k=pk(p);const sel=k===capPlayer;
+      return '<button class="pbtn'+(sel?' sel':'')+'" data-k="'+esc(k)+'" onclick="selPlayer(\''+k.replace(/'/g,"\\'")+'\')">'+
+        '<span class="pn">'+(p.num!=null?p.num:'·')+'</span>'+
+        '<span class="pnm">'+esc(p.name||'?')+'</span>'+
+        '<span class="pt" id="tot-'+esc(k)+'">'+Math.round(idxOf(tally[k]||{}))+'</span></button>';
+    }).join('')+'</div>'+
+    '<button class="pnav" onclick="shiftPlayer(1)" title="Jugador siguiente">▶</button></div>';
+  const hint='<div class="zone-sub" style="margin:-4px 0 10px">Tocá un jugador (queda fijo arriba mientras marcás) o saltá con ◀ ▶. El número de cada uno es su índice acumulado.</div>';
 
   let grid='';
   if(capPlayer){
     const cur=tally[capPlayer]||{};
     const sideBlock=(side,cls,title)=>{
-      const cats=[...new Set(METRICS.filter(m=>m.side===side).map(m=>m.cat))];
-      const inner=cats.map(cat=>'<div class="cat-h">'+cat+'</div>'+
-        METRICS.filter(m=>m.side===side&&m.cat===cat).map(m=>{const v=n(cur[m.k]);
-          return '<div class="met"><span class="met-l">'+m.l+'</span><span class="met-w">×'+(WEIGHTS[m.k]||0)+'</span>'+
+      const cats=[...new Set(AM().filter(m=>m.side===side).map(m=>m.cat))];
+      const inner=cats.map(cat=>'<div class="cat-h">'+esc(cat)+'</div>'+
+        AM().filter(m=>m.side===side&&m.cat===cat).map(m=>{const v=n(cur[m.k]);
+          return '<div class="met"><span class="met-l">'+esc(m.l)+(m.custom?' <span class="tag-own">propia</span>':'')+'</span><span class="met-w">×'+(WEIGHTS[m.k]||0)+'</span>'+
             '<div class="step"><button onclick="bump(\''+m.k+'\',-1)">−</button>'+
             '<span class="val'+(v>0?' nz':'')+'" id="v-'+m.k+'">'+v+'</span>'+
             '<button class="plus" onclick="bump(\''+m.k+'\',1)">+</button></div></div>';
@@ -287,12 +349,12 @@ function renderCargar(){
       return '<details class="side '+cls+'" open><summary>'+title+'</summary><div class="cat">'+inner+'</div></details>';
     };
     const curP=(tally[capPlayer]||{})._p||{};
-    grid='<div class="sec">Cargando: '+esc(curP.name||'')+(curP.num!=null?' · #'+curP.num:'')+'</div>'+
+    grid='<div class="sec">Marcando a: <span id="capWho" style="color:var(--offense)">'+esc(curP.name||'')+(curP.num!=null?' · #'+curP.num:'')+'</span></div>'+
       '<div class="kpis">'+
         '<div class="kpi"><div class="v acc" id="curIdx">'+idxOf(cur).toFixed(1)+'</div><div class="k">Índice total</div></div>'+
         '<div class="kpi"><div class="v" style="color:var(--offense)" id="curIdxO">'+idxOf(cur,'of').toFixed(1)+'</div><div class="k">Índice ofensivo</div></div>'+
         '<div class="kpi"><div class="v def" id="curIdxD">'+idxOf(cur,'df').toFixed(1)+'</div><div class="k">Índice defensivo</div></div>'+
-        '<div class="kpi" style="flex:0 0 auto"><div class="field"><label>Minutos jugados</label><input type="number" min="0" step="1" value="'+(cur._min||0)+'" oninput="setMin(this.value)" style="min-width:90px"></div></div>'+
+        '<div class="kpi" style="flex:0 0 auto"><div class="field"><label>Minutos jugados</label><input id="capMin" type="number" min="0" step="1" value="'+(cur._min||0)+'" oninput="setMin(this.value)" style="min-width:90px"></div></div>'+
       '</div>'+
       sideBlock('of','of','▲ Ofensivas')+sideBlock('df','df','▼ Defensivas');
   }
@@ -306,8 +368,66 @@ function renderCargar(){
   let setup='';
   if(!TABLE_OK)setup=tableSetup();
 
-  el.innerHTML=meta+chips+grid+save+setup;
-  updateCapTotals();
+  el.innerHTML=meta+playerBar+hint+grid+save+customPanel()+setup;
+  updateCapTotals();setTopbarH();
+}
+/* ── Panel para crear / borrar stats personalizadas ── */
+function customPanel(){
+  if(!METRICAS_OK) return customSetup();
+  const list=CUSTOM.length
+    ? CUSTOM.map(m=>'<div class="cust-row"><span class="cust-side '+(m.side==='of'?'of':'df')+'">'+(m.side==='of'?'ATQ':'DEF')+'</span>'+
+        '<span class="cust-name">'+esc(m.l)+'</span>'+
+        '<span class="cust-cat">'+esc(m.cat)+'</span>'+
+        '<span class="cust-w">peso ×'+(WEIGHTS[m.k]||0)+'</span>'+
+        '<button class="cust-del" title="Borrar esta stat" onclick="delCustom(\''+m.k+'\')">✕</button></div>').join('')
+    : '<div class="zone-sub" style="padding:2px 0 6px">Todavía no creaste ninguna. Agregá la primera abajo 👇</div>';
+  return '<details class="board" style="margin-top:18px"><summary style="cursor:pointer;list-style:none;padding:11px 15px;font-family:var(--font-disp);font-weight:700;font-size:15px;color:var(--insight)">➕ Mis stats de esfuerzo (crear / borrar) ▾</summary>'+
+    '<div style="padding:6px 15px 16px">'+
+    '<div class="zone-sub" style="margin-bottom:10px">Creá tus propias acciones y poneles el peso que quieras. Aparecen para marcar arriba y suman al índice según ese peso.</div>'+
+    list+
+    '<div class="cust-form">'+
+      '<input id="ncName" type="text" placeholder="Nombre (ej: Tapó el primer pase)" maxlength="48">'+
+      '<select id="ncSide"><option value="of">Ofensiva</option><option value="df" selected>Defensiva</option></select>'+
+      '<input id="ncCat" type="text" placeholder="Categoría (opcional)" maxlength="28">'+
+      '<input id="ncW" type="number" step="0.5" min="0" value="1" title="Peso en el índice" style="width:80px">'+
+      '<button class="btn-primary" style="padding:9px 16px" onclick="addCustom()">Agregar</button>'+
+      '<span class="savemsg" id="ncMsg"></span>'+
+    '</div></div></details>';
+}
+function customSetup(){
+  const sql='alter table esfuerzo_log add column if not exists extra jsonb default \'{}\'::jsonb;\n\n'+
+    'create table if not exists esfuerzo_metricas (\n  k text primary key,\n  label text,\n  side text,\n  cat text,\n  peso numeric default 1,\n  created_at timestamptz default now()\n);\n'+
+    'alter table esfuerzo_metricas enable row level security;\n'+
+    'drop policy if exists "esfm_all" on esfuerzo_metricas;\n'+
+    'create policy "esfm_all" on esfuerzo_metricas for all using (true) with check (true);';
+  return '<div class="note" style="margin-top:18px"><b>Para crear stats propias, corré este upgrade una sola vez</b> en el SQL Editor de Supabase y después tocá «↻ Actualizar»:'+
+    '<pre class="sql">'+esc(sql)+'</pre>Agrega una columna flexible para los valores y una tablita para las definiciones. No toca nada de lo que ya tenés.</div>';
+}
+async function addCustom(){
+  const name=(document.getElementById('ncName').value||'').trim();
+  const side=document.getElementById('ncSide').value==='of'?'of':'df';
+  const cat=(document.getElementById('ncCat').value||'').trim()||'Personalizadas';
+  const w=Math.max(0,n(document.getElementById('ncW').value));
+  const msg=document.getElementById('ncMsg');
+  if(!name){if(msg){msg.textContent='Poné un nombre.';msg.style.color='var(--negative)';}return;}
+  const k='cst_'+slug(name)+'_'+Date.now().toString(36).slice(-4);
+  const c=getSB();
+  if(msg){msg.textContent='Guardando…';msg.style.color='var(--text-2)';}
+  const ins=await c.from('esfuerzo_metricas').insert([{k,label:name,side,cat,peso:w}]);
+  if(ins.error){
+    if(/relation .* does not exist|esfuerzo_metricas/.test(ins.error.message)){METRICAS_OK=false;renderCargar();return;}
+    if(msg){msg.textContent=ins.error.message;msg.style.color='var(--negative)';}return;
+  }
+  CUSTOM.push({k,l:name,side,cat,w,custom:true});WEIGHTS[k]=w;persistW();
+  renderCargar();renderEvaluar();
+}
+async function delCustom(k){
+  const m=CUSTOM.find(x=>x.k===k);if(!m)return;
+  if(!confirm('¿Borrar la stat «'+m.l+'»? Sus valores ya cargados dejan de contar en el índice (no se borran de la base).'))return;
+  const c=getSB();const del=await c.from('esfuerzo_metricas').delete().eq('k',k);
+  if(del.error){alert(del.error.message);return;}
+  CUSTOM=CUSTOM.filter(x=>x.k!==k);delete WEIGHTS[k];persistW();
+  renderCargar();renderEvaluar();
 }
 function clearCap(){if(!confirm('¿Borrar todo lo cargado en pantalla? (no toca lo guardado en la base)'))return;tally={};renderCargar();}
 
@@ -316,7 +436,9 @@ async function loadEsfMatch(){
   const r=await c.from('esfuerzo_log').select('*').eq('equipo',capTeam).eq('match_id',mid);
   if(r.error){msgSave(r.error.message,true);return;}
   if(!r.data||!r.data.length){msgSave('No hay nada guardado para '+capTeam+' vs '+(capRival||'?')+' ('+capFecha+').',true);return;}
-  r.data.forEach(row=>{const p={num:row.jugador_num,name:row.jugador};const k=pk(p);const o=ensureP(k,p);MK.forEach(m=>o[m]=n(row[m]));o._min=n(row.minutos);});
+  r.data.forEach(row=>{const p={num:row.jugador_num,name:row.jugador};const k=pk(p);const o=ensureP(k,p);MK.forEach(m=>o[m]=n(row[m]));
+    let ex=row.extra;if(typeof ex==='string'){try{ex=JSON.parse(ex);}catch(_){ex=null;}}if(ex&&typeof ex==='object')CUSTOM.forEach(m=>o[m.k]=n(ex[m.k]));
+    o._min=n(row.minutos);});
   msgSave('Cargados '+r.data.length+' jugadores desde la base.',false);renderCargar();
 }
 function msgSave(t,err){const el=document.getElementById('saveMsg');if(el){el.textContent=t;el.style.color=err?'var(--negative)':'var(--positive)';}}
@@ -329,7 +451,9 @@ async function saveEsf(){
     const tot=rawOf(o);if(tot<=0&&!o._min)return; // saltar jugadores sin nada
     const row={equipo:capTeam,rival:capRival.trim(),es_local:capLocal,fecha:capFecha,match_id:mid,
       jugador:(o._p&&o._p.name)||'',jugador_num:(o._p&&o._p.num!=null)?o._p.num:null,minutos:n(o._min)};
-    MK.forEach(m=>row[m]=n(o[m]));rows.push(row);
+    MK.forEach(m=>row[m]=n(o[m]));
+    if(CUSTOM.length){const ex={};CUSTOM.forEach(m=>ex[m.k]=n(o[m.k]));row.extra=ex;}
+    rows.push(row);
   });
   if(!rows.length){msgSave('No hay nada para guardar.',true);return;}
   msgSave('Guardando…',false);
@@ -337,7 +461,10 @@ async function saveEsf(){
   const del=await c.from('esfuerzo_log').delete().eq('equipo',capTeam).eq('match_id',mid);
   if(del.error){if(/relation .* does not exist|esfuerzo_log/.test(del.error.message)){TABLE_OK=false;renderCargar();return;}msgSave(del.error.message,true);return;}
   const ins=await c.from('esfuerzo_log').insert(rows);
-  if(ins.error){msgSave(ins.error.message,true);return;}
+  if(ins.error){
+    if(/column .*extra|extra.* does not exist/i.test(ins.error.message)){msgSave('Falta el upgrade para stats propias (columna extra). Mirá el recuadro de «Mis stats» y corré el SQL.',true);METRICAS_OK=false;return;}
+    msgSave(ins.error.message,true);return;
+  }
   msgSave('✓ Guardado: '+rows.length+' jugadores.',false);
   await loadAll();
 }
@@ -358,7 +485,7 @@ function renderEvaluar(){
   // acumular por jugador
   const pmap={};
   rows.forEach(r=>{const p={num:r.jugador_num,name:r.jugador};const k=pk(p);
-    const o=pmap[k]||(pmap[k]={p,min:0,pj:new Set()});MK.forEach(m=>o[m]=n(o[m])+n(r[m]));o.min+=n(r.minutos);o.pj.add(r.match_id);});
+    const o=pmap[k]||(pmap[k]={p,min:0,pj:new Set()});AMK().forEach(m=>o[m]=n(o[m])+n(r[m]));o.min+=n(r.minutos);o.pj.add(r.match_id);});
   let players=Object.values(pmap).map(o=>{
     const tot=idxOf(o),io=idxOf(o,'of'),id=idxOf(o,'df'),pj=o.pj.size,min=o.min;
     const factor=(evNorm==='p40'&&min>0)?40/min:1;
@@ -399,27 +526,32 @@ function renderEvaluar(){
     '</tbody></table></div></div>';
 
   // líderes por métrica (top 3 con valor > 0)
-  const totByMetric={};MK.forEach(m=>{totByMetric[m]=players.map(p=>({name:p.p.name,num:p.p.num,v:per40&&p.min>0?n(p[m])*40/p.min:n(p[m])})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,3);});
+  const totByMetric={};AMK().forEach(m=>{totByMetric[m]=players.map(p=>({name:p.p.name,num:p.p.num,v:per40&&p.min>0?n(p[m])*40/p.min:n(p[m])})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,3);});
   const leadersFor=side=>{
-    const ms=METRICS.filter(m=>m.side===side);
+    const ms=AM().filter(m=>m.side===side);
     const cells=ms.map(m=>{const L=totByMetric[m.k];if(!L.length)return '';
-      return '<tr><td class="l">'+m.l+'</td><td class="l">'+L.map(x=>'<span class="pchip" style="margin:1px 2px"><span class="pn">'+(x.num!=null?x.num:'·')+'</span>'+esc(x.name)+' · '+(per40?x.v.toFixed(1):Math.round(x.v))+'</span>').join(' ')+'</td></tr>';
+      return '<tr><td class="l">'+esc(m.l)+(m.custom?' <span class="tag-own">propia</span>':'')+'</td><td class="l">'+L.map(x=>'<span class="pchip" style="margin:1px 2px"><span class="pn">'+(x.num!=null?x.num:'·')+'</span>'+esc(x.name)+' · '+(per40?x.v.toFixed(1):Math.round(x.v))+'</span>').join(' ')+'</td></tr>';
     }).filter(Boolean).join('');
     return cells?'<div class="board"><div class="board-title">Líderes · '+(side==='of'?'Ofensivas':'Defensivas')+'</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Acción</th><th class="l">Top 3</th></tr></thead><tbody>'+cells+'</tbody></table></div></div>':'';
   };
 
   // editor de pesos
+  const wrow=m=>'<label>'+esc(m.l)+' <span class="met-w" style="margin-left:6px">'+(m.side==='of'?'ATQ':'DEF')+'</span>'+(m.custom?' <span class="tag-own">propia</span>':'')+'</label>'+
+    '<span style="display:flex;gap:6px;align-items:center"><input type="number" step="0.5" min="0" value="'+(WEIGHTS[m.k]||0)+'" onchange="setWeight(\''+m.k+'\',this.value)">'+
+    (m.custom?'<button class="cust-del" title="Borrar" onclick="delCustom(\''+m.k+'\')">✕</button>':'')+'</span>';
   const wedit='<details class="board"><summary style="cursor:pointer;list-style:none;padding:11px 15px;font-family:var(--font-disp);font-weight:700;font-size:15px;color:var(--insight)">⚙ Pesos del índice (qué tanto vale cada acción) ▾</summary>'+
-    '<div class="zone-sub" style="padding:0 15px 4px">Cambiá cuánto suma cada acción al índice. Se recalcula al instante y se guarda en este navegador.</div>'+
-    '<div class="wedit">'+METRICS.map(m=>'<label>'+m.l+' <span class="met-w" style="margin-left:6px">'+(m.side==='of'?'ATQ':'DEF')+'</span></label><input type="number" step="0.5" min="0" value="'+(WEIGHTS[m.k]||0)+'" onchange="setWeight(\''+m.k+'\',this.value)">').join('')+'</div>'+
+    '<div class="zone-sub" style="padding:0 15px 4px">Cambiá cuánto suma cada acción al índice. Se recalcula al instante. Las stats propias guardan su peso en la base; las fijas, en este navegador.</div>'+
+    '<div class="wedit">'+AM().map(wrow).join('')+'</div>'+
     '<div style="padding:6px 15px 14px"><button class="btn-ghost" onclick="resetWeights()">↺ Volver a los pesos por defecto</button></div></details>';
 
   el.innerHTML=ctl+kpis+
     '<div class="zone-sub" style="margin-bottom:8px">Índice = suma de cada acción × su peso. Separado en ofensivo (rebote of., juego sin balón, ventajas) y defensivo (presión, rotaciones, contestación, sacrificio, transición).</div>'+
     rk+'<div class="sec">Quién aporta qué</div>'+leadersFor('of')+leadersFor('df')+wedit;
 }
-function setWeight(k,v){WEIGHTS[k]=Math.max(0,n(v));persistW();renderEvaluar();}
-function resetWeights(){METRICS.forEach(m=>WEIGHTS[m.k]=m.w);persistW();renderEvaluar();}
+function setWeight(k,v){WEIGHTS[k]=Math.max(0,n(v));persistW();
+  if(isCustom(k)){const m=CUSTOM.find(x=>x.k===k);if(m)m.w=WEIGHTS[k];try{getSB().from('esfuerzo_metricas').update({peso:WEIGHTS[k]}).eq('k',k).then(()=>{});}catch(_){}}
+  renderEvaluar();}
+function resetWeights(){AM().forEach(m=>WEIGHTS[m.k]=m.w);persistW();renderEvaluar();}
 function persistW(){try{localStorage.setItem('esf_weights',JSON.stringify(WEIGHTS));}catch(_){}}
 
 /* ════════ SETUP (si falta la tabla) ════════ */
@@ -431,9 +563,15 @@ function tableSetup(){
     '  equipo text, rival text, fase text, es_local bool,\n'+
     '  fecha date, match_id text,\n'+
     '  jugador text, jugador_num int, minutos int default 0,\n'+
-    cols+'\n);\n\n'+
+    cols+',\n  extra jsonb default \'{}\'::jsonb\n);\n\n'+
     'alter table esfuerzo_log enable row level security;\n'+
-    'create policy "esf_all" on esfuerzo_log for all using (true) with check (true);';
+    'drop policy if exists "esf_all" on esfuerzo_log;\n'+
+    'create policy "esf_all" on esfuerzo_log for all using (true) with check (true);\n\n'+
+    '-- Definiciones de stats personalizadas\n'+
+    'create table if not exists esfuerzo_metricas (\n  k text primary key, label text, side text, cat text,\n  peso numeric default 1, created_at timestamptz default now()\n);\n'+
+    'alter table esfuerzo_metricas enable row level security;\n'+
+    'drop policy if exists "esfm_all" on esfuerzo_metricas;\n'+
+    'create policy "esfm_all" on esfuerzo_metricas for all using (true) with check (true);';
   return '<div class="note"><b>Falta crear la tabla <code>esfuerzo_log</code> en Supabase.</b><br>'+
     'Pegá esto en el SQL Editor de Supabase y dale Run. Después tocá «↻ Actualizar» acá arriba y ya podés cargar.'+
     '<pre class="sql">'+esc(sql)+'</pre>'+
