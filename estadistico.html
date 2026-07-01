@@ -1157,8 +1157,8 @@ function renderTiros(){
   let shootersPanel='';
   if(tiroPlayer==='__all__'){
     const byNum={};
-    boxTeam.forEach(p=>{const k=String(p.num);const o=byNum[k]||(byNum[k]={num:p.num,nombre:p.nombre||'',fgm:0,fga:0,tpm:0,tpa:0});o.fgm+=+p.fgm||0;o.fga+=+p.fga||0;o.tpm+=+p.tpm||0;o.tpa+=+p.tpa||0;if((p.nombre||'').length>o.nombre.length)o.nombre=p.nombre;});
-    const plRank=Object.values(byNum).map(p=>{let m,a;if(tiroTipo==='3'){m=p.tpm;a=p.tpa;}else if(tiroTipo==='2'){m=p.fgm-p.tpm;a=p.fga-p.tpa;}else{m=p.fgm;a=p.fga;}return {num:p.num,nombre:p.nombre,m,a};}).filter(p=>p.a>0).sort((a,b)=>b.m-a.m||b.a-a.a).slice(0,8);
+    boxTeam.forEach(p=>{const k=(p.equipo||'')+'#'+p.num;const o=byNum[k]||(byNum[k]={num:p.num,equipo:p.equipo||'',nombre:p.nombre||'',fgm:0,fga:0,tpm:0,tpa:0});o.fgm+=+p.fgm||0;o.fga+=+p.fga||0;o.tpm+=+p.tpm||0;o.tpa+=+p.tpa||0;if((p.nombre||'').length>o.nombre.length)o.nombre=p.nombre;});
+    const plRank=Object.values(byNum).map(p=>{let m,a;if(tiroTipo==='3'){m=p.tpm;a=p.tpa;}else if(tiroTipo==='2'){m=p.fgm-p.tpm;a=p.fga-p.tpa;}else{m=p.fgm;a=p.fga;}return {num:p.num,equipo:p.equipo,nombre:p.nombre,m,a};}).filter(p=>p.a>0).sort((a,b)=>b.m-a.m||b.a-a.a).slice(0,8);
     if(plRank.length){
       const mxA=Math.max(...plRank.map(p=>p.a));
       const ttl=tiroTipo==='3'?'Quién mete los triples':tiroTipo==='2'?'Quién mete los dobles':'Quiénes más tiran';
@@ -1166,7 +1166,7 @@ function renderTiros(){
         '<div class="zone-sub" style="margin-bottom:6px">Datos de la planilla oficial (jugada-a-jugada). Ordenado por convertidos; la barra muestra el volumen.</div>'+
         '<div class="shooters">'+plRank.map((p,i)=>{const pct=p.a?Math.round(p.m/p.a*100):0;
           return '<div class="sh-row"><span class="sh-rk">'+(i+1)+'</span>'+
-            '<span class="sh-nm">'+(p.num!=null?('#'+p.num+' '):'')+(p.nombre||'')+'</span>'+
+            '<span class="sh-nm">'+(p.num!=null?('#'+p.num+' '):'')+(p.nombre||'')+(!tiroTeam&&p.equipo?' <span style="color:var(--text-3)">· '+p.equipo+'</span>':'')+'</span>'+
             '<span class="sh-bar"><span class="sh-fill" style="width:'+(p.a/mxA*100).toFixed(0)+'%"></span></span>'+
             '<span class="sh-val"><b>'+p.m+'/'+p.a+'</b> · '+pct+'%</span></div>';}).join('')+'</div>';
     }
