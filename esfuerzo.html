@@ -291,6 +291,17 @@ function applyPlayer(){
 }
 function setTopbarH(){const tb=document.querySelector('.topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}
 window.addEventListener('resize',setTopbarH);
+// flechas ← → del teclado (PC) para saltar de jugador en la pestaña Cargar
+window.addEventListener('keydown',function(e){
+  if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
+  const cv=document.getElementById('view-cargar');
+  if(!cv||!cv.classList.contains('active'))return;            // solo en Cargar
+  const a=document.activeElement,tag=a?a.tagName:'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(a&&a.isContentEditable))return; // no robar las flechas si estás escribiendo
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  e.preventDefault();
+  shiftPlayer(e.key==='ArrowLeft'?-1:1);
+});
 function ensureP(k,p){if(!tally[k])tally[k]={_min:0,_p:p};return tally[k];}
 function bump(k,d){
   if(!capPlayer)return;
@@ -333,7 +344,7 @@ function renderCargar(){
         '<span class="pt" id="tot-'+esc(k)+'">'+Math.round(idxOf(tally[k]||{}))+'</span></button>';
     }).join('')+'</div>'+
     '<button class="pnav" onclick="shiftPlayer(1)" title="Jugador siguiente">▶</button></div>';
-  const hint='<div class="zone-sub" style="margin:-4px 0 10px">Tocá un jugador (queda fijo arriba mientras marcás) o saltá con ◀ ▶. El número de cada uno es su índice acumulado.</div>';
+  const hint='<div class="zone-sub" style="margin:-4px 0 10px">Tocá un jugador (queda fijo arriba mientras marcás) o saltá con ◀ ▶ — en la compu también con las flechas <b>← →</b> del teclado. El número de cada uno es su índice acumulado.</div>';
 
   let grid='';
   if(capPlayer){
