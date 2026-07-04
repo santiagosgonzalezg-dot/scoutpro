@@ -1190,7 +1190,21 @@ function renderTiros(){
         '<div class="sub">'+x.a+' tiros · '+x.pct+'% acierto</div>'+
         '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>';
   }else{
-    tramoPanel='<div class="zone-sub" style="margin-top:14px">Para ver cuándo se tira (primeros / segundos / últimos 8" de la posesión), re-guardá los partidos desde Quintetos con la versión nueva.</div>';
+    // Sin posiciones de tiro -> reparto según el play-by-play (tiros de cancha anotados)
+    const fzT=(document.getElementById('selFase')||{}).value||'';
+    const pf=PBP.filter(r=>(!tiroTeam||sameTeam(r.equipo,tiroTeam))&&(!fzT||r.fase===fzT)&&r.tramo!=null&&(+r.pts===2||+r.pts===3));
+    const trp=[1,2,3].map(k=>({k,a:pf.filter(r=>+r.tramo===k).length}));
+    const totP=trp.reduce((s,x)=>s+x.a,0);
+    if(totP>0){
+      tramoPanel='<div class="sec">Cuándo tira · momento de la posesión</div><div class="tramo-grid">'+
+        trp.map(x=>{const share=Math.round(x.a/totP*100);return '<div class="tramo-card"><div class="lbl">'+tLbl[x.k]+'</div>'+
+          '<div class="big" style="color:'+tCol[x.k]+'">'+share+'%</div>'+
+          '<div class="sub">'+x.a+' anotados</div>'+
+          '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>'+
+        '<div class="zone-sub" style="margin-top:8px">Sin posiciones de tiro cargadas: el reparto sale de los '+totP+' tiros de cancha <b>anotados</b> (del play-by-play).</div>';
+    }else{
+      tramoPanel='<div class="zone-sub" style="margin-top:14px">Para ver cuándo se tira (primeros / segundos / últimos 8" de la posesión), re-guardá los partidos desde Quintetos con la versión nueva.</div>';
+    }
   }
   // calidad de tiro: puntos por tiro esperado (por zona, según la liga) vs real
   const zb={};Object.keys(HEAT_ZONES).forEach(k=>zb[k]={m2:0,m3:0,a:0});
@@ -2060,14 +2074,25 @@ function setRival(v){rivalTeam=v;renderRival();}
 function rankPct(arr,v,hb){const n=arr.length;if(!n)return 50;const p=Math.round(arr.filter(x=>x<=v).length/n*100);return hb?p:100-p;}
 function tramoPanelFor(team){
   const fz=(document.getElementById('selFase')||{}).value||'';
+  const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
   const sh=SHOTS.filter(s=>(!team||sameTeam(s.equipo,team))&&(!fz||s.fase===fz)&&s.tramo!=null);
   const tr=[1,2,3].map(k=>{const arr=sh.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
   const totT=tr.reduce((s,x)=>s+x.a,0);
-  if(!totT)return '<div class="zone-sub">Todavía no hay datos de momento de la posesión'+(team?' para '+team:'')+'. Se llenan al re-guardar partidos desde Quintetos.</div>';
+  if(!totT){
+    // Sin posiciones de tiro cargadas -> usamos el play-by-play (tiros de cancha ANOTADOS)
+    const pf=PBP.filter(r=>(!team||sameTeam(r.equipo,team))&&(!fz||r.fase===fz)&&r.tramo!=null&&(+r.pts===2||+r.pts===3));
+    const trp=[1,2,3].map(k=>({k,a:pf.filter(r=>+r.tramo===k).length}));
+    const totP=trp.reduce((s,x)=>s+x.a,0);
+    if(totP)return '<div class="tramo-grid">'+trp.map(x=>{const share=Math.round(x.a/totP*100);return '<div class="tramo-card"><div class="lbl">'+tLbl[x.k]+'</div>'+
+      '<div class="big" style="color:'+tCol[x.k]+'">'+share+'%</div>'+
+      '<div class="sub">'+x.a+' anotados</div>'+
+      '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>'+
+      '<div class="zone-sub" style="margin-top:8px">Primeros 8" = juego rápido / transición · Segundos = ataque normal · Últimos = relojito / forzado. Este equipo no tiene posiciones de tiro cargadas, así que el reparto sale de sus '+totP+' tiros de cancha <b>anotados</b> (del play-by-play).</div>';
+    return '<div class="zone-sub">Todavía no hay datos de momento de la posesión'+(team?' para '+team:'')+'. Se llenan al re-guardar partidos desde Quintetos.</div>';
+  }
   // total real de tiros de campo (planilla) para escalar los conteos
   const realFGA=PLAYERS.filter(p=>(!team||sameTeam(p.equipo,team))&&(!fz||p.fase===fz)).reduce((s,p)=>s+(+p.fga||0),0);
   const useReal=realFGA>totT;
-  const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
   let used=0;const ests=tr.map((x,idx)=>{let e=useReal?Math.round(realFGA*x.a/totT):x.a;used+=e;return e;});
   if(useReal&&ests.length)ests[2]+=(realFGA-used);
   const scope=team?'del equipo':'de la liga';
