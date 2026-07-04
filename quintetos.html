@@ -606,7 +606,7 @@ async function saveMatch(){
       const srows=buildShotRows(matchId,fecha,fase,jornada);
       if(matchId)await client.from('tiros_log').delete().eq('match_id',matchId);
       if(srows.length){const {error:se}=await client.from('tiros_log').insert(srows);if(se)throw se;}
-      smsg=' · '+srows.length+' tiros';
+      smsg=' · '+srows.length+' tiros ('+srows.filter(r=>r.tramo!=null).length+' con momento)';
     }catch(se){ smsg=' · (tiros no guardados: '+(se.message||se)+')'; }
     // Totales por cuarto -> cuartos_log (best-effort)
     let cmsg='';
@@ -790,12 +790,21 @@ function buildShotRows(matchId,fecha,fase,jornada){
       else tipo=shotIs3ByPos(x,y)?'3pt':'2pt';
       located.push({x,y,made,num,per:+sh.per||null,nombre:sh.player||sh.scoreboardName||'',tipo});
     }
-    // Emparejar con el tramo (mismo dorsal + resultado + tipo, en orden) y guardar
+    // Emparejar cada tiro con su tramo del play-by-play. Vamos del match más exacto
+    // al más laxo para que NINGÚN tiro se quede sin momento aunque el dorsal o el
+    // "convertido" vengan distintos entre el gráfico de tiros y el play-by-play.
     const queue=(tramos[String(team)]||[]).slice();
+    function takeTramo(s){
+      let qi=queue.findIndex(q=>q.num===s.num&&q.made===s.made&&q.type===s.tipo);
+      if(qi<0)qi=queue.findIndex(q=>q.made===s.made&&q.type===s.tipo);
+      if(qi<0)qi=queue.findIndex(q=>q.type===s.tipo);
+      if(qi<0)qi=queue.findIndex(q=>q.made===s.made);
+      if(qi<0)qi=(queue.length?0:-1);
+      if(qi<0)return null;
+      const t=queue[qi].tramo;queue.splice(qi,1);return t;
+    }
     for(const s of located){
-      let tramo=null;
-      const qi=queue.findIndex(q=>q.num===s.num&&q.made===s.made&&q.type===s.tipo);
-      if(qi>=0){tramo=queue[qi].tramo;queue.splice(qi,1);}
+      const tramo=takeTramo(s);
       rows.push({match_id:matchId,fecha,fase,jornada,
         equipo:S.teams[team].name,rival,
         num:s.num,nombre:s.nombre,
