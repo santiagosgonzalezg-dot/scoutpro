@@ -616,13 +616,25 @@ async function saveMatch(){
       if(crows.length){const {error:ce}=await client.from('cuartos_log').insert(crows);if(ce)throw ce;}
       cmsg=' · '+crows.length+' cuartos';
     }catch(ce){ cmsg=' · (cuartos no guardados: '+(ce.message||ce)+')'; }
-    // Play-by-play -> pbp_log (best-effort, base del clutch)
+    // Play-by-play -> pbp_log (best-effort, base del clutch y del momento de la posesión)
     let pbmsg='';
     try{
       const pbrows=buildPbpRows(matchId,fecha,fase,jornada);
       if(matchId)await client.from('pbp_log').delete().eq('match_id',matchId);
-      if(pbrows.length){const {error:pe}=await client.from('pbp_log').insert(pbrows);if(pe)throw pe;}
-      pbmsg=' · '+pbrows.length+' jugadas';
+      if(pbrows.length){
+        let {error:pe}=await client.from('pbp_log').insert(pbrows);
+        if(pe){
+          // Si la base todavía no tiene la columna 'tramo', reintentamos sin ella
+          // para no romper el guardado (el clutch sigue funcionando igual).
+          const noTramo=pbrows.map(r=>{const {tramo,...rest}=r;return rest;});
+          const r2=await client.from('pbp_log').insert(noTramo);
+          if(r2.error)throw pe;
+          pbmsg=' · '+pbrows.length+' jugadas (sin momento: falta columna tramo)';
+        }else{
+          const conT=pbrows.filter(r=>r.tramo!=null).length;
+          pbmsg=' · '+pbrows.length+' jugadas ('+conT+' con momento)';
+        }
+      }
     }catch(pe){ pbmsg=' · (jugadas no guardadas: '+(pe.message||pe)+')'; }
     saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+cmsg+pbmsg+'.');
   }catch(e){
@@ -695,20 +707,36 @@ function buildPbpRows(matchId,fecha,fase,jornada){
   const rows=[];const pbp=S.data.pbp||[];
   const byPer={};for(const e of pbp){const p=e.period||1;(byPer[p]=byPer[p]||[]).push(e);}
   const toSec=gt=>{const m=String(gt||'').match(/(\d+):(\d+)/);return m?(+m[1]*60+ +m[2]):null;};
+  const perLen=p=>p<=4?600:300;
   const nameOf=t=>S.teams[t]?S.teams[t].name:'';
   const score={1:0,2:0};
   for(const p of Object.keys(byPer).map(Number).sort((a,b)=>a-b)){
     const evs=byPer[p].slice().reverse(); // cronológico
+    const lastGain={1:perLen(p),2:perLen(p)}; // reloj (seg restantes) cuando el equipo ganó la posesión
     for(const e of evs){
       const t=String(e.tno);if(t!=='1'&&t!=='2')continue;
+      const tn=+t,opp=tn===1?2:1;
       const at=String(e.actionType||'').toLowerCase();const made=(e.success===1||e.success===true);
+      const sec=toSec(e.gt);
+      // momento de la posesión (tramo 1/2/3) del tiro de cancha, reconstruido acá
+      let tramo=null;
+      if((at==='2pt'||at==='3pt')&&sec!=null){
+        const used=Math.max(0,Math.min(24,lastGain[tn]-sec));
+        tramo=used<8?1:used<16?2:3;
+      }
+      // actualizar quién tiene la posesión (mismo criterio que computeTramos)
+      if(sec!=null){
+        if(at==='rebound'||at==='steal')lastGain[tn]=sec;
+        else if(at==='turnover')lastGain[opp]=sec;
+        else if(((at==='2pt'||at==='3pt')&&made)||(at==='freethrow'&&made))lastGain[opp]=sec;
+      }
       let pts=0;if(at==='2pt'&&made)pts=2;else if(at==='3pt'&&made)pts=3;else if(at==='freethrow'&&made)pts=1;
       if(!pts)continue;
-      const tn=+t,opp=tn===1?2:1;score[tn]+=pts;
+      score[tn]+=pts;
       rows.push({match_id:matchId,fecha,fase,jornada,
         equipo:nameOf(tn),rival:nameOf(opp),es_local:tn===1,
-        period:p,seg:toSec(e.gt),pts,s_fav:score[tn],s_riv:score[opp],
-        num:String(e.shirtNumber||'').trim()});
+        period:p,seg:sec,pts,s_fav:score[tn],s_riv:score[opp],
+        num:String(e.shirtNumber||'').trim(),tramo});
     }
   }
   return rows;
