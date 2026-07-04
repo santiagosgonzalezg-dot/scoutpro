@@ -659,6 +659,10 @@ function renderEquipo(){
   document.getElementById('view-equipo').innerHTML=kpis+formaBlock(team)+'<div class="sec">Quintetos más usados</div>'+sortableTable('view-equipo','Quintetos · '+team,cols,lus,'equipoLU')+splitsBlock(team)+onOffBlock(team);
 }
 function normClub(s){return String(s||'').toLowerCase().replace(/[\s.]/g,'');}
+// Clave de equipo tolerante: ignora mayúsculas, tildes y espacios de más,
+// para que "Olivol Mundial", "OLIVOL MUNDIAL" y "olivol  mundial" sean el MISMO equipo.
+function teamKey(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[.]/g,'').replace(/\s+/g,' ').trim();}
+function sameTeam(a,b){return teamKey(a)===teamKey(b);}
 function isMyClub(team){return !!(typeof COACH!=='undefined'&&COACH&&COACH.club&&normClub(team)===normClub(COACH.club));}
 function teamGames(team){
   const rows=allRowsFiltered().filter(r=>r.equipo===team),g={};
@@ -1116,15 +1120,18 @@ function renderTiros(){
   const pool=poolFase;
   // NÚMEROS desde el box score (planilla oficial, jugada-a-jugada): es la fuente confiable.
   const boxPool=PLAYERS.filter(p=>!fase||p.fase===fase);
-  const teams=[...new Set(boxPool.map(p=>p.equipo))].filter(Boolean).sort();
-  if(tiroTeam&&!teams.includes(tiroTeam))tiroTeam='';
-  const boxTeam=boxPool.filter(p=>!tiroTeam||p.equipo===tiroTeam);
+  // Agrupamos los equipos por clave tolerante (mismo equipo aunque cambie mayúsculas/tildes/espacios).
+  // Como etiqueta visible elegimos la versión más larga (normalmente la mejor escrita).
+  const _tk={};boxPool.forEach(p=>{const k=teamKey(p.equipo);if(!k)return;if(!_tk[k]||String(p.equipo||'').length>String(_tk[k]).length)_tk[k]=p.equipo;});
+  const teams=Object.values(_tk).sort();
+  if(tiroTeam&&!teams.some(t=>sameTeam(t,tiroTeam)))tiroTeam='';
+  const boxTeam=boxPool.filter(p=>!tiroTeam||sameTeam(p.equipo,tiroTeam));
   const pkeyP=p=>((p.num!=null?p.num:'')+' '+(p.nombre||'')).trim();
   const players=[...new Set(boxTeam.map(pkeyP))].filter(Boolean).sort();
   if(tiroPlayer!=='__all__'&&!players.includes(tiroPlayer))tiroPlayer='__all__';
   const selNum=tiroPlayer==='__all__'?null:String(tiroPlayer).split(' ')[0];
   // MAPA (sólo ubicación): los tiros con coordenadas disponibles del equipo/jugador
-  const rows=pool.filter(s=>!tiroTeam||s.equipo===tiroTeam);
+  const rows=pool.filter(s=>!tiroTeam||sameTeam(s.equipo,tiroTeam));
   const sel=tiroPlayer==='__all__'?rows:rows.filter(s=>String(s.num)===selNum);
   const selT=tiroTipo==='all'?sel:sel.filter(s=>tiroTipo==='3'?s.tipo==='3pt':s.tipo!=='3pt');
   const tipoLbl=tiroTipo==='3'?'solo triples':tiroTipo==='2'?'solo dobles':'todos los tiros';
@@ -1157,7 +1164,7 @@ function renderTiros(){
   let shootersPanel='';
   if(tiroPlayer==='__all__'){
     const byNum={};
-    boxTeam.forEach(p=>{const k=(p.equipo||'')+'#'+p.num;const o=byNum[k]||(byNum[k]={num:p.num,equipo:p.equipo||'',nombre:p.nombre||'',fgm:0,fga:0,tpm:0,tpa:0});o.fgm+=+p.fgm||0;o.fga+=+p.fga||0;o.tpm+=+p.tpm||0;o.tpa+=+p.tpa||0;if((p.nombre||'').length>o.nombre.length)o.nombre=p.nombre;});
+    boxTeam.forEach(p=>{const k=teamKey(p.equipo)+'#'+p.num;const o=byNum[k]||(byNum[k]={num:p.num,equipo:p.equipo||'',nombre:p.nombre||'',fgm:0,fga:0,tpm:0,tpa:0});o.fgm+=+p.fgm||0;o.fga+=+p.fga||0;o.tpm+=+p.tpm||0;o.tpa+=+p.tpa||0;if((p.nombre||'').length>o.nombre.length)o.nombre=p.nombre;if((p.equipo||'').length>o.equipo.length)o.equipo=p.equipo;});
     const plRank=Object.values(byNum).map(p=>{let m,a;if(tiroTipo==='3'){m=p.tpm;a=p.tpa;}else if(tiroTipo==='2'){m=p.fgm-p.tpm;a=p.fga-p.tpa;}else{m=p.fgm;a=p.fga;}return {num:p.num,equipo:p.equipo,nombre:p.nombre,m,a};}).filter(p=>p.a>0).sort((a,b)=>b.m-a.m||b.a-a.a).slice(0,8);
     if(plRank.length){
       const mxA=Math.max(...plRank.map(p=>p.a));
@@ -2053,12 +2060,12 @@ function setRival(v){rivalTeam=v;renderRival();}
 function rankPct(arr,v,hb){const n=arr.length;if(!n)return 50;const p=Math.round(arr.filter(x=>x<=v).length/n*100);return hb?p:100-p;}
 function tramoPanelFor(team){
   const fz=(document.getElementById('selFase')||{}).value||'';
-  const sh=SHOTS.filter(s=>(!team||s.equipo===team)&&(!fz||s.fase===fz)&&s.tramo!=null);
+  const sh=SHOTS.filter(s=>(!team||sameTeam(s.equipo,team))&&(!fz||s.fase===fz)&&s.tramo!=null);
   const tr=[1,2,3].map(k=>{const arr=sh.filter(s=>+s.tramo===k);const m=arr.filter(shotMade).length;return{k,a:arr.length,m,pct:arr.length?Math.round(m/arr.length*100):0};});
   const totT=tr.reduce((s,x)=>s+x.a,0);
   if(!totT)return '<div class="zone-sub">Todavía no hay datos de momento de la posesión'+(team?' para '+team:'')+'. Se llenan al re-guardar partidos desde Quintetos.</div>';
   // total real de tiros de campo (planilla) para escalar los conteos
-  const realFGA=PLAYERS.filter(p=>(!team||p.equipo===team)&&(!fz||p.fase===fz)).reduce((s,p)=>s+(+p.fga||0),0);
+  const realFGA=PLAYERS.filter(p=>(!team||sameTeam(p.equipo,team))&&(!fz||p.fase===fz)).reduce((s,p)=>s+(+p.fga||0),0);
   const useReal=realFGA>totT;
   const tLbl={1:'Primeros 8"',2:'Segundos 8"',3:'Últimos 8"'},tCol={1:'#34c769',2:'#e0a83b',3:'#f05050'};
   let used=0;const ests=tr.map((x,idx)=>{let e=useReal?Math.round(realFGA*x.a/totT):x.a;used+=e;return e;});
