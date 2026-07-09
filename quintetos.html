@@ -69,7 +69,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .btn-save:hover{filter:brightness(1.08)}
 .btn-save:disabled{opacity:.5;cursor:wait}
 .save-status{font-family:var(--font-mono);font-size:10px;align-self:center}
-.save-status.err{color:var(--negative)} .save-status.ok{color:var(--positive)} .save-status.load{color:var(--text-2)}
+.save-status.err{color:var(--negative)} .save-status.ok{color:var(--positive)} .save-status.load{color:var(--text-2)} .save-status.warn{color:#e0a83b}
 .mc-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:var(--sp-4)}
 .mc-team{display:flex;align-items:center;gap:var(--sp-3)}
 .mc-team.t2{flex-direction:row-reverse;text-align:right}
@@ -564,10 +564,20 @@ async function saveMatch(){
   if(!S.results){saveStatusMsg('err','Cargá un partido primero.');return;}
   const client=getSB();
   if(!client){saveStatusMsg('err','No se pudo conectar a la base.');return;}
-  const matchId=(document.getElementById('matchId').value.match(/(\d{5,})/)||[])[1]||'';
   const fecha=document.getElementById('mFecha').value||null;
   const fase=document.getElementById('mFase').value.trim()||null;
   const jornada=document.getElementById('mJornada').value.trim()||null;
+  // ID del partido: si el dato no trae un número largo (5+ dígitos), generamos uno
+  // ESTABLE con equipos+fecha+fase+jornada. Antes, sin ID numérico, match_id quedaba
+  // vacío ('') => no se borraba lo anterior (se DUPLICABA al reguardar) y todos los
+  // partidos sin ID se mezclaban bajo un mismo '?'. Con un ID estable, reguardar pisa
+  // limpio y cada partido queda separado.
+  let matchId=(document.getElementById('matchId').value.match(/(\d{5,})/)||[])[1]||'';
+  if(!matchId){
+    const base=[S.teams[1].name,S.teams[2].name,fecha,fase,jornada]
+      .filter(Boolean).join('_').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    matchId='m-'+(base||('sinid-'+Date.now()));
+  }
   const acc=buildConsolidatedData(S.results);
   const rows=[];
   for(const team of [1,2]){
@@ -587,40 +597,49 @@ async function saveMatch(){
   }
   const btn=document.getElementById('saveBtn');btn.disabled=true;
   saveStatusMsg('load','Guardando…');
+  const fails=[];   // bloques que NO se pudieron guardar (para avisar honestamente)
   try{
-    if(matchId)await client.from('quintetos_log').delete().eq('match_id',matchId);
+    // quintetos = OBLIGATORIO: si falla, cortamos y avisamos en rojo.
+    await client.from('quintetos_log').delete().eq('match_id',matchId);
     const {error}=await client.from('quintetos_log').insert(rows);
     if(error)throw error;
-    // Box score individual de jugadores (best-effort: si falta la tabla, no rompe el guardado de quintetos)
+    // ── Box score individual de jugadores ──
     let pmsg='';
     try{
       const prows=buildPlayerRows(matchId,fecha,fase,jornada);
-      if(matchId)await client.from('jugadores_log').delete().eq('match_id',matchId);
+      await client.from('jugadores_log').delete().eq('match_id',matchId);
       const {error:pe}=await client.from('jugadores_log').insert(prows);
       if(pe)throw pe;
       pmsg=' · '+prows.length+' jugadores';
-    }catch(pe){ pmsg=' · (jugadores no guardados: '+(pe.message||pe)+')'; }
-    // Mapa de tiros (coordenadas) -> tiros_log (best-effort)
+    }catch(pe){ pmsg=' · ⚠ jugadores NO ('+(pe.message||pe)+')'; fails.push('jugadores'); }
+    // ── Mapa de tiros (coordenadas) -> tiros_log ──
     let smsg='';
     try{
       const srows=buildShotRows(matchId,fecha,fase,jornada);
-      if(matchId)await client.from('tiros_log').delete().eq('match_id',matchId);
-      if(srows.length){const {error:se}=await client.from('tiros_log').insert(srows);if(se)throw se;}
-      smsg=' · '+srows.length+' tiros ('+srows.filter(r=>r.tramo!=null).length+' con momento)';
-    }catch(se){ smsg=' · (tiros no guardados: '+(se.message||se)+')'; }
-    // Totales por cuarto -> cuartos_log (best-effort)
+      await client.from('tiros_log').delete().eq('match_id',matchId);
+      if(srows.length){
+        const {error:se}=await client.from('tiros_log').insert(srows);
+        if(se)throw se;
+        smsg=' · '+srows.length+' tiros ('+srows.filter(r=>r.tramo!=null).length+' con momento)';
+      }else{
+        // No es un error de base: el dato del partido no trae coordenadas de tiro.
+        smsg=' · ⚠ 0 tiros (el dato no trae posiciones; mirá «🔍 Revisar tiros»)';
+        fails.push('tiros');
+      }
+    }catch(se){ smsg=' · ⚠ tiros NO ('+(se.message||se)+')'; fails.push('tiros'); }
+    // ── Totales por cuarto -> cuartos_log ──
     let cmsg='';
     try{
       const crows=buildQuarterRows(matchId,fecha,fase,jornada);
-      if(matchId)await client.from('cuartos_log').delete().eq('match_id',matchId);
+      await client.from('cuartos_log').delete().eq('match_id',matchId);
       if(crows.length){const {error:ce}=await client.from('cuartos_log').insert(crows);if(ce)throw ce;}
       cmsg=' · '+crows.length+' cuartos';
-    }catch(ce){ cmsg=' · (cuartos no guardados: '+(ce.message||ce)+')'; }
-    // Play-by-play -> pbp_log (best-effort, base del clutch y del momento de la posesión)
+    }catch(ce){ cmsg=' · ⚠ cuartos NO ('+(ce.message||ce)+')'; fails.push('cuartos'); }
+    // ── Play-by-play -> pbp_log (base del clutch y del momento de la posesión) ──
     let pbmsg='';
     try{
       const pbrows=buildPbpRows(matchId,fecha,fase,jornada);
-      if(matchId)await client.from('pbp_log').delete().eq('match_id',matchId);
+      await client.from('pbp_log').delete().eq('match_id',matchId);
       if(pbrows.length){
         let {error:pe}=await client.from('pbp_log').insert(pbrows);
         if(pe){
@@ -635,8 +654,14 @@ async function saveMatch(){
           pbmsg=' · '+pbrows.length+' jugadas ('+conT+' con momento)';
         }
       }
-    }catch(pe){ pbmsg=' · (jugadas no guardadas: '+(pe.message||pe)+')'; }
-    saveStatusMsg('ok','✓ Guardado: '+rows.length+' quintetos'+pmsg+smsg+cmsg+pbmsg+'.');
+    }catch(pe){ pbmsg=' · ⚠ jugadas NO ('+(pe.message||pe)+')'; fails.push('jugadas'); }
+    // ── Cartel HONESTO: verde solo si guardó TODO; ámbar si algo faltó ──
+    const detalle=rows.length+' quintetos'+pmsg+smsg+cmsg+pbmsg+'.';
+    if(fails.length){
+      saveStatusMsg('warn','⚠ Guardado PARCIAL — faltó: '+fails.join(', ')+'.  '+detalle);
+    }else{
+      saveStatusMsg('ok','✓ Guardado completo: '+detalle);
+    }
   }catch(e){
     saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
   }finally{ btn.disabled=false; }
@@ -956,7 +981,7 @@ async function postGameReport(){
   try{
     const sb=getSB();
     if(sb){
-      const jl=(await sb.from('jugadores_log').select('*').eq('equipo',focus).limit(20000)).data||[];
+      let jl=[]; { let _f=0; for(;;){ const _r=await sb.from('jugadores_log').select('*').eq('equipo',focus).range(_f,_f+999); const _ch=(_r&&_r.data)||[]; jl=jl.concat(_ch); if(_ch.length<1000)break; _f+=1000; if(_f>200000)break; } }
       // promedios temporada (por partido)
       if(jl.length){
         const mids={};jl.forEach(r=>{const id=r.match_id||r.fecha;(mids[id]=mids[id]||[]).push(r);});
