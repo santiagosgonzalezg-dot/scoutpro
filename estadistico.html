@@ -387,6 +387,7 @@ table.t tr:hover td{background:var(--bg-hover)}
     <button class="tab" data-v="armador" onclick="switchView('armador')">🧪 Armador</button>
     <button class="tab" data-v="situacion" onclick="switchView('situacion')">🎯 Por situación</button>
     <button class="tab" data-v="partido" onclick="switchView('partido')">📋 Partido</button>
+    <button class="tab" data-v="qxp" onclick="switchView('qxp')">🔎 Quintetos×Partido</button>
   </div>
 
   <div class="view active" id="view-dashboard"></div>
@@ -406,6 +407,7 @@ table.t tr:hover td{background:var(--bg-hover)}
   <div class="view" id="view-armador"></div>
   <div class="view" id="view-situacion"></div>
   <div class="view" id="view-partido"></div>
+  <div class="view" id="view-qxp"></div>
 
   <div id="msg" class="empty"><div class="loadbox"><div class="spinner"></div><div>Cargando datos…</div></div></div>
 </div>
@@ -2440,7 +2442,7 @@ function renderPareto(){
     (liga&&all.length>TBL_MAX?'<div class="zone-sub" style="margin-top:8px">Tabla recortada a los '+TBL_MAX+' de mayor volumen (hay '+all.length+' jugadores con registro).</div>':'')+'</div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();}
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();renderQxP();}
 
 // ── ARMADOR DE QUINTETOS ──
 let armTeam='',armSel=[];
@@ -2712,6 +2714,95 @@ function renderPartido(){
   }
   const box=teams.map(t=>'<div class="sec">Box score · '+t+'</div>'+boxFor(t)).join('');
   el.innerHTML=selHtml+scoreHtml+box+quartersHtml+shotsHtml;
+}
+// ════════════════════════════════════════════════════════════════
+//  VISTA: QUINTETOS × PARTIDO  (equipo + partido + local/visitante)
+//  Muestra CADA quinteto que un equipo puso en cancha en un partido,
+//  con su rendimiento (min, +/-, ef.of, ef.def, tiros, etc).
+// ════════════════════════════════════════════════════════════════
+let qpTeam='', qpCond='all', qpMatch='';
+function qpSetTeam(v){qpTeam=v;qpMatch='';renderQxP();}
+function qpSetCond(v){qpCond=v;qpMatch='';renderQxP();}
+function qpSetMatch(v){qpMatch=v;renderQxP();}
+function qpIsLoc(r){return r.es_local===true||r.es_local==='true'||r.es_local==='t';}
+function qpLocPill(loc){
+  return '<span style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;padding:3px 9px;border-radius:5px;color:#fff;background:'+(loc?'var(--offense)':'var(--defense)')+'">'+(loc?'LOCAL':'VISITANTE')+'</span>';
+}
+function renderQxP(){
+  const el=document.getElementById('view-qxp');if(!el)return;
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay partidos cargados.</div>';return;}
+  const fase=document.getElementById('selFase').value;
+  const pool=DATA.filter(r=>!fase||r.fase===fase);
+  const teams=[...new Set(pool.map(r=>r.equipo))].sort();
+  if(!qpTeam||!teams.includes(qpTeam)){
+    const g=document.getElementById('selTeam').value;
+    qpTeam=teams.includes(g)?g:teams[0];
+  }
+  // Filas del equipo elegido, aplicando el filtro de condición (local/visitante)
+  let teamAll=pool.filter(r=>r.equipo===qpTeam);
+  if(qpCond==='local')teamAll=teamAll.filter(qpIsLoc);
+  else if(qpCond==='visita')teamAll=teamAll.filter(r=>!qpIsLoc(r));
+  // Partidos disponibles
+  const mids=[...new Set(teamAll.map(r=>r.match_id))].filter(Boolean);
+  const info=mid=>{const r0=teamAll.find(x=>x.match_id===mid)||{};return {mid,fecha:r0.fecha||'',rival:r0.rival||'?',loc:qpIsLoc(r0)};};
+  const mObjs=mids.map(info).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  if(qpMatch&&qpMatch!=='__all__'&&!mids.includes(qpMatch))qpMatch='';
+  if(!qpMatch)qpMatch=mObjs.length?mObjs[0].mid:'';
+  // ── Controles ──
+  const teamOpts=teams.map(t=>'<option'+(t===qpTeam?' selected':'')+'>'+t+'</option>').join('');
+  const condOpts=[['all','Local + Visitante'],['local','Solo Local'],['visita','Solo Visitante']]
+    .map(([v,l])=>'<option value="'+v+'"'+(v===qpCond?' selected':'')+'>'+l+'</option>').join('');
+  const matchOpts='<option value="__all__"'+(qpMatch==='__all__'?' selected':'')+'>— Todos los partidos —</option>'+
+    mObjs.map(m=>'<option value="'+m.mid+'"'+(m.mid===qpMatch?' selected':'')+'>'+(m.fecha?m.fecha+' · ':'')+'vs '+m.rival+' ('+(m.loc?'L':'V')+')</option>').join('');
+  const ctl='<div class="tiros-ctl">'+
+    '<span class="zone-lbl">Equipo</span><select onchange="qpSetTeam(this.value)">'+teamOpts+'</select>'+
+    '<span class="zone-lbl">Condición</span><select onchange="qpSetCond(this.value)">'+condOpts+'</select>'+
+    '<span class="zone-lbl">Partido</span><select onchange="qpSetMatch(this.value)">'+matchOpts+'</select>'+
+    '</div>';
+  if(!mObjs.length){el.innerHTML=ctl+'<div class="empty">'+qpTeam+' no tiene partidos '+(qpCond==='local'?'de local':qpCond==='visita'?'de visitante':'')+' cargados.</div>';return;}
+  const showMids = qpMatch==='__all__' ? mObjs.map(m=>m.mid) : [qpMatch];
+  let html=ctl;
+  for(const mid of showMids){
+    const mi=mObjs.find(m=>m.mid===mid)||info(mid);
+    const rowsM=teamAll.filter(r=>r.match_id===mid);
+    const tot=agg(rowsM);
+    const resTxt=tot.diff>0?'ganó':tot.diff<0?'perdió':'empató';
+    // Encabezado del partido
+    html+='<div class="sec">'+(mi.fecha?mi.fecha+' · ':'')+qpTeam+' vs '+mi.rival+' &nbsp;'+qpLocPill(mi.loc)+'</div>';
+    html+='<div class="kpis">'+
+      kpi(tot.ptsF+' – '+tot.ptsC,'RESULTADO ('+resTxt+')',tot.diff>=0?'pos':'neg')+
+      kpi(sgn(tot.diff),'+/- PARTIDO',tot.diff>=0?'pos':'neg')+
+      kpi(pp(tot.efOff),'EF. OFENSIVA','acc')+
+      kpi(pp(tot.efDef),'EF. DEFENSIVA','def')+
+      '</div>';
+    // Agrupar por quinteto dentro del partido (una fila por cinco distinto)
+    const groups={};
+    for(const r of rowsM){
+      const k=r.jugadores_key||pkeyArr(r.jugadores);
+      const g=groups[k]||(groups[k]={players:r.jugadores,cuartos:new Set(),rows:[]});
+      g.rows.push(r);
+      String(r.cuartos||'').split(',').filter(Boolean).forEach(q=>g.cuartos.add(q));
+    }
+    const lus=Object.values(groups).map(g=>({players:g.players,cuartos:[...g.cuartos].sort((a,b)=>(+a)-(+b)),a:agg(g.rows)}));
+    const cols=[
+      {key:'lu',label:'Quinteto',left:true,cell:r=>chips(r.players)+(r.players&&r.players.length!==5?' <span class="zone-sub">('+r.players.length+')</span>':'')},
+      {key:'q',label:'Cuartos',left:true,cell:r=>r.cuartos.length?r.cuartos.map(q=>'Q'+q).join(' '):'—'},
+      {key:'min',label:'Min',sortable:true,val:r=>r.a.min,cell:r=>fmtv(r.a.min,1)},
+      {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
+      {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
+      {key:'efd',label:'EF.DEF',sortable:true,val:r=>r.a.efDef,cell:r=>pp(r.a.efDef)},
+      {key:'ptsF',label:'PTS+',sortable:true,val:r=>r.a.ptsF,cell:r=>r.a.ptsF},
+      {key:'ptsC',label:'PTS-',sortable:true,val:r=>r.a.ptsC,cell:r=>r.a.ptsC},
+      {key:'t2',label:'2P',left:true,cell:r=>r.a.pt2c+'/'+r.a.pt2i},
+      {key:'t3',label:'3P',left:true,cell:r=>r.a.pt3c+'/'+r.a.pt3i},
+      {key:'efg',label:'eFG%',sortable:true,val:r=>r.a.efg,cell:r=>r.a.fga>0?r.a.efg+'%':'—'},
+      {key:'ast',label:'AST',sortable:true,val:r=>r.a.ast,cell:r=>r.a.ast},
+      {key:'per',label:'PER',sortable:true,val:r=>r.a.per,cell:r=>r.a.per},
+    ];
+    html+=sortableTable('view-qxp','Quintetos usados ('+lus.length+')',cols,lus,'qxp_'+mid);
+  }
+  html+=help('¿Cómo leo esta sección?','Elegí un <b>equipo</b>, la <b>condición</b> (Local, Visitante o ambas) y un <b>partido</b> (o «Todos los partidos»). Ves <b>cada cinco que ese equipo puso en cancha</b> en ese partido con: <b>Min</b> jugados por ese cinco, <b>+/-</b> (puntos a favor menos en contra mientras estuvo), <b>EF.OF/EF.DEF</b> (puntos por posesión, propios y del rival), tiros de <b>2P</b> y <b>3P</b>, <b>eFG%</b>, asistencias y pérdidas. Los <b>Cuartos</b> te dicen en qué períodos apareció ese cinco. Tocá los títulos con flecha para reordenar (por defecto, de más a menos minutos).');
+  el.innerHTML=html;
 }
 function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
