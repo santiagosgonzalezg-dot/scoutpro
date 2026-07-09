@@ -418,6 +418,23 @@ function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
 function num(x){return +x||0;}
 
+// Trae TODAS las filas de una tabla paginando de a 1000, porque Supabase corta
+// cada respuesta en 1000 filas por más que pidas .limit() grande. Sin esto, el
+// panel solo veía los primeros ~1000 registros (los partidos más viejos) y marcaba
+// en 0 los tiros/quintetos de los partidos recientes aunque SÍ estuvieran guardados.
+async function fetchAll(c,table){
+  const page=1000; let from=0, all=[], error=null;
+  for(;;){
+    const r=await c.from(table).select('*').range(from,from+page-1);
+    if(r.error){ error=r.error; break; }
+    const chunk=r.data||[];
+    all=all.concat(chunk);
+    if(chunk.length<page) break;      // última página
+    from+=page;
+    if(from>1000000) break;           // tope de seguridad
+  }
+  return { data:all, error };
+}
 async function loadData(){
   const m=document.getElementById('msg');
   const firstLoad=!DATA.length;
@@ -427,19 +444,19 @@ async function loadData(){
   const c=getSB();
   if(!c){m.innerHTML='No se pudo conectar a la base.';if(btn){btn.disabled=false;btn.textContent=btn.dataset.t;}return;}
   try{
-    const {data,error}=await c.from('quintetos_log').select('*').limit(8000);
-    if(error)throw error;
+    const {data,error}=await fetchAll(c,'quintetos_log');
+    if(error && !(data&&data.length))throw error;
     DATA=(data||[]).map(r=>({...r,jugadores:Array.isArray(r.jugadores)?r.jugadores:(r.jugadores?JSON.parse(r.jugadores):[])}));
     // Box score de jugadores (best-effort: si no existe la tabla, queda vacío)
-    try{ const pr=await c.from('jugadores_log').select('*').limit(20000); PLAYERS=pr.error?[]:(pr.data||[]); }
+    try{ const pr=await fetchAll(c,'jugadores_log'); PLAYERS=pr.data||[]; }
     catch(_){ PLAYERS=[]; }
-    try{ const tr=await c.from('tiros_log').select('*').limit(40000); SHOTS=tr.error?[]:(tr.data||[]); }
+    try{ const tr=await fetchAll(c,'tiros_log'); SHOTS=tr.data||[]; }
     catch(_){ SHOTS=[]; }
-    try{ const cr=await c.from('cuartos_log').select('*').limit(20000); QUARTERS=cr.error?[]:(cr.data||[]); }
+    try{ const cr=await fetchAll(c,'cuartos_log'); QUARTERS=cr.data||[]; }
     catch(_){ QUARTERS=[]; }
-    try{ const dr=await c.from('defensa_log').select('*').limit(20000); DEF=dr.error?[]:(dr.data||[]); }
+    try{ const dr=await fetchAll(c,'defensa_log'); DEF=dr.data||[]; }
     catch(_){ DEF=[]; }
-    try{ const pr=await c.from('pbp_log').select('*').limit(80000); PBP=pr.error?[]:(pr.data||[]); }
+    try{ const pr=await fetchAll(c,'pbp_log'); PBP=pr.data||[]; }
     catch(_){ PBP=[]; }
     anchorShotTypes();
     if(!DATA.length){
