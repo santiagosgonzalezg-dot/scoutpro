@@ -1660,9 +1660,10 @@ function crearEquipo(){
   });
   const equipos=getEquipos();
   const id=`${cat}_${nivel}_${gen}_${Date.now()}`;
-  const nuevoEq={id,cat,nivel,gen,jugadores,partidos:[]};
+  const nuevoEq={id,cat,nivel,gen,jugadores,roster:jugadores,partidos:[]};
   equipos.push(nuevoEq);
   saveEquipos(equipos);
+  dbGuardarJugadores(id, jugadores).catch(e=>console.error(e));
   cerrarModalEquipo2();
   renderEquipos();
   const genLabel=gen==='M'?'Masculino':'Femenino';
@@ -2929,6 +2930,15 @@ function confirmarNuevo(){
     equipoActivoId=document.getElementById('m-equipo').value||null;
     esAmistoso=(document.querySelector('input[name="m-tipo"]:checked')?.value==='amistoso');
     const bAdd=document.getElementById('btn-add-jug'); if(bAdd)bAdd.style.display=esAmistoso?'':'none';
+    // Cargar el plantel del equipo seleccionado (nombres reales, no los de ejemplo)
+    if(equipoActivoId){
+      const eqSel=getEquipos().find(e=>e.id===equipoActivoId);
+      const plantel=(eqSel&&((eqSel.roster&&eqSel.roster.length)?eqSel.roster:eqSel.jugadores))||[];
+      if(plantel.length){
+        ROSTER=plantel.map((j,i)=>({id:i,num:(j.num??0)||0,name:(j.name||j.nombre||('Jugador '+(i+1))),pos:j.pos||'?'}));
+        while(ROSTER.length<5){const i=ROSTER.length;ROSTER.push({id:i,num:0,name:'Jugador '+(i+1),pos:'?'});}
+      }
+    }
     sH=0;sA=0;fH=0;fA=0;
     ptsTrasTO=0;ptsContraataque=0;rivalPtsTrasTO=0;rivalPtsContraataque=0;
     cSec=600;cOn=false;clearInterval(cIv);
@@ -3024,7 +3034,7 @@ function confirmarAddJugador(){
 }
 function openModalEquipoLive(){document.getElementById('equipo-modal-title').textContent='Editar Plantel en Vivo';document.getElementById('equipo-modal-desc').textContent='Los cambios se reflejan inmediatamente.';setEquipoTab('manual');buildRosterEdit();document.getElementById('modal-equipo').style.display='flex';}
 function buildRosterEdit(){document.getElementById('roster-edit').innerHTML=ROSTER.map(p=>`<div class="mf" style="display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:9px;margin-bottom:9px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--gray2);min-width:24px">#${p.id+1}</div><div style="flex:1"><label style="margin-bottom:3px!important">Nombre</label><input type="text" id="eq-nm-${p.id}" value="${p.name}" style="width:100%"/></div><div style="width:64px"><label style="margin-bottom:3px!important">Camiseta</label><input type="number" id="eq-num-${p.id}" value="${p.num}" min="0" max="99" style="width:100%"/></div><div style="width:52px"><label style="margin-bottom:3px!important">Pos</label><input type="text" id="eq-pos-${p.id}" value="${p.pos}" style="width:100%"/></div></div>`).join('');}
-function guardarEquipo(){ROSTER.forEach(p=>{const nm=document.getElementById(`eq-nm-${p.id}`)?.value.trim();const num=parseInt(document.getElementById(`eq-num-${p.id}`)?.value)||p.num;const pos=document.getElementById(`eq-pos-${p.id}`)?.value.trim()||p.pos;if(nm)p.name=nm;p.num=num;p.pos=pos;});document.getElementById('modal-equipo').style.display='none';buildCourt();buildBench();if(document.getElementById('tab-stats').classList.contains('active'))renderStats();toast('👥 Equipo actualizado');}
+function guardarEquipo(){ROSTER.forEach(p=>{const nm=document.getElementById(`eq-nm-${p.id}`)?.value.trim();const num=parseInt(document.getElementById(`eq-num-${p.id}`)?.value)||p.num;const pos=document.getElementById(`eq-pos-${p.id}`)?.value.trim()||p.pos;if(nm)p.name=nm;p.num=num;p.pos=pos;});if(equipoActivoId){const eqs=getEquipos();const eq=eqs.find(e=>e.id===equipoActivoId);if(eq){eq.roster=ROSTER.map(p=>({num:p.num,name:p.name,pos:p.pos}));eq.jugadores=eq.roster;saveEquipos(eqs);dbGuardarJugadores(equipoActivoId,eq.roster).catch(e=>console.error(e));}}document.getElementById('modal-equipo').style.display='none';buildCourt();buildBench();if(document.getElementById('tab-stats').classList.contains('active'))renderStats();toast('👥 Equipo actualizado');}
 
 let tT;
 function loadKpiSelector(){
