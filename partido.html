@@ -614,6 +614,7 @@ select.qsel option{background:#161820}
         <div class="bench-lbl">BANCO<br>SUPL.</div>
         <div id="bench-wrap" style="display:flex;gap:4px;align-items:center"></div>
         <div class="bench-right">
+          <button class="bb" id="btn-add-jug" onclick="openAddJugador()" style="display:none;border-color:rgba(16,185,129,.4);color:var(--green)">➕ Jugador</button>
           <button class="bb rival" id="btn-rival-pop" onclick="openRivalPop(this)">🔴 Rival</button>
           <button class="bb undo" onclick="undoLast()">↩ Deshacer</button>
           <button class="bb" onclick="openModalEquipoLive()" style="border-color:rgba(251,146,60,.35);color:var(--blue2)">✏️ Plantel</button>
@@ -1054,8 +1055,30 @@ select.qsel option{background:#161820}
       <div class="mf"><label>Rival</label><input type="text" id="m-rival" placeholder="Nombre del equipo rival"/></div>
       <div class="mf"><label>Fecha</label><input type="date" id="m-fecha"/></div>
       <div class="mf"><label>Torneo</label><input type="text" id="m-torneo" placeholder="Ej: Liga Uruguaya — Fase Regular"/></div>
+      <div class="mf">
+        <label>Tipo de partido</label>
+        <div class="gen-seg">
+          <label><input type="radio" name="m-tipo" value="oficial" checked/><span>Oficial</span></label>
+          <label><input type="radio" name="m-tipo" value="amistoso"/><span>Amistoso</span></label>
+        </div>
+        <div style="font-size:11px;color:var(--gray2);margin-top:6px;line-height:1.5">En amistosos podés sumar jugadores al banco durante el partido (por ej. un desconocido o refuerzos si el plantel quedó corto).</div>
+      </div>
     </div>
     <div class="mbtns"><button class="mok" onclick="confirmarNuevo()">✔ Iniciar Partido</button><button class="mcancel" onclick="cerrarNuevo()">Cancelar</button></div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR JUGADOR (solo amistosos) -->
+<div id="modal-addjug" style="display:none;position:fixed;inset:0;z-index:210;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center">
+  <div class="mbox" style="max-width:380px;width:95%">
+    <div class="micon">➕</div>
+    <div class="mtitle">Agregar Jugador</div>
+    <div class="mdesc">Se suma al banco de este partido. Si no sabés quién es, dejá el nombre vacío y queda como "Desconocido"; después lo renombrás desde ✏️ Plantel.</div>
+    <div class="mform">
+      <div class="mf"><label>Camiseta</label><input type="number" id="jug-add-num" placeholder="#" min="0" max="99"/></div>
+      <div class="mf"><label>Nombre (opcional)</label><input type="text" id="jug-add-nombre" placeholder="Vacío = Desconocido"/></div>
+    </div>
+    <div class="mbtns"><button class="mok" onclick="confirmarAddJugador()">✔ Agregar al banco</button><button class="mcancel" onclick="document.getElementById('modal-addjug').style.display='none'">Cancelar</button></div>
   </div>
 </div>
 
@@ -1347,6 +1370,7 @@ const JC=['#0f3d9e','#0e3591','#0c2e82','#1140a8','#0d3490','#1a4cb5','#0b2c7a',
 const DPOS=[{x:12,y:50},{x:22,y:22},{x:22,y:78},{x:35,y:18},{x:35,y:82}];
 
 let onCourt=[0,1,2,3,4],onBench=[5,6,7,8,9];
+let esAmistoso=false;
 let cPos=DPOS.map(p=>({...p}));
 let sH=0,sA=0,fH=0,fA=0;
 let ptsTrasTO=0,ptsContraataque=0,rivalPtsTrasTO=0,rivalPtsContraataque=0;
@@ -2258,7 +2282,8 @@ function savePartidoToEquipo(){
   const partidoId=`p_${Date.now()}`;
   const statsSnap=ROSTER.map((p,i)=>({id:i,num:p.num,name:p.name,pos:p.pos,...stats[i]}));
   const lineupSnap = buildLineupData();
-  const partido = {id:partidoId,rival,fecha,torneo,sH,sA,shots:JSON.parse(JSON.stringify(shotData)),playerStats:statsSnap,lineups:lineupSnap};
+  const torneoFinal=(esAmistoso&&!torneo)?'Amistoso':torneo;
+  const partido = {id:partidoId,rival,fecha,torneo:torneoFinal,sH,sA,amistoso:esAmistoso===true,shots:JSON.parse(JSON.stringify(shotData)),playerStats:statsSnap,lineups:lineupSnap};
   eq.partidos.push(partido);
   saveEquipos(equipos);
   // Guardar en Supabase
@@ -2902,6 +2927,8 @@ function confirmarNuevo(){
   try {
     const rival=document.getElementById('m-rival').value.trim()||'Rival';
     equipoActivoId=document.getElementById('m-equipo').value||null;
+    esAmistoso=(document.querySelector('input[name="m-tipo"]:checked')?.value==='amistoso');
+    const bAdd=document.getElementById('btn-add-jug'); if(bAdd)bAdd.style.display=esAmistoso?'':'none';
     sH=0;sA=0;fH=0;fA=0;
     ptsTrasTO=0;ptsContraataque=0;rivalPtsTrasTO=0;rivalPtsContraataque=0;
     cSec=600;cOn=false;clearInterval(cIv);
@@ -2974,6 +3001,27 @@ function renderScpChart(){const pFilter=document.getElementById('scp-filter-part
 function openModalTem(){document.getElementById('modal-tem').style.display='flex';}
 function confirmarTem(){const nom=document.getElementById('tem-nom').value.trim()||'Nueva Temporada';const comp=document.getElementById('tem-comp').value.trim()||'Liga Uruguaya';document.getElementById('hdr-season').textContent=nom.toUpperCase();document.getElementById('hdr-record').innerHTML=`0G · 0P &nbsp;·&nbsp; ${comp}`;['kpi-ortg','kpi-drtg','kpi-nrtg','kpi-pace','kpi-ts','kpi-ast'].forEach(id=>document.getElementById(id).textContent='0');['kpi-ortg-s','kpi-drtg-s','kpi-nrtg-s','kpi-pace-s','kpi-ts-s','kpi-ast-s'].forEach(id=>{document.getElementById(id).textContent='0 partidos jugados';document.getElementById(id).className='kpi-sub neu';});document.getElementById('modal-tem').style.display='none';toast(`🏆 Temporada "${nom}" iniciada`);}
 function openModalEquipo(){document.getElementById('equipo-modal-title').textContent='Configurar Equipo';document.getElementById('equipo-modal-desc').textContent='Los cambios se aplican al próximo partido.';setEquipoTab('manual');buildRosterEdit();document.getElementById('modal-equipo').style.display='flex';}
+function openAddJugador(){
+  if(!esAmistoso){toast('⚠️ Agregar jugadores solo está disponible en partidos amistosos');return;}
+  document.getElementById('jug-add-num').value='';
+  document.getElementById('jug-add-nombre').value='';
+  document.getElementById('modal-addjug').style.display='flex';
+}
+function confirmarAddJugador(){
+  if(!esAmistoso){toast('⚠️ Solo en partidos amistosos');return;}
+  const numV=parseInt(document.getElementById('jug-add-num').value);
+  const num=isNaN(numV)?0:numV;
+  let name=document.getElementById('jug-add-nombre').value.trim();
+  const id=ROSTER.length;
+  if(!name) name='Desconocido'+(num?` #${num}`:` ${id+1}`);
+  ROSTER.push({id,num,name,pos:'?'});
+  stats.push({pts:0,fgm:0,fga:0,fg3m:0,fg3a:0,ftm:0,fta:0,ro:0,rd:0,ast:0,tov:0,stl:0,foul:0,pm:0});
+  onBench.push(id);
+  buildBench();
+  if(document.getElementById('tab-stats').classList.contains('active'))renderStats();
+  document.getElementById('modal-addjug').style.display='none';
+  toast(`➕ ${name} agregado al banco`);
+}
 function openModalEquipoLive(){document.getElementById('equipo-modal-title').textContent='Editar Plantel en Vivo';document.getElementById('equipo-modal-desc').textContent='Los cambios se reflejan inmediatamente.';setEquipoTab('manual');buildRosterEdit();document.getElementById('modal-equipo').style.display='flex';}
 function buildRosterEdit(){document.getElementById('roster-edit').innerHTML=ROSTER.map(p=>`<div class="mf" style="display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--border);padding-bottom:9px;margin-bottom:9px"><div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;color:var(--gray2);min-width:24px">#${p.id+1}</div><div style="flex:1"><label style="margin-bottom:3px!important">Nombre</label><input type="text" id="eq-nm-${p.id}" value="${p.name}" style="width:100%"/></div><div style="width:64px"><label style="margin-bottom:3px!important">Camiseta</label><input type="number" id="eq-num-${p.id}" value="${p.num}" min="0" max="99" style="width:100%"/></div><div style="width:52px"><label style="margin-bottom:3px!important">Pos</label><input type="text" id="eq-pos-${p.id}" value="${p.pos}" style="width:100%"/></div></div>`).join('');}
 function guardarEquipo(){ROSTER.forEach(p=>{const nm=document.getElementById(`eq-nm-${p.id}`)?.value.trim();const num=parseInt(document.getElementById(`eq-num-${p.id}`)?.value)||p.num;const pos=document.getElementById(`eq-pos-${p.id}`)?.value.trim()||p.pos;if(nm)p.name=nm;p.num=num;p.pos=pos;});document.getElementById('modal-equipo').style.display='none';buildCourt();buildBench();if(document.getElementById('tab-stats').classList.contains('active'))renderStats();toast('👥 Equipo actualizado');}
