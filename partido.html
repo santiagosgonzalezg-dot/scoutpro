@@ -969,7 +969,7 @@ select.qsel option{background:#161820}
       <div class="mtitle">Nuevo Equipo</div>
       <div class="mdesc">Configurá los datos de la categoría.</div>
       <div class="mform">
-        <div class="mf"><label>Club</label><input type="text" value="Club Malvín" disabled style="opacity:.5"/></div>
+        <div class="mf"><label>Club</label><input type="text" id="eq2-club" placeholder="Nombre de tu club" onchange="setClub(this.value)"/></div>
         <div class="mf">
           <label>Categoría</label>
           <select id="eq2-cat" style="background:var(--navy2);color:var(--white);border:1px solid var(--border);border-radius:8px;padding:9px 12px;width:100%;font-size:13px">
@@ -1081,10 +1081,10 @@ select.qsel option{background:#161820}
   </div>
   <div class="pop-sec">Puntos especiales Malvín</div>
   <div class="act-grid">
-    <button class="abt ng" onclick="ptsTrasTO+=2;toast('⚡ +2 Malvín tras pérdida');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">⚡</span>+2 Tras PÉR</button>
-    <button class="abt ng" onclick="ptsTrasTO+=3;toast('⚡ +3 Malvín tras pérdida');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">⚡</span>+3 Tras PÉR</button>
-    <button class="abt ax" onclick="ptsContraataque+=2;toast('💨 +2 Malvín contraataque');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">💨</span>+2 Contra</button>
-    <button class="abt ax" onclick="ptsContraataque+=3;toast('💨 +3 Malvín contraataque');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">💨</span>+3 Contra</button>
+    <button class="abt ng" onclick="ptsTrasTO+=2;toast('⚡ +2 '+CLUB+' tras pérdida');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">⚡</span>+2 Tras PÉR</button>
+    <button class="abt ng" onclick="ptsTrasTO+=3;toast('⚡ +3 '+CLUB+' tras pérdida');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">⚡</span>+3 Tras PÉR</button>
+    <button class="abt ax" onclick="ptsContraataque+=2;toast('💨 +2 '+CLUB+' contraataque');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">💨</span>+2 Contra</button>
+    <button class="abt ax" onclick="ptsContraataque+=3;toast('💨 +3 '+CLUB+' contraataque');if(document.getElementById('tab-stats').classList.contains('active'))renderStats()"><span class="ic">💨</span>+3 Contra</button>
   </div>
 </div>
 
@@ -1131,6 +1131,32 @@ select.qsel option{background:#161820}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ── SUPABASE CONFIG ───────────────────────────────────
+// ── CLUB BASE: se toma del perfil de ScoutPRO (sp_coach) ──
+function spClub(){try{const c=JSON.parse(localStorage.getItem('sp_coach')||'{}');const v=(c.club||'').trim();return v||'Mi Club';}catch(e){return 'Mi Club';}}
+let CLUB=spClub(); let CLUB_UP=CLUB.toUpperCase();
+function setClub(name){name=(name||'').trim();if(!name)return;CLUB=name;CLUB_UP=name.toUpperCase();
+  try{const c=JSON.parse(localStorage.getItem('sp_coach')||'{}');c.club=name;localStorage.setItem('sp_coach',JSON.stringify(c));}catch(e){}
+  if(window.spApplyClub)window.spApplyClub();}
+// Reemplaza los textos fijos "Malvín" por el club del perfil (guarda originales para poder re-aplicar)
+(function(){
+  const nodos=[];
+  function collect(){
+    const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    let n; const nivelSel=document.getElementById('eq2-nivel');
+    while(n=w.nextNode()){
+      if(!/Malvín|MALVÍN/.test(n.nodeValue))continue;
+      if(nivelSel&&nivelSel.contains(n))continue; // el nivel "Malvín" es un dato, no un rótulo
+      nodos.push({n,orig:n.nodeValue});
+    }
+  }
+  function apply(){nodos.forEach(o=>{o.n.nodeValue=o.orig
+    .replace(/CLUB MALVÍN/g,CLUB_UP).replace(/Club Malvín/g,CLUB)
+    .replace(/MALVÍN/g,CLUB_UP).replace(/Malvín/g,CLUB);});}
+  window.spApplyClub=apply;
+  document.addEventListener('DOMContentLoaded',function(){collect();apply();
+    const inp=document.getElementById('eq2-club'); if(inp)inp.value=CLUB;});
+})();
+
 const SUPABASE_URL = 'https://wblwittjcibrmvjpkakd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndibHdpdHRqY2licm12anBrYWtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzMzMTIsImV4cCI6MjA4ODI0OTMxMn0.8tIvJ5i0qgmyTYsxUcmiwQwLgclTZDp0_JOr6FtHt5Q';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1202,7 +1228,7 @@ async function dbCrearEquipo(eq){
     cat: eq.cat,
     nivel: eq.nivel,
     gen: eq.gen,
-    nombre: `Malvín ${eq.cat} ${eq.nivel}`
+    nombre: `${CLUB} ${eq.cat} ${eq.nivel}`
   });
   if(error) console.error('dbCrearEquipo:', JSON.stringify(error));
 }
@@ -1393,7 +1419,7 @@ function renderEquipos(){
     card.innerHTML=`
       <div class="eq-folder-icon">🏀</div>
       <div class="eq-folder-cat">${eq.cat}</div>
-      <div class="eq-folder-nivel">Malvín ${eq.nivel}</div>
+      <div class="eq-folder-nivel">${CLUB} ${eq.nivel}</div>
       <div class="eq-folder-gen ${isFem?'fem':'masc'}">${isFem?'Femenino':'Masculino'}</div>
       <div class="eq-folder-pts">${nPartidos} partido${nPartidos!==1?'s':''}</div>
       <div class="del-overlay"><div class="del-overlay-icon">🗑</div><div class="del-overlay-txt">ELIMINAR</div></div>`;
@@ -1412,7 +1438,7 @@ function pedirConfirmacionEliminar(id){
   if(!eq) return;
   const nP = (eq.partidos||[]).length;
   document.getElementById('del-equipo-desc').textContent =
-    `¿Eliminás Malvín ${eq.cat} ${eq.nivel}? Tiene ${nP} partido${nP!==1?'s':''} guardado${nP!==1?'s':''}. Esta acción no se puede deshacer.`;
+    `¿Eliminás ${CLUB} ${eq.cat} ${eq.nivel}? Tiene ${nP} partido${nP!==1?'s':''} guardado${nP!==1?'s':''}. Esta acción no se puede deshacer.`;
   document.getElementById('modal-del-equipo').classList.add('on');
 }
 
@@ -1445,7 +1471,7 @@ function verEquipo(id){
   if(!eq)return;
   document.getElementById('est-lista').style.display='none';
   document.getElementById('est-detalle').style.display='flex';
-  document.getElementById('det-nombre').textContent=`Malvín ${eq.cat} ${eq.nivel}`;
+  document.getElementById('det-nombre').textContent=`${CLUB} ${eq.cat} ${eq.nivel}`;
   document.getElementById('det-sub').textContent=`${eq.gen==='F'?'Femenino':'Masculino'} · ${(eq.partidos||[]).length} partido${(eq.partidos||[]).length!==1?'s':''}`;
   const sel=document.getElementById('det-partido-sel');
   sel.innerHTML='<option value="all">Todos los partidos</option>';
@@ -1545,7 +1571,7 @@ function eq2Paso2(){
   const equipos=getEquipos();
   if(equipos.find(e=>e.cat===cat&&e.nivel===nivel&&e.gen===gen)){toast('⚠️ Ese equipo ya existe');cerrarModalEquipo2();return;}
   const genLabel=gen==='M'?'Masculino':'Femenino';
-  document.getElementById('eq2-titulo-paso2').textContent=`Club Malvín ${cat} ${nivel} — ${genLabel}`;
+  document.getElementById('eq2-titulo-paso2').textContent=`${CLUB} ${cat} ${nivel} — ${genLabel}`;
   eq2Jugadores=[];
   document.getElementById('eq2-jugadores-list').innerHTML='';
   // Agregar 5 jugadores vacíos por defecto
@@ -1583,6 +1609,7 @@ function eq2VolverPaso1(){
 }
 
 function crearEquipo(){
+  setClub(document.getElementById('eq2-club').value);
   const cat=document.getElementById('eq2-cat').value;
   const nivel=document.getElementById('eq2-nivel').value;
   const gen=document.querySelector('input[name="eq2-gen"]:checked').value;
@@ -1605,7 +1632,7 @@ function crearEquipo(){
   cerrarModalEquipo2();
   renderEquipos();
   const genLabel=gen==='M'?'Masculino':'Femenino';
-  toast(`✅ Equipo Malvín ${cat} ${nivel} ${genLabel} creado`);
+  toast(`✅ Equipo ${CLUB} ${cat} ${nivel} ${genLabel} creado`);
   dbCrearEquipo(nuevoEq).catch(e=>console.error(e));
 }
 
@@ -1659,7 +1686,7 @@ function descargarCSV(){
 
   // ── Sección partidos ──
   csv += 'PARTIDOS\n';
-  csv += 'Fecha,Rival,Pts Malvín,Pts Rival,Resultado\n';
+  csv += 'Fecha,Rival,Pts '+CLUB+',Pts Rival,Resultado\n';
   partidos.slice().reverse().forEach(p=>{
     csv += `${p.fecha},"${p.rival}",${p.sH},${p.sA},${p.sH>p.sA?'Victoria':'Derrota'}\n`;
   });
@@ -1796,7 +1823,7 @@ function renderQuintetosCharts(lineups){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
         <div>
           <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px">
-            <span style="color:var(--blue2);font-weight:700">🔵 Malvín</span>
+            <span style="color:var(--blue2);font-weight:700">🔵 ${CLUB}</span>
             <span style="color:var(--blue2);font-family:'DM Mono',monospace">${lu.poss} pos · ${pts} pts</span>
           </div>
           <div style="height:16px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">
@@ -2423,9 +2450,9 @@ function descargarPlantilla(){
   // Create a simple XLSX template using SheetJS
   const ws = XLSX.utils.aoa_to_sheet([
     ['Dorsal','Nombre','Apellido','Equipo','Categoria','Genero'],
-    [4,'Juan','García','Club Malvín','U18','M'],
-    [7,'María','López','Club Malvín','U18','F'],
-    [10,'Pedro','Fernández','Club Malvín','U18','M'],
+    [4,'Juan','García',CLUB,'U18','M'],
+    [7,'María','López',CLUB,'U18','F'],
+    [10,'Pedro','Fernández',CLUB,'U18','M'],
   ]);
   // Column widths
   ws['!cols'] = [{wch:8},{wch:15},{wch:15},{wch:16},{wch:10},{wch:8}];
@@ -2576,7 +2603,7 @@ function rCampo(){
 
   el.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--blue2)">MALVÍN</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--blue2)">${CLUB_UP}</span>
       <span></span>
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--red);text-align:right;display:block">${rivalName}</span>
     </div>
@@ -2626,7 +2653,7 @@ function rOrigen(){
 
   el.innerHTML=`
     <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--blue2)">MALVÍN</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--blue2)">${CLUB_UP}</span>
       <span></span>
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;color:var(--red);text-align:right;display:block">${rivalName}</span>
     </div>
@@ -2764,7 +2791,7 @@ function rFourFactors(){
 
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:var(--blue2)">MALVÍN</span>
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:var(--blue2)">${CLUB_UP}</span>
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:var(--gray2)">FACTOR</span>
       <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:var(--red)">${rivalName}</span>
     </div>
@@ -2859,7 +2886,7 @@ function rPBP(){document.getElementById('pbp-panel').innerHTML=pbp.slice(0,22).m
 // ═══════════════════════════════════════
 // NUEVO PARTIDO
 // ═══════════════════════════════════════
-function openNuevo(){const sel=document.getElementById('m-equipo');const equipos=getEquipos();sel.innerHTML='<option value="">— Sin equipo asignado —</option>';equipos.forEach(eq=>{const opt=document.createElement('option');opt.value=eq.id;opt.textContent=`Malvín ${eq.cat} ${eq.nivel} (${eq.gen==='F'?'Femenino':'Masculino'})`;sel.appendChild(opt);});document.getElementById('modal-nuevo').classList.add('on');}
+function openNuevo(){const sel=document.getElementById('m-equipo');const equipos=getEquipos();sel.innerHTML='<option value="">— Sin equipo asignado —</option>';equipos.forEach(eq=>{const opt=document.createElement('option');opt.value=eq.id;opt.textContent=`${CLUB} ${eq.cat} ${eq.nivel} (${eq.gen==='F'?'Femenino':'Masculino'})`;sel.appendChild(opt);});document.getElementById('modal-nuevo').classList.add('on');}
 function cerrarNuevo(){document.getElementById('modal-nuevo').classList.remove('on');}
 function confirmarNuevo(){
   try {
@@ -2888,7 +2915,7 @@ function confirmarNuevo(){
     pushLineup([...onCourt]);
     console.log('pushLineup called, lineupLog.length=', lineupLog.length);
     cerrarNuevo();goPage('partido');goTab('court');
-    const eqLabel=equipoActivoId?(()=>{const e=getEquipos().find(x=>x.id===equipoActivoId);return e?` · Malvín ${e.cat} ${e.nivel}`:'';})():'';
+    const eqLabel=equipoActivoId?(()=>{const e=getEquipos().find(x=>x.id===equipoActivoId);return e?` · ${CLUB} ${e.cat} ${e.nivel}`:'';})():'';
     toast('🏀 Nuevo partido vs '+rival+eqLabel);
   } catch(e) {
     console.error('confirmarNuevo error:',e);
@@ -2926,9 +2953,9 @@ function confirmarFin(){
 // ═══════════════════════════════════════
 let scpEquipoId=null,scpAllShots=[];
 function scpVista(v){document.getElementById('scp-lista').style.display=v==='lista'?'flex':'none';document.getElementById('scp-partidos').style.display=v==='partidos'?'flex':'none';document.getElementById('scp-chart').style.display=v==='chart'?'flex':'none';}
-function scpRenderLista(){scpVista('lista');const equipos=getEquipos().filter(e=>(e.partidos||[]).some(p=>(p.shots||[]).length>0));const grid=document.getElementById('scp-grid');const empty=document.getElementById('scp-empty');grid.innerHTML='';if(equipos.length===0){empty.style.display='block';grid.style.display='none';return;}empty.style.display='none';grid.style.display='grid';equipos.forEach(eq=>{const isFem=eq.gen==='F';const totalShots=(eq.partidos||[]).reduce((acc,p)=>acc+(p.shots||[]).length,0);const card=document.createElement('div');card.className=`eq-folder ${isFem?'fem':'masc'}`;card.innerHTML=`<div class="eq-folder-icon">📊</div><div class="eq-folder-cat">${eq.cat}</div><div class="eq-folder-nivel">Malvín ${eq.nivel}</div><div class="eq-folder-gen ${isFem?'fem':'masc'}">${isFem?'Femenino':'Masculino'}</div><div class="eq-folder-pts">${totalShots} tiros · ${(eq.partidos||[]).length} partidos</div>`;card.onclick=()=>scpAbrirEquipo(eq.id);grid.appendChild(card);});}
-function scpAbrirEquipo(eqId){scpEquipoId=eqId;const eq=getEquipos().find(e=>e.id===eqId);if(!eq)return;document.getElementById('scp-eq-nombre').textContent=`Malvín ${eq.cat} ${eq.nivel}`;scpVista('partidos');const list=document.getElementById('scp-partidos-list');const partidos=(eq.partidos||[]).filter(p=>(p.shots||[]).length>0);if(partidos.length===0){list.innerHTML='<div style="text-align:center;padding:40px;color:var(--gray2);font-size:13px">No hay tiros registrados.</div>';return;}list.innerHTML='';const allCard=document.createElement('div');allCard.style.cssText='background:linear-gradient(135deg,var(--blue),#c2410c);border-radius:12px;padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center';const totalShots=(eq.partidos||[]).reduce((a,p)=>a+(p.shots||[]).length,0);allCard.innerHTML=`<div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:16px;color:#fff">Todos los partidos</div><div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">${partidos.length} partidos · ${totalShots} tiros totales</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff">→</div>`;allCard.onclick=()=>scpAbrirChart(eqId,'all');list.appendChild(allCard);partidos.slice().reverse().forEach(p=>{const card=document.createElement('div');card.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:border-color .15s';card.onmouseenter=()=>card.style.borderColor='rgba(255,255,255,.25)';card.onmouseleave=()=>card.style.borderColor='var(--border)';const made=(p.shots||[]).filter(s=>s.made).length;const total=(p.shots||[]).length;const pct=total>0?Math.round(made/total*100):0;card.innerHTML=`<div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--white)">vs ${p.rival}</div><div style="font-size:11px;color:var(--gray2);margin-top:2px">${p.fecha}${p.torneo?' · '+p.torneo:''}</div></div><div style="text-align:right"><div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:${p.sH>p.sA?'var(--green)':'var(--red)'}">${p.sH}–${p.sA}</div><div style="font-size:11px;color:var(--gray2)">${made}/${total} · ${pct}%</div></div>`;card.onclick=()=>scpAbrirChart(eqId,p.id);list.appendChild(card);});}
-function scpAbrirChart(eqId,partidoId){scpEquipoId=eqId;const eq=getEquipos().find(e=>e.id===eqId);if(!eq)return;scpVista('chart');scpAllShots=[];const allPlayers=new Set();(eq.partidos||[]).forEach(p=>{(p.shots||[]).forEach(s=>{scpAllShots.push({...s,partidoId:p.id,rival:p.rival,fecha:p.fecha});if(s.pid!==undefined)allPlayers.add(s.pid);});});const isAll=partidoId==='all';if(isAll){document.getElementById('scp-chart-title').textContent=`Malvín ${eq.cat} ${eq.nivel} — Acumulado`;document.getElementById('scp-chart-sub').textContent=`${(eq.partidos||[]).filter(p=>(p.shots||[]).length>0).length} partidos · ${scpAllShots.length} tiros`;}else{const p=eq.partidos.find(x=>x.id===partidoId);document.getElementById('scp-chart-title').textContent=`vs ${p?.rival||'Rival'}`;document.getElementById('scp-chart-sub').textContent=`${p?.fecha||''} ${p?.torneo?'· '+p.torneo:''}`;}const pSel=document.getElementById('scp-filter-partido');pSel.innerHTML='<option value="all">Todos los partidos</option>';(eq.partidos||[]).filter(p=>(p.shots||[]).length>0).slice().reverse().forEach(p=>{pSel.innerHTML+=`<option value="${p.id}">vs ${p.rival} (${p.fecha})</option>`;});pSel.value=isAll?'all':partidoId;const jSel=document.getElementById('scp-filter-jugador');jSel.innerHTML='<option value="all">Todos los jugadores</option>';allPlayers.forEach(pid=>{const p=ROSTER[pid];if(p)jSel.innerHTML+=`<option value="${pid}">#${p.num} ${p.name}</option>`;});jSel.value='all';document.getElementById('scp-filter-tipo').value='all';document.getElementById('scp-filter-result').value='all';renderScpChart();}
+function scpRenderLista(){scpVista('lista');const equipos=getEquipos().filter(e=>(e.partidos||[]).some(p=>(p.shots||[]).length>0));const grid=document.getElementById('scp-grid');const empty=document.getElementById('scp-empty');grid.innerHTML='';if(equipos.length===0){empty.style.display='block';grid.style.display='none';return;}empty.style.display='none';grid.style.display='grid';equipos.forEach(eq=>{const isFem=eq.gen==='F';const totalShots=(eq.partidos||[]).reduce((acc,p)=>acc+(p.shots||[]).length,0);const card=document.createElement('div');card.className=`eq-folder ${isFem?'fem':'masc'}`;card.innerHTML=`<div class="eq-folder-icon">📊</div><div class="eq-folder-cat">${eq.cat}</div><div class="eq-folder-nivel">${CLUB} ${eq.nivel}</div><div class="eq-folder-gen ${isFem?'fem':'masc'}">${isFem?'Femenino':'Masculino'}</div><div class="eq-folder-pts">${totalShots} tiros · ${(eq.partidos||[]).length} partidos</div>`;card.onclick=()=>scpAbrirEquipo(eq.id);grid.appendChild(card);});}
+function scpAbrirEquipo(eqId){scpEquipoId=eqId;const eq=getEquipos().find(e=>e.id===eqId);if(!eq)return;document.getElementById('scp-eq-nombre').textContent=`${CLUB} ${eq.cat} ${eq.nivel}`;scpVista('partidos');const list=document.getElementById('scp-partidos-list');const partidos=(eq.partidos||[]).filter(p=>(p.shots||[]).length>0);if(partidos.length===0){list.innerHTML='<div style="text-align:center;padding:40px;color:var(--gray2);font-size:13px">No hay tiros registrados.</div>';return;}list.innerHTML='';const allCard=document.createElement('div');allCard.style.cssText='background:linear-gradient(135deg,var(--blue),#c2410c);border-radius:12px;padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center';const totalShots=(eq.partidos||[]).reduce((a,p)=>a+(p.shots||[]).length,0);allCard.innerHTML=`<div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:16px;color:#fff">Todos los partidos</div><div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">${partidos.length} partidos · ${totalShots} tiros totales</div></div><div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff">→</div>`;allCard.onclick=()=>scpAbrirChart(eqId,'all');list.appendChild(allCard);partidos.slice().reverse().forEach(p=>{const card=document.createElement('div');card.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:border-color .15s';card.onmouseenter=()=>card.style.borderColor='rgba(255,255,255,.25)';card.onmouseleave=()=>card.style.borderColor='var(--border)';const made=(p.shots||[]).filter(s=>s.made).length;const total=(p.shots||[]).length;const pct=total>0?Math.round(made/total*100):0;card.innerHTML=`<div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:16px;color:var(--white)">vs ${p.rival}</div><div style="font-size:11px;color:var(--gray2);margin-top:2px">${p.fecha}${p.torneo?' · '+p.torneo:''}</div></div><div style="text-align:right"><div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;color:${p.sH>p.sA?'var(--green)':'var(--red)'}">${p.sH}–${p.sA}</div><div style="font-size:11px;color:var(--gray2)">${made}/${total} · ${pct}%</div></div>`;card.onclick=()=>scpAbrirChart(eqId,p.id);list.appendChild(card);});}
+function scpAbrirChart(eqId,partidoId){scpEquipoId=eqId;const eq=getEquipos().find(e=>e.id===eqId);if(!eq)return;scpVista('chart');scpAllShots=[];const allPlayers=new Set();(eq.partidos||[]).forEach(p=>{(p.shots||[]).forEach(s=>{scpAllShots.push({...s,partidoId:p.id,rival:p.rival,fecha:p.fecha});if(s.pid!==undefined)allPlayers.add(s.pid);});});const isAll=partidoId==='all';if(isAll){document.getElementById('scp-chart-title').textContent=`${CLUB} ${eq.cat} ${eq.nivel} — Acumulado`;document.getElementById('scp-chart-sub').textContent=`${(eq.partidos||[]).filter(p=>(p.shots||[]).length>0).length} partidos · ${scpAllShots.length} tiros`;}else{const p=eq.partidos.find(x=>x.id===partidoId);document.getElementById('scp-chart-title').textContent=`vs ${p?.rival||'Rival'}`;document.getElementById('scp-chart-sub').textContent=`${p?.fecha||''} ${p?.torneo?'· '+p.torneo:''}`;}const pSel=document.getElementById('scp-filter-partido');pSel.innerHTML='<option value="all">Todos los partidos</option>';(eq.partidos||[]).filter(p=>(p.shots||[]).length>0).slice().reverse().forEach(p=>{pSel.innerHTML+=`<option value="${p.id}">vs ${p.rival} (${p.fecha})</option>`;});pSel.value=isAll?'all':partidoId;const jSel=document.getElementById('scp-filter-jugador');jSel.innerHTML='<option value="all">Todos los jugadores</option>';allPlayers.forEach(pid=>{const p=ROSTER[pid];if(p)jSel.innerHTML+=`<option value="${pid}">#${p.num} ${p.name}</option>`;});jSel.value='all';document.getElementById('scp-filter-tipo').value='all';document.getElementById('scp-filter-result').value='all';renderScpChart();}
 function renderScpChart(){const pFilter=document.getElementById('scp-filter-partido').value;const jFilter=document.getElementById('scp-filter-jugador').value;const tFilter=document.getElementById('scp-filter-tipo').value;const rFilter=document.getElementById('scp-filter-result').value;let shots=scpAllShots.filter(s=>{if(pFilter!=='all'&&s.partidoId!==pFilter)return false;if(jFilter!=='all'&&String(s.pid)!==jFilter)return false;if(tFilter!=='all'&&s.type!==tFilter)return false;if(rFilter==='made'&&!s.made)return false;if(rFilter==='miss'&&s.made)return false;return true;});const ns='http://www.w3.org/2000/svg';const g=document.getElementById('scp-marks');g.innerHTML='';shots.forEach(shot=>{const el=document.createElementNS(ns,'g');if(shot.made){const c=document.createElementNS(ns,'circle');c.setAttribute('cx',shot.x);c.setAttribute('cy',shot.y);c.setAttribute('r',shot.type==='3'?'10':'8');c.setAttribute('fill',shot.type==='3'?'rgba(16,185,129,.88)':'rgba(251,146,60,.88)');c.setAttribute('stroke','rgba(255,255,255,.7)');c.setAttribute('stroke-width','1.5');el.appendChild(c);}else{const sz=8;[[-sz,-sz,sz,sz],[sz,-sz,-sz,sz]].forEach(d=>{const l=document.createElementNS(ns,'line');l.setAttribute('x1',shot.x+d[0]);l.setAttribute('y1',shot.y+d[1]);l.setAttribute('x2',shot.x+d[2]);l.setAttribute('y2',shot.y+d[3]);l.setAttribute('stroke','rgba(239,68,68,.9)');l.setAttribute('stroke-width','2.5');l.setAttribute('stroke-linecap','round');el.appendChild(l);});}const title=document.createElementNS(ns,'title');const pName=shot.pid!==undefined&&ROSTER[shot.pid]?ROSTER[shot.pid].name:'?';title.textContent=`${shot.made?'✔':'✗'} ${shot.zone||''} — ${pName}`;el.appendChild(title);g.appendChild(el);});const made=shots.filter(s=>s.made).length,total=shots.length;const m2=shots.filter(s=>s.type==='2'&&s.made).length,a2=shots.filter(s=>s.type==='2').length;const m3=shots.filter(s=>s.type==='3'&&s.made).length,a3=shots.filter(s=>s.type==='3').length;const pct=total>0?Math.round(made/total*100):0;const pct2=a2>0?Math.round(m2/a2*100):0;const pct3=a3>0?Math.round(m3/a3*100):0;document.getElementById('scp-stats-row').innerHTML=[['FG%',`${pct}%`,`${made}/${total}`],['2PT%',`${pct2}%`,`${m2}/${a2}`],['3PT%',`${pct3}%`,`${m3}/${a3}`]].map(([l,v,s])=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 14px;flex:1;min-width:80px;text-align:center"><div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold)">${v}</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;color:var(--gray2);letter-spacing:1px">${l}</div><div style="font-size:10px;color:var(--gray2)">${s}</div></div>`).join('');const zones={};shots.forEach(s=>{if(!zones[s.zone])zones[s.zone]={m:0,a:0};zones[s.zone].a++;if(s.made)zones[s.zone].m++;});const zEl=document.getElementById('scp-zone-breakdown');if(Object.keys(zones).length===0){zEl.innerHTML='<div style="font-size:12px;color:var(--gray2);text-align:center;padding:16px">Sin tiros para los filtros seleccionados.</div>';return;}const sorted=Object.entries(zones).sort((a,b)=>b[1].a-a[1].a);zEl.innerHTML=`<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--gray2);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Por Zona</div>`+sorted.map(([z,v])=>{const p=v.a>0?Math.round(v.m/v.a*100):0;const col=p>=50?'var(--green)':p>=33?'var(--gold)':'var(--red)';const barW=Math.round(v.a/Math.max(...sorted.map(x=>x[1].a))*100);return `<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><span style="font-size:11px;color:var(--white)">${z}</span><span style="font-family:'DM Mono',monospace;font-size:11px;color:${col}">${v.m}/${v.a} <span style="font-size:10px">${p}%</span></span></div><div style="height:4px;border-radius:2px;background:rgba(255,255,255,.06)"><div style="height:100%;border-radius:2px;background:${col};width:${barW}%;transition:width .3s"></div></div></div>`;}).join('');}
 
 // ═══════════════════════════════════════
@@ -2948,7 +2975,7 @@ function loadKpiSelector(){
   const equipos=getEquipos();
   sel.innerHTML='<option value="">— Seleccioná un equipo —</option>';
   equipos.forEach(eq=>{
-    sel.innerHTML+=`<option value="${eq.id}">Malvín ${eq.cat} ${eq.nivel} (${eq.gen==='F'?'Femenino':'Masculino'})</option>`;
+    sel.innerHTML+=`<option value="${eq.id}">${CLUB} ${eq.cat} ${eq.nivel} (${eq.gen==='F'?'Femenino':'Masculino'})</option>`;
   });
   // Auto-seleccionar si solo hay uno
   if(equipos.length===1) { sel.value=equipos[0].id; renderKpis(); }
@@ -3070,7 +3097,7 @@ function abrirModalRebote(context){
   document.getElementById('reb-title').textContent='¿Quién agarra el rebote?';
   document.getElementById('reb-desc').textContent=isRivalMiss
     ? `Tiro errado de ${rivalName}`
-    : `Tiro errado de Malvín`;
+    : `Tiro errado de ${CLUB}`;
 
   const grid=document.getElementById('reb-jugadores');
   grid.innerHTML='';
@@ -3082,7 +3109,7 @@ function abrirModalRebote(context){
     // Malvín toma RD (normal) — más probable
     const secM=document.createElement('div');
     secM.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;color:var(--blue2);letter-spacing:1.5px;margin-bottom:4px';
-    secM.textContent='MALVÍN — REB DEFENSIVO';
+    secM.textContent=CLUB_UP+' — REB DEFENSIVO';
     grid.appendChild(secM);
     onCourt.forEach(pid=>{
       const r=ROSTER[pid];
@@ -3106,7 +3133,7 @@ function abrirModalRebote(context){
     // Malvín toma RO
     const secM=document.createElement('div');
     secM.style.cssText='font-family:"Barlow Condensed",sans-serif;font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1.5px;margin-bottom:4px';
-    secM.textContent='MALVÍN — REB OFENSIVO';
+    secM.textContent=CLUB_UP+' — REB OFENSIVO';
     grid.appendChild(secM);
     onCourt.forEach(pid=>{
       const r=ROSTER[pid];
@@ -3258,7 +3285,7 @@ function pbAbrirModal(id){
   const modal = document.getElementById('modal-playbook');
   const sel = document.getElementById('pb-inp-equipo');
   sel.innerHTML = '<option value="">— Sin equipo asignado —</option>';
-  getEquipos().forEach(eq=>{ sel.innerHTML+=`<option value="${eq.id}">Malvín ${eq.cat} ${eq.nivel}</option>`; });
+  getEquipos().forEach(eq=>{ sel.innerHTML+=`<option value="${eq.id}">${CLUB} ${eq.cat} ${eq.nivel}</option>`; });
   if(id){
     const entry = (window._pbCache||[]).find(e=>e.id===id);
     if(entry){
@@ -3326,7 +3353,7 @@ async function renderPlaybook(){
   if(filEq){
     const cur = filEq.value;
     filEq.innerHTML = '<option value="all">Todos los equipos</option>';
-    getEquipos().forEach(eq=>{ filEq.innerHTML+=`<option value="${eq.id}">Malvín ${eq.cat} ${eq.nivel}</option>`; });
+    getEquipos().forEach(eq=>{ filEq.innerHTML+=`<option value="${eq.id}">${CLUB} ${eq.cat} ${eq.nivel}</option>`; });
     if(cur) filEq.value = cur;
   }
   const lista = document.getElementById('pb-lista');
@@ -3364,7 +3391,7 @@ async function renderPlaybook(){
       </div>
       ${items.map(e=>{
         const eq = getEquipos().find(x=>x.id===e.equipo_id);
-        const eqLabel = eq?`Malvín ${eq.cat} ${eq.nivel}`:'';
+        const eqLabel = eq?`${CLUB} ${eq.cat} ${eq.nivel}`:'';
         return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px">'
           +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'
           +'<div style="flex:1">'
