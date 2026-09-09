@@ -8,6 +8,16 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+/* ── Modo por jugador / por equipo ── */
+.mode-seg{display:flex;border:1px solid var(--line,rgba(255,255,255,.09));border-radius:10px;overflow:hidden;margin:0 0 12px;max-width:420px}
+.mseg{flex:1;padding:10px 0;background:rgba(255,255,255,.04);border:none;color:var(--text-2,#8891a0);font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:.4px;cursor:pointer;transition:all .15s}
+.mseg.on{background:var(--offense,#f97316);color:#fff}
+.team-hdr{display:flex;align-items:center;gap:14px;background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.3);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.th-ic{font-size:26px}
+.th-t{font-family:var(--font-disp);font-weight:800;font-size:16px;letter-spacing:.5px}
+.th-s{font-size:12px;color:var(--text-2,#8891a0);margin-top:2px}
+.th-s b{color:var(--offense,#f97316);font-size:14px}
+
 :root{
   --bg-base:#08090d;--bg-raised:#0f1117;--bg-panel:#161820;--bg-hover:#1e202a;
   --border-subtle:rgba(255,255,255,0.05);--border-light:rgba(255,255,255,0.09);--border-strong:rgba(255,255,255,0.18);
@@ -216,9 +226,15 @@ let TABLE_OK=true;
 // captura
 let capTeam='',capRival='',capFecha=new Date().toISOString().slice(0,10),capLocal=true;
 let capPlayer='';        // key del jugador seleccionado
+let capMode='player';    // 'player' | 'team' — esfuerzo individual o colectivo
+let capPlayerPrev='';    // para volver del modo equipo al jugador que estabas marcando
+const TEAM_PK='__equipo__';
+const TEAM_P={num:null,name:'EQUIPO'};
+function isTeamRow(r){return r.jugador==='EQUIPO'&&r.jugador_num==null;}
 let tally={};            // pkey -> {metricKey:count, _min:minutos, _p:{num,name}}
 // evaluación
 let evTeam='',evScope='all',evNorm='tot';
+let evMode='player';     // 'player' | 'team' — ranking de jugadores o comparación de equipos
 
 function pk(p){return (p.num!=null?p.num:'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
@@ -276,10 +292,16 @@ function switchView(v){
 }
 
 /* ════════ TAB CARGAR ════════ */
-function setCapTeam(v){capTeam=v;capPlayer='';renderCargar();}
+function setCapTeam(v){capTeam=v;capPlayer=capMode==='team'?TEAM_PK:'';renderCargar();}
+function setCapMode(m){
+  if(m===capMode)return;
+  if(m==='team'){capPlayerPrev=capPlayer;capPlayer=TEAM_PK;ensureP(TEAM_PK,TEAM_P);}
+  else{capPlayer=capPlayerPrev&&capPlayerPrev!==TEAM_PK?capPlayerPrev:'';}
+  capMode=m;renderCargar();
+}
 function setCapField(f,v){if(f==='rival')capRival=v;else if(f==='fecha')capFecha=v;else if(f==='local')capLocal=(v==='1');}
 function selPlayer(k){capPlayer=k;applyPlayer();scrollPlayerIntoView();}
-function shiftPlayer(d){const r=ROSTERS[capTeam]||[];if(!r.length)return;const keys=r.map(pk);let i=keys.indexOf(capPlayer);if(i<0)i=0;capPlayer=keys[(i+d+keys.length)%keys.length];applyPlayer();scrollPlayerIntoView();}
+function shiftPlayer(d){if(capMode==='team')return;const r=ROSTERS[capTeam]||[];if(!r.length)return;const keys=r.map(pk);let i=keys.indexOf(capPlayer);if(i<0)i=0;capPlayer=keys[(i+d+keys.length)%keys.length];applyPlayer();scrollPlayerIntoView();}
 function scrollPlayerIntoView(){const b=document.querySelector('.pbtn.sel');if(b&&b.scrollIntoView){try{b.scrollIntoView({inline:'center',block:'nearest'});}catch(_){}}}
 function applyPlayer(){
   const cur=tally[capPlayer]||{};
@@ -325,7 +347,8 @@ function renderCargar(){
   if(!TEAMS.length){el.innerHTML='<div class="empty">No hay equipos cargados todavía.<br>Primero cargá partidos en <b>Quintetos</b> (de ahí sale el plantel).</div>';return;}
   if(capTeam&&!TEAMS.includes(capTeam))capTeam=TEAMS[0];
   const roster=ROSTERS[capTeam]||[];
-  if(roster.length&&(!capPlayer||!roster.some(p=>pk(p)===capPlayer)))capPlayer=pk(roster[0]);
+  if(capMode==='team'){capPlayer=TEAM_PK;ensureP(TEAM_PK,TEAM_P);}
+  else if(roster.length&&(!capPlayer||!roster.some(p=>pk(p)===capPlayer)))capPlayer=pk(roster[0]);
   roster.forEach(p=>ensureP(pk(p),p));
 
   const meta='<div class="controls">'+
@@ -333,6 +356,11 @@ function renderCargar(){
     '<div class="field"><label>Rival</label><input type="text" value="'+esc(capRival)+'" placeholder="Nombre del rival" oninput="setCapField(\'rival\',this.value)"></div>'+
     '<div class="field"><label>Fecha</label><input type="date" value="'+esc(capFecha)+'" oninput="setCapField(\'fecha\',this.value)"></div>'+
     '<div class="field"><label>Condición</label><select onchange="setCapField(\'local\',this.value)"><option value="1"'+(capLocal?' selected':'')+'>Local</option><option value="0"'+(!capLocal?' selected':'')+'>Visitante</option></select></div>'+
+    '</div>';
+
+  const modeBar='<div class="mode-seg">'+
+    '<button class="mseg'+(capMode==='player'?' on':'')+'" onclick="setCapMode(\'player\')">👤 Por jugador</button>'+
+    '<button class="mseg'+(capMode==='team'?' on':'')+'" onclick="setCapMode(\'team\')">👥 Por equipo</button>'+
     '</div>';
 
   const playerBar='<div class="player-bar" id="playerBar">'+
@@ -345,6 +373,8 @@ function renderCargar(){
     }).join('')+'</div>'+
     '<button class="pnav" onclick="shiftPlayer(1)" title="Jugador siguiente">▶</button></div>';
   const hint='<div class="zone-sub" style="margin:-4px 0 10px">Tocá un jugador (queda fijo arriba mientras marcás) o saltá con ◀ ▶ — en la compu también con las flechas <b>← →</b> del teclado. El número de cada uno es su índice acumulado.</div>';
+
+  const teamHdr='<div class="team-hdr"><span class="th-ic">👥</span><div><div class="th-t">ESFUERZO COLECTIVO — '+esc(capTeam)+'</div><div class="th-s">Acciones del equipo como conjunto (sin asignar a un jugador). Índice acumulado: <b id="tot-'+TEAM_PK+'">'+Math.round(idxOf(tally[TEAM_PK]||{}))+'</b></div></div></div>';
 
   let grid='';
   if(capPlayer){
@@ -361,7 +391,7 @@ function renderCargar(){
       return '<details class="side '+cls+'" open><summary>'+title+'</summary><div class="cat">'+inner+'</div></details>';
     };
     const curP=(tally[capPlayer]||{})._p||{};
-    grid='<div class="sec">Marcando a: <span id="capWho" style="color:var(--offense)">'+esc(curP.name||'')+(curP.num!=null?' · #'+curP.num:'')+'</span></div>'+
+    grid='<div class="sec">Marcando a: <span id="capWho" style="color:var(--offense)">'+(capMode==='team'?'👥 EQUIPO (colectivo)':esc(curP.name||'')+(curP.num!=null?' · #'+curP.num:''))+'</span></div>'+
       '<div class="kpis">'+
         '<div class="kpi"><div class="v acc" id="curIdx">'+idxOf(cur).toFixed(1)+'</div><div class="k">Índice total</div></div>'+
         '<div class="kpi"><div class="v" style="color:var(--offense)" id="curIdxO">'+idxOf(cur,'of').toFixed(1)+'</div><div class="k">Índice ofensivo</div></div>'+
@@ -381,7 +411,7 @@ function renderCargar(){
   let setup='';
   if(!TABLE_OK)setup=tableSetup();
 
-  el.innerHTML=meta+playerBar+hint+grid+save+customPanel()+setup;
+  el.innerHTML=meta+modeBar+(capMode==='team'?teamHdr:playerBar+hint)+grid+save+customPanel()+setup;
   updateCapTotals();setTopbarH();
 }
 /* ── Panel para crear / borrar stats personalizadas ── */
@@ -449,10 +479,10 @@ async function loadEsfMatch(){
   const r=await c.from('esfuerzo_log').select('*').eq('equipo',capTeam).eq('match_id',mid);
   if(r.error){msgSave(r.error.message,true);return;}
   if(!r.data||!r.data.length){msgSave('No hay nada guardado para '+capTeam+' vs '+(capRival||'?')+' ('+capFecha+').',true);return;}
-  r.data.forEach(row=>{const p={num:row.jugador_num,name:row.jugador};const k=pk(p);const o=ensureP(k,p);MK.forEach(m=>o[m]=n(row[m]));
+  r.data.forEach(row=>{const team=isTeamRow(row);const p=team?TEAM_P:{num:row.jugador_num,name:row.jugador};const k=team?TEAM_PK:pk(p);const o=ensureP(k,p);MK.forEach(m=>o[m]=n(row[m]));
     let ex=row.extra;if(typeof ex==='string'){try{ex=JSON.parse(ex);}catch(_){ex=null;}}if(ex&&typeof ex==='object')CUSTOM.forEach(m=>o[m.k]=n(ex[m.k]));
     o._min=n(row.minutos);});
-  msgSave('Cargados '+r.data.length+' jugadores desde la base.',false);renderCargar();
+  msgSave('Cargados '+r.data.length+' registros desde la base.',false);renderCargar();
 }
 function msgSave(t,err){const el=document.getElementById('saveMsg');if(el){el.textContent=t;el.style.color=err?'var(--negative)':'var(--positive)';}}
 async function saveEsf(){
@@ -478,24 +508,28 @@ async function saveEsf(){
     if(/column .*extra|extra.* does not exist/i.test(ins.error.message)){msgSave('Falta el upgrade para stats propias (columna extra). Mirá el recuadro de «Mis stats» y corré el SQL.',true);METRICAS_OK=false;return;}
     msgSave(ins.error.message,true);return;
   }
-  msgSave('✓ Guardado: '+rows.length+' jugadores.',false);
+  msgSave('✓ Guardado: '+rows.length+' registros (jugadores y/o EQUIPO).',false);
   await loadAll();
 }
 
 /* ════════ TAB EVALUAR ════════ */
-function setEv(f,v){if(f==='team')evTeam=v;else if(f==='scope')evScope=v;else if(f==='norm')evNorm=v;renderEvaluar();}
+function setEv(f,v){if(f==='team')evTeam=v;else if(f==='scope')evScope=v;else if(f==='norm')evNorm=v;else if(f==='mode')evMode=v;renderEvaluar();}
 function renderEvaluar(){
   const el=document.getElementById('view-evaluar');
   if(!TABLE_OK){el.innerHTML='<div class="sec">Evaluación</div>'+tableSetup();return;}
   if(!ESF.length){el.innerHTML='<div class="empty">Todavía no hay esfuerzo cargado.<br>Cargá un partido en la pestaña <b>📝 Cargar</b> y volvé acá.</div>';return;}
   const teams=[...new Set(ESF.map(r=>r.equipo))].sort();
   if(!teams.includes(evTeam))evTeam=teams[0];
+  if(evMode==='team'){renderEvaluarEquipos(el,teams);return;}
   let rows=ESF.filter(r=>r.equipo===evTeam);
   const matches=[...new Set(rows.map(r=>r.match_id))];
   if(evScope!=='all'&&!matches.includes(evScope))evScope='all';
   if(evScope!=='all')rows=rows.filter(r=>r.match_id===evScope);
 
-  // acumular por jugador
+  // acumular por jugador (las filas EQUIPO van aparte, al colectivo)
+  const teamRows=rows.filter(isTeamRow);rows=rows.filter(r=>!isTeamRow(r));
+  const colAcc={};AMK().forEach(m=>colAcc[m]=0);teamRows.forEach(r=>AMK().forEach(m=>colAcc[m]=n(colAcc[m])+n(r[m])));
+  const colIdx=idxOf(colAcc),colIdxO=idxOf(colAcc,'of'),colIdxD=idxOf(colAcc,'df');
   const pmap={};
   rows.forEach(r=>{const p={num:r.jugador_num,name:r.jugador};const k=pk(p);
     const o=pmap[k]||(pmap[k]={p,min:0,pj:new Set()});AMK().forEach(m=>o[m]=n(o[m])+n(r[m]));o.min+=n(r.minutos);o.pj.add(r.match_id);});
@@ -510,6 +544,7 @@ function renderEvaluar(){
 
   // controles
   const ctl='<div class="controls">'+
+    '<div class="field"><label>Vista</label><select onchange="setEv(\'mode\',this.value)"><option value="player" selected>Por jugador</option><option value="team">Por equipo</option></select></div>'+
     '<div class="field"><label>Equipo</label><select onchange="setEv(\'team\',this.value)">'+teams.map(t=>'<option'+(t===evTeam?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div>'+
     '<div class="field"><label>Partido</label><select onchange="setEv(\'scope\',this.value)"><option value="all"'+(evScope==='all'?' selected':'')+'>Todos ('+matches.length+')</option>'+
       matches.map(mid=>{const r=rows.concat(ESF).find(x=>x.match_id===mid);const lbl=r?((r.fecha||'')+' vs '+(r.rival||'?')):mid;return '<option value="'+esc(mid)+'"'+(evScope===mid?' selected':'')+'>'+esc(lbl)+'</option>';}).join('')+'</select></div>'+
@@ -517,7 +552,7 @@ function renderEvaluar(){
     '</div>';
 
   // KPIs del equipo
-  const teamTot=players.reduce((s,p)=>s+p.idx,0);
+  const teamTot=players.reduce((s,p)=>s+p.idx,0)+colIdx;
   const topO=players.slice().sort((a,b)=>b.idxON-a.idxON)[0];
   const topD=players.slice().sort((a,b)=>b.idxDN-a.idxDN)[0];
   const kpis='<div class="kpis">'+
@@ -536,7 +571,8 @@ function renderEvaluar(){
       '<td>'+p.pj+'</td><td>'+Math.round(p.min)+'</td>'+
       '<td style="color:var(--offense);font-weight:600">'+p.idxN.toFixed(1)+'<span class="bar-wrap"><span class="bar" style="width:'+Math.round(p.idxN/maxIdx*100)+'%"></span></span></td>'+
       '<td>'+p.idxON.toFixed(1)+'</td><td style="color:var(--defense)">'+p.idxDN.toFixed(1)+'</td></tr>').join('')+
-    '</tbody></table></div></div>';
+    '</tbody></table></div></div>'+
+    (colIdx>0?'<div class="zone-sub" style="margin:-4px 0 10px">👥 <b>Esfuerzo colectivo (EQUIPO)</b>: índice '+colIdx.toFixed(1)+' — ofensivo '+colIdxO.toFixed(1)+' · defensivo '+colIdxD.toFixed(1)+'. Se suma al índice total del equipo, no al ranking individual.</div>':'');
 
   // líderes por métrica (top 3 con valor > 0)
   const totByMetric={};AMK().forEach(m=>{totByMetric[m]=players.map(p=>({name:p.p.name,num:p.p.num,v:per40&&p.min>0?n(p[m])*40/p.min:n(p[m])})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,3);});
@@ -561,6 +597,64 @@ function renderEvaluar(){
     '<div class="zone-sub" style="margin-bottom:8px">Índice = suma de cada acción × su peso. Separado en ofensivo (rebote of., juego sin balón, ventajas) y defensivo (presión, rotaciones, contestación, sacrificio, transición).</div>'+
     rk+'<div class="sec">Quién aporta qué</div>'+leadersFor('of')+leadersFor('df')+wedit;
 }
+/* ── Evaluación POR EQUIPO: compara el esfuerzo total de cada equipo ── */
+function renderEvaluarEquipos(el,teams){
+  const perG=evNorm==='p40'; // en esta vista: promedio por partido
+  const acc={};
+  ESF.forEach(r=>{const t=r.equipo;if(!t)return;
+    const o=acc[t]||(acc[t]={team:t,pj:new Set(),min:0});
+    AMK().forEach(m=>o[m]=n(o[m])+n(r[m]));o.min+=n(r.minutos);o.pj.add(r.match_id);});
+  const rowsT=Object.values(acc).map(o=>{
+    const pj=o.pj.size||1;
+    const tot=idxOf(o),io=idxOf(o,'of'),id=idxOf(o,'df');
+    const f=perG?1/pj:1;
+    return {team:o.team,pj:o.pj.size,idx:tot*f,idxO:io*f,idxD:id*f,tot};
+  }).sort((a,b)=>b.idx-a.idx);
+  const maxI=Math.max(1,...rowsT.map(r=>r.idx));
+  const sfx=perG?' /partido':'';
+
+  const ctl='<div class="controls">'+
+    '<div class="field"><label>Vista</label><select onchange="setEv(\'mode\',this.value)"><option value="player">Por jugador</option><option value="team" selected>Por equipo</option></select></div>'+
+    '<div class="field"><label>Normalización</label><select onchange="setEv(\'norm\',this.value)"><option value="tot"'+(!perG?' selected':'')+'>Totales</option><option value="p40"'+(perG?' selected':'')+'>Promedio por partido</option></select></div>'+
+    '</div>';
+
+  const topO=rowsT.slice().sort((a,b)=>b.idxO-a.idxO)[0];
+  const topD=rowsT.slice().sort((a,b)=>b.idxD-a.idxD)[0];
+  const kpis='<div class="kpis">'+
+    '<div class="kpi"><div class="v acc">'+(rowsT[0]?esc(rowsT[0].team):'—')+'</div><div class="k">Equipo con más esfuerzo</div></div>'+
+    '<div class="kpi"><div class="v" style="color:var(--offense)">'+(topO?esc(topO.team):'—')+'</div><div class="k">Mejor esfuerzo ofensivo</div></div>'+
+    '<div class="kpi"><div class="v def">'+(topD?esc(topD.team):'—')+'</div><div class="k">Mejor esfuerzo defensivo</div></div>'+
+    '<div class="kpi"><div class="v ins">'+rowsT.length+'</div><div class="k">Equipos comparados</div></div>'+
+    '</div>';
+
+  const tabla='<div class="board"><div class="board-title">Esfuerzo por equipo'+(perG?' (promedio por partido)':' (totales)')+'</div><div class="tblwrap"><table class="t"><thead><tr>'+
+    '<th class="l">#</th><th class="l">Equipo</th><th>PJ</th><th>Índice'+sfx+'</th><th>Ofensivo'+sfx+'</th><th>Defensivo'+sfx+'</th></tr></thead><tbody>'+
+    rowsT.map((r,i)=>'<tr><td class="l">'+(i+1)+'</td><td class="l" style="font-weight:600">'+esc(r.team)+'</td><td>'+r.pj+'</td>'+
+      '<td style="color:var(--offense);font-weight:600">'+r.idx.toFixed(1)+'<span class="bar-wrap"><span class="bar" style="width:'+Math.round(r.idx/maxI*100)+'%"></span></span></td>'+
+      '<td>'+r.idxO.toFixed(1)+'</td><td style="color:var(--defense)">'+r.idxD.toFixed(1)+'</td></tr>').join('')+
+    '</tbody></table></div></div>';
+
+  // partido a partido del equipo elegido
+  const teams2=teams;
+  if(!teams2.includes(evTeam))evTeam=teams2[0];
+  const selT='<div class="controls" style="margin-top:14px"><div class="field"><label>Partido a partido</label><select onchange="setEv(\'team\',this.value)">'+teams2.map(t=>'<option'+(t===evTeam?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div></div>';
+  const byMatch={};
+  ESF.filter(r=>r.equipo===evTeam).forEach(r=>{const o=byMatch[r.match_id]||(byMatch[r.match_id]={mid:r.match_id,fecha:r.fecha||'',rival:r.rival||'?'});
+    AMK().forEach(m=>o[m]=n(o[m])+n(r[m]));});
+  const mrows=Object.values(byMatch).map(o=>({...o,idx:idxOf(o),idxO:idxOf(o,'of'),idxD:idxOf(o,'df')})).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  const maxM=Math.max(1,...mrows.map(r=>r.idx));
+  const tabla2=mrows.length?'<div class="board"><div class="board-title">'+esc(evTeam)+' — esfuerzo partido a partido (jugadores + EQUIPO)</div><div class="tblwrap"><table class="t"><thead><tr>'+
+    '<th class="l">Fecha</th><th class="l">Rival</th><th>Índice</th><th>Ofensivo</th><th>Defensivo</th></tr></thead><tbody>'+
+    mrows.map(r=>'<tr><td class="l">'+esc(r.fecha)+'</td><td class="l">'+esc(r.rival)+'</td>'+
+      '<td style="color:var(--offense);font-weight:600">'+r.idx.toFixed(1)+'<span class="bar-wrap"><span class="bar" style="width:'+Math.round(r.idx/maxM*100)+'%"></span></span></td>'+
+      '<td>'+r.idxO.toFixed(1)+'</td><td style="color:var(--defense)">'+r.idxD.toFixed(1)+'</td></tr>').join('')+
+    '</tbody></table></div></div>':'';
+
+  el.innerHTML=ctl+kpis+
+    '<div class="zone-sub" style="margin-bottom:8px">Suma el esfuerzo de todos los jugadores + lo cargado como 👥 EQUIPO (colectivo), por equipo. Sirve para comparar categorías o medir la evolución del grupo.</div>'+
+    tabla+selT+tabla2;
+}
+
 function setWeight(k,v){WEIGHTS[k]=Math.max(0,n(v));persistW();
   if(isCustom(k)){const m=CUSTOM.find(x=>x.k===k);if(m)m.w=WEIGHTS[k];try{getSB().from('esfuerzo_metricas').update({peso:WEIGHTS[k]}).eq('k',k).then(()=>{});}catch(_){}}
   renderEvaluar();}
