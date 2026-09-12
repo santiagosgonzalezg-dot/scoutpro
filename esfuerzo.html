@@ -34,6 +34,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .field label{font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--text-3);text-transform:uppercase}
 .field select,.field input{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r);padding:9px var(--sp-3);font-family:var(--font-ui);font-size:13px;color:var(--text);outline:none;min-width:150px;cursor:pointer}
 .field input{cursor:text;font-family:var(--font-mono);font-size:12px}
+.teamfix{background:var(--offense-bg);border:1px solid rgba(249,115,22,.4);border-radius:var(--r);padding:9px var(--sp-3);font-family:var(--font-disp);font-weight:700;font-size:15px;letter-spacing:.5px;color:var(--offense);min-width:150px}
 .tabs{display:flex;gap:4px;margin-bottom:var(--sp-4);border-bottom:1px solid var(--border-light)}
 .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--text-3);font-family:var(--font-mono);font-size:11px;letter-spacing:.5px;padding:10px 16px;cursor:pointer;transition:all var(--t-fast);margin-bottom:-1px}
 .tab:hover{color:var(--text-2)}
@@ -209,6 +210,8 @@ function slug(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\
 /* ════════ ESTADO ════════ */
 let ROSTERS={};          // equipo -> [{num,name}]
 let TEAMS=[];
+let TEAMCNT={};          // cuántos registros tiene cada equipo en la cuenta
+let MI_EQUIPO='';        // equipo vinculado a la cuenta
 let ESF=[];              // filas de esfuerzo_log
 let TABLE_OK=true;
 // captura
@@ -249,7 +252,7 @@ async function loadAll(){
     const rows=qr.error?[]:(qr.data||[]);
     const rmap={};
     rows.forEach(r=>{let js=r.jugadores;if(typeof js==='string'){try{js=JSON.parse(js);}catch(_){js=[];}}if(!Array.isArray(js))return;
-      const t=r.equipo;if(!t)return;rmap[t]=rmap[t]||{};
+      const t=r.equipo;if(!t)return;TEAMCNT[t]=(TEAMCNT[t]||0)+1;rmap[t]=rmap[t]||{};
       js.forEach(p=>{if(!p)return;const k=pk(p);if(!rmap[t][k])rmap[t][k]={num:p.num,name:p.name};else if(p.name&&p.name.length>(rmap[t][k].name||'').length)rmap[t][k].name=p.name;});
     });
     ROSTERS={};Object.entries(rmap).forEach(([t,m])=>{ROSTERS[t]=Object.values(m).sort((a,b)=>(n(a.num)-n(b.num))||String(a.name).localeCompare(b.name));});
@@ -264,7 +267,7 @@ async function loadAll(){
       if(side==='col')tipo='col';
       else if(side==='df')sd='df';
       else sd='of'; // 'of', 'ind' viejas u otros
-      return {k:m.k,l:m.label||m.k,tipo,side:sd,pm:(m.cat==='pm'),custom:true};
+      return {k:m.k,l:m.label||m.k,tipo,side:sd,pm:false,custom:true};
     });}
   }catch(_){METRICAS_OK=false;CUSTOM=[];}
   // esfuerzo_log
@@ -275,10 +278,14 @@ async function loadAll(){
   // parsear extra en cada fila
   ESF.forEach(r=>{let ex=r.extra;if(typeof ex==='string'){try{ex=JSON.parse(ex);}catch(_){ex=null;}}r._ex=(ex&&typeof ex==='object')?ex:{};});
   const tset=new Set(Object.keys(ROSTERS));
-  ESF.forEach(r=>{if(r.equipo)tset.add(r.equipo);});
+  ESF.forEach(r=>{if(r.equipo){tset.add(r.equipo);TEAMCNT[r.equipo]=(TEAMCNT[r.equipo]||0)+1;}});
   TEAMS=[...tset].sort();
 
-  if(!capTeam)capTeam=TEAMS[0]||'';
+  // ── equipo vinculado a la cuenta: el guardado, o el que más registros tiene ──
+  let savedT='';try{savedT=localStorage.getItem('esf_mi_equipo')||'';}catch(_){}
+  if(savedT&&TEAMS.includes(savedT))MI_EQUIPO=savedT;
+  else MI_EQUIPO=TEAMS.slice().sort((a,b)=>(TEAMCNT[b]||0)-(TEAMCNT[a]||0))[0]||'';
+  capTeam=MI_EQUIPO;evTeam=MI_EQUIPO;
   document.getElementById('msg').style.display='none';
   document.getElementById('tabs').style.display='';
   renderCargar();renderEvaluar();
@@ -290,7 +297,7 @@ function switchView(v){
 }
 
 /* ════════ TAB CARGAR ════════ */
-function setCapTeam(v){capTeam=v;renderCargar();}
+function setMiEquipo(v){MI_EQUIPO=v;capTeam=v;evTeam=v;try{localStorage.setItem('esf_mi_equipo',v);}catch(_){}renderCargar();renderEvaluar();}
 function setCapField(f,v){if(f==='rival')capRival=v;else if(f==='fecha')capFecha=v;else if(f==='local')capLocal=(v==='1');}
 function snap(){HIST.push(JSON.stringify(sheet));if(HIST.length>80)HIST.shift();const u=document.getElementById('btnUndo');if(u)u.disabled=false;}
 function undo(){if(!HIST.length)return;sheet=JSON.parse(HIST.pop());renderCargar();}
@@ -387,19 +394,24 @@ function metRow(m){
   const btns=m.pm
     ? '<button class="abtn good" onclick="askPlayer(\''+m.k+'\',\'p\',1)">✓ Bueno</button>'+
       '<button class="abtn bad" onclick="askPlayer(\''+m.k+'\',\'m\',1)">✗ Malo</button>'
-    : '<button class="abtn plain-'+m.side+'" onclick="askPlayer(\''+m.k+'\',\'p\',1)">+1</button>'+
-      '<button class="abtn minus" title="Corregir: restar 1 a un jugador" onclick="askPlayer(\''+m.k+'\',\'p\',-1)">−</button>';
+    : '<button class="abtn plain-'+m.side+'" onclick="askPlayer(\''+m.k+'\',\'p\',1)">+1</button>';
   return '<div class="imet"><div class="imet-top">'+
     '<span class="imet-l">'+esc(m.l)+(m.custom?' <span class="tag-own">propia</span>':'')+'</span>'+
     '<span class="imet-net '+netCls(net)+'">'+fmtNet(net)+'</span>'+btns+
     '</div>'+(pills?'<div class="imet-players">'+pills+'</div>':'')+'</div>';
 }
 
+function teamFieldHtml(){
+  if(!TEAMS.length)
+    return '<div class="field"><label>Equipo</label><input type="text" value="'+esc(capTeam)+'" placeholder="Nombre del equipo" oninput="capTeam=this.value;evTeam=this.value;MI_EQUIPO=this.value"></div>';
+  if(TEAMS.length===1)
+    return '<div class="field"><label>Equipo (vinculado a tu cuenta)</label><div class="teamfix">🔗 '+esc(MI_EQUIPO)+'</div></div>';
+  return '<div class="field"><label>Equipo (vinculado a tu cuenta)</label><select onchange="setMiEquipo(this.value)">'+
+    TEAMS.map(t=>'<option'+(t===MI_EQUIPO?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div>';
+}
 function renderCargar(){
   const el=document.getElementById('view-cargar');
-  const teamField=TEAMS.length
-    ? '<div class="field"><label>Equipo</label><select onchange="setCapTeam(this.value)">'+TEAMS.map(t=>'<option'+(t===capTeam?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div>'
-    : '<div class="field"><label>Equipo</label><input type="text" value="'+esc(capTeam)+'" placeholder="Nombre del equipo" oninput="capTeam=this.value"></div>';
+  const teamField=teamFieldHtml();
   const meta='<div class="controls">'+teamField+
     '<div class="field"><label>Rival</label><input type="text" value="'+esc(capRival)+'" placeholder="Nombre del rival" oninput="setCapField(\'rival\',this.value)"></div>'+
     '<div class="field"><label>Fecha</label><input type="date" value="'+esc(capFecha)+'" oninput="setCapField(\'fecha\',this.value)"></div>'+
@@ -455,7 +467,7 @@ function renderCargar(){
   if(!TABLE_OK)setup=tableSetup();
 
   el.innerHTML=meta+kpis+
-    '<div class="zone-sub" style="margin:2px 0 10px">Tocá el botón de una acción individual y elegí a qué jugador pertenece. Todo cuenta en unidades: los buenos suman +1 y los malos restan −1.</div>'+
+    '<div class="zone-sub" style="margin:2px 0 10px">Tocá el botón de una acción individual y elegí a qué jugador pertenece. Todas las acciones suman +1; la única que puede restar es el <b>Close out malo (−1)</b>. Si te equivocás, usá ↩ Deshacer.</div>'+
     blockOf+blockDf+blockCol+save+customPanel()+setup;
   updateTotals();
 }
@@ -471,12 +483,11 @@ function customPanel(){
     : '<div class="zone-sub" style="padding:2px 0 6px">Todavía no creaste ninguna. Agregá la primera abajo 👇</div>';
   return '<details class="board" style="margin-top:18px"><summary style="cursor:pointer;list-style:none;padding:11px 15px;font-family:var(--font-disp);font-weight:700;font-size:15px;color:var(--insight)">➕ Mis métricas de esfuerzo (crear / borrar) ▾</summary>'+
     '<div style="padding:6px 15px 16px">'+
-    '<div class="zone-sub" style="margin-bottom:10px">Creá tus propias métricas. Las individuales se asignan a un jugador al marcarlas; si activás «buenos y malos», los buenos suman +1 y los malos restan −1.</div>'+
+    '<div class="zone-sub" style="margin-bottom:10px">Creá tus propias métricas. Las individuales se asignan a un jugador al marcarlas y todas suman +1 por unidad.</div>'+
     list+
     '<div class="cust-form">'+
       '<input id="ncName" type="text" placeholder="Nombre (ej: Sprint de vuelta en defensa)" maxlength="48">'+
       '<select id="ncTipo"><option value="of">Individual ofensiva</option><option value="df" selected>Individual defensiva</option><option value="col">Colectiva</option></select>'+
-      '<label class="chk"><input type="checkbox" id="ncPM"> con buenos y malos (±)</label>'+
       '<button class="btn-primary" style="padding:9px 16px" onclick="addCustom()">Agregar</button>'+
       '<span class="savemsg" id="ncMsg"></span>'+
     '</div></div></details>';
@@ -493,19 +504,18 @@ function customSetup(){
 async function addCustom(){
   const name=(document.getElementById('ncName').value||'').trim();
   const tv=document.getElementById('ncTipo').value;
-  const pm=document.getElementById('ncPM').checked;
   const msg=document.getElementById('ncMsg');
   if(!name){if(msg){msg.textContent='Poné un nombre.';msg.style.color='var(--negative)';}return;}
   const k='cst_'+slug(name)+'_'+Date.now().toString(36).slice(-4);
   const c=getSB();
   if(msg){msg.textContent='Guardando…';msg.style.color='var(--text-2)';}
-  const ins=await c.from('esfuerzo_metricas').insert([{k,label:name,side:tv,cat:pm?'pm':'',peso:1}]);
+  const ins=await c.from('esfuerzo_metricas').insert([{k,label:name,side:tv,cat:'',peso:1}]);
   if(ins.error){
     if(/relation .* does not exist|esfuerzo_metricas/.test(ins.error.message)){METRICAS_OK=false;renderCargar();return;}
     if(msg){msg.textContent=ins.error.message;msg.style.color='var(--negative)';}return;
   }
   const tipo=tv==='col'?'col':'ind';
-  CUSTOM.push({k,l:name,tipo,side:tv==='col'?'of':tv,pm:pm&&tipo==='ind',custom:true});
+  CUSTOM.push({k,l:name,tipo,side:tv==='col'?'of':tv,pm:false,custom:true});
   renderCargar();renderEvaluar();
 }
 async function delCustom(k){
@@ -572,7 +582,7 @@ function renderEvaluar(){
   if(!TABLE_OK){el.innerHTML='<div class="sec">Evaluación</div>'+tableSetup();return;}
   if(!ESF.length){el.innerHTML='<div class="empty">Todavía no hay esfuerzo cargado.<br>Cargá un partido en la pestaña <b>📝 Cargar</b> y volvé acá.</div>';return;}
   const teams=[...new Set(ESF.map(r=>r.equipo))].filter(Boolean).sort();
-  if(!teams.includes(evTeam))evTeam=teams[0];
+  if(!teams.includes(evTeam))evTeam=teams.includes(MI_EQUIPO)?MI_EQUIPO:teams[0];
   const perG=evNorm==='pg';
 
   const rows=ESF.filter(r=>r.equipo===evTeam);
@@ -610,8 +620,7 @@ function renderEvaluar(){
   const totInd=mrows.reduce((s,r)=>s+r.indNet,0);
   const killRate=totDef>0?(totKills*3/totDef*100):0;
 
-  const ctl='<div class="controls">'+
-    '<div class="field"><label>Equipo</label><select onchange="setEv(\'team\',this.value)">'+teams.map(t=>'<option'+(t===evTeam?' selected':'')+'>'+esc(t)+'</option>').join('')+'</select></div>'+
+  const ctl='<div class="controls">'+teamFieldHtml()+
     '<div class="field"><label>Normalización</label><select onchange="setEv(\'norm\',this.value)"><option value="tot"'+(!perG?' selected':'')+'>Totales históricos</option><option value="pg"'+(perG?' selected':'')+'>Promedio por partido</option></select></div>'+
     '</div>';
 
@@ -654,6 +663,43 @@ function renderEvaluar(){
       '<div class="zone-sub" style="margin:-6px 0 12px">En las métricas con buenos y malos (ej. Close out), el número es el neto: buenos − malos. Entre paréntesis, el detalle.</div>'
     : '<div class="empty" style="padding:30px">Todavía no hay acciones individuales asignadas a jugadores.</div>';
 
+  // ── HISTÓRICO VS RIVALES + TENDENCIAS ──
+  const chron=mrows.slice().sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  const byRival={};
+  chron.forEach(r=>{
+    const rk=String(r.rival||'?').trim().toLowerCase();
+    const o=byRival[rk]||(byRival[rk]={rival:r.rival||'?',pj:0,kills:0,units:0,ind:0,def:0,rotas:0,seq:[],last:''});
+    o.pj++;o.kills+=r.kills;o.units+=r.idx;o.ind+=r.indNet;o.def+=r.def_tot;o.rotas+=r.def_rotas;
+    o.seq.push(r.idx);o.last=r.fecha;
+  });
+  const rvRows=Object.values(byRival).sort((a,b)=>b.pj-a.pj||b.units-a.units);
+  const trendOf=seq=>{
+    if(seq.length<2)return '<span style="color:var(--text-3)">·</span>';
+    const last=seq[seq.length-1];
+    const prevAvg=seq.slice(0,-1).reduce((s,v)=>s+v,0)/(seq.length-1);
+    if(last>prevAvg)return '<span style="color:var(--positive)">▲ mejorando</span>';
+    if(last<prevAvg)return '<span style="color:var(--negative)">▼ bajando</span>';
+    return '<span style="color:var(--text-2)">▬ estable</span>';
+  };
+  const tablaRiv=rvRows.length
+    ? '<div class="board"><div class="board-title">Histórico vs rivales</div><div class="tblwrap"><table class="t"><thead><tr>'+
+      '<th class="l">Rival</th><th>PJ</th><th>Últ. partido</th><th>Kills</th><th>Kills/PJ</th><th>Indiv. neto</th><th>Def tot</th><th>Rotas</th><th>Unid. tot</th><th>Unid./PJ</th><th class="l">Tendencia</th></tr></thead><tbody>'+
+      rvRows.map(o=>'<tr><td class="l" style="font-weight:600">'+esc(o.rival)+'</td><td>'+o.pj+'</td><td>'+esc(o.last)+'</td>'+
+        '<td style="color:var(--defense);font-weight:600">'+o.kills+'</td><td>'+(o.kills/o.pj).toFixed(1)+'</td>'+
+        '<td>'+fmtNet(o.ind)+'</td><td>'+o.def+'</td><td style="color:var(--negative)">'+o.rotas+'</td>'+
+        '<td style="color:var(--offense);font-weight:600">'+fmtNet(o.units)+'</td><td>'+(o.units/o.pj).toFixed(1)+'</td>'+
+        '<td class="l">'+trendOf(o.seq)+' '+spark(o.seq,110,26,'var(--offense)')+'</td></tr>').join('')+
+      '</tbody></table></div></div>'+
+      '<div class="zone-sub" style="margin:-6px 0 12px">La tendencia compara el último cruce contra el promedio de los anteriores contra ese rival. La línea muestra las unidades cruce a cruce.</div>'
+    : '';
+  const tendGral=chron.length>1
+    ? '<div class="board"><div class="board-title">Tendencia general — unidades por partido</div>'+
+      '<div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:20px;align-items:center">'+
+      spark(chron.map(r=>r.idx),Math.max(260,Math.min(560,chron.length*46)),64,'var(--offense)')+
+      '<div class="zone-sub">'+chron.map(r=>'<div>'+esc(r.fecha)+' vs '+esc(r.rival)+': <b style="color:var(--offense)">'+fmtNet(r.idx)+'</b> · kills '+r.kills+'</div>').join('')+'</div>'+
+      '</div></div>'
+    : '';
+
   // ── colectivas partido a partido ──
   const maxI=Math.max(1,...mrows.map(r=>Math.abs(r.idx)));
   const tablaM='<div class="board"><div class="board-title">'+esc(evTeam)+' — partido a partido</div><div class="tblwrap"><table class="t"><thead><tr>'+
@@ -665,8 +711,25 @@ function renderEvaluar(){
     '</tbody></table></div></div>';
 
   el.innerHTML=ctl+kpis+
-    '<div class="zone-sub" style="margin-bottom:8px">Puntaje en unidades: cada acción buena +1, cada mala −1, cada kill +1. El histórico acumula todos los partidos guardados del equipo.</div>'+
-    tablaJug+tablaM;
+    '<div class="zone-sub" style="margin-bottom:8px">Puntaje en unidades: cada acción suma +1 (solo el Close out malo resta −1) y cada kill vale +1. El histórico acumula todos los partidos guardados del equipo.</div>'+
+    tendGral+tablaRiv+tablaJug+tablaM;
+}
+function spark(vals,w,h,color){
+  if(!vals||!vals.length)return '';
+  w=w||120;h=h||28;
+  const max=Math.max(...vals),min=Math.min(...vals);
+  const rng=(max-min)||1;
+  const pts=vals.map((v,i)=>{
+    const x=vals.length===1?w/2:(i/(vals.length-1))*(w-8)+4;
+    const y=h-5-((v-min)/rng)*(h-10);
+    return [x,y];
+  });
+  const poly=pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const last=pts[pts.length-1];
+  return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="vertical-align:middle;overflow:visible">'+
+    (vals.length>1?'<polyline points="'+poly+'" fill="none" stroke="'+color+'" stroke-width="1.6" stroke-linejoin="round"/>':'')+
+    pts.map(p=>'<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="1.8" fill="'+color+'" opacity=".55"/>').join('')+
+    '<circle cx="'+last[0].toFixed(1)+'" cy="'+last[1].toFixed(1)+'" r="3" fill="'+color+'"/></svg>';
 }
 function shortL(m){
   const map={hockey_pass:'H.Pass',screen_ast:'Scr.Ast',closeout:'Closeout',desvio:'Desvíos'};
