@@ -781,9 +781,17 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
       </div>
     </div>
     <div class="kb-section">
+      <div class="kb-sec-title">Marcado de clip</div>
+      <div class="kb-grid">
+        <div class="kb-row"><span class="kb-key" style="color:var(--negative);border-color:var(--negative)">I</span><span class="kb-desc">Inicio de acción (arranca 2s hacia atrás)</span></div>
+        <div class="kb-row"><span class="kb-key" style="color:var(--positive);border-color:var(--positive)">O</span><span class="kb-desc">Corte del clip (después elegí la jugada)</span></div>
+        <div class="kb-row"><span class="kb-key">ESC</span><span class="kb-desc">Cancelar marcas activas</span></div>
+      </div>
+    </div>
+    <div class="kb-section">
       <div class="kb-sec-title">Panel Switcher</div>
       <div class="kb-grid">
-        <div class="kb-row"><span class="kb-key" style="color:var(--offense);border-color:var(--offense)">O</span><span class="kb-desc">→ Switch to Offense panel</span></div>
+        <div class="kb-row"><span class="kb-key" style="color:var(--offense);border-color:var(--offense)">L</span><span class="kb-desc">→ Switch to Offense panel</span></div>
         <div class="kb-row"><span class="kb-key" style="color:var(--defense);border-color:var(--defense)">D</span><span class="kb-desc">→ Switch to Defense panel</span></div>
       </div>
     </div>
@@ -797,7 +805,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         <div class="kb-row"><span class="kb-key">T</span><span class="kb-desc">Transition</span></div>
         <div class="kb-row"><span class="kb-key">Y</span><span class="kb-desc">Off Screen</span></div>
         <div class="kb-row"><span class="kb-key">U</span><span class="kb-desc">Horns</span></div>
-        <div class="kb-row"><span class="kb-key">I</span><span class="kb-desc">Motion</span></div>
+        <div class="kb-row"><span class="kb-key">M</span><span class="kb-desc">Motion</span></div>
         <div class="kb-row"><span class="kb-key">P</span><span class="kb-desc">Fast Break</span></div>
         <div class="kb-row"><span class="kb-key">S</span><span class="kb-desc">Spain PnR</span></div>
       </div>
@@ -1051,7 +1059,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
       <button class="qt-btn off-tag" onclick="tagAction('Transition','T','ofensivo')">Trans <span class="qt-key">[T]</span></button>
       <button class="qt-btn off-tag" onclick="tagAction('Off Screen','Y','ofensivo')">OFS <span class="qt-key">[Y]</span></button>
       <button class="qt-btn off-tag" onclick="tagAction('Horns','U','ofensivo')">Horns <span class="qt-key">[U]</span></button>
-      <button class="qt-btn off-tag" onclick="tagAction('Motion','I','ofensivo')">Motion <span class="qt-key">[I]</span></button>
+      <button class="qt-btn off-tag" onclick="tagAction('Motion','M','ofensivo')">Motion <span class="qt-key">[M]</span></button>
       <button class="qt-btn off-tag" onclick="tagAction('Spain PnR','S','ofensivo')">Spain PnR <span class="qt-key">[S]</span></button>
       <div class="qt-divider"></div>
       <span class="qt-label">DEF</span>
@@ -1132,7 +1140,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
           <button class="etq-btn off" onclick="tagAction('Transition','T','ofensivo')"><span class="etq-name">Transition</span><span class="etq-shortcut">T</span></button>
           <button class="etq-btn off" onclick="tagAction('Off Screen','Y','ofensivo')"><span class="etq-name">Off Screen</span><span class="etq-shortcut">Y</span></button>
           <button class="etq-btn off" onclick="tagAction('Horns','U','ofensivo')"><span class="etq-name">Horns</span><span class="etq-shortcut">U</span></button>
-          <button class="etq-btn off" onclick="tagAction('Motion','I','ofensivo')"><span class="etq-name">Motion</span><span class="etq-shortcut">I</span></button>
+          <button class="etq-btn off" onclick="tagAction('Motion','M','ofensivo')"><span class="etq-name">Motion</span><span class="etq-shortcut">M</span></button>
           <button class="etq-btn off" onclick="tagAction('Spain PnR','S','ofensivo')"><span class="etq-name">Spain PnR</span><span class="etq-shortcut">S</span></button>
           <button class="etq-btn off" onclick="tagAction('Fast Break','P','ofensivo')"><span class="etq-name">Fast Break</span><span class="etq-shortcut">P</span></button>
         </div>
@@ -1388,6 +1396,7 @@ const S = {
   comp:'Liga Uruguaya', fecha:'2025-05-25', jornada:'J18',
   posesiones:54, t2i:32, t3i:18, tli:16, rof:8, tov:12,
   clips:[], videoEl:null, videoURL:null, playing:false, currentTime:0, duration:7200, speed:1,
+  markIn:null, markOut:null, wizardIn:null, wizardOut:null,
   buffer:5, tlZoom:2, curScreen:'splash', timer:null, notifTimer:null,
   scoutType:'My Team', currentGameId:null,
   tagMode:'offense',
@@ -1699,7 +1708,14 @@ function tagAction(accion, key, tipo) {
   S.wizardAction=accion; S.wizardAnswers={};
   S.wizardSteps=tipo==='defensivo'?getDefWizardSteps():getWizardSteps(accion,tipo);
   S.wizardStep=0; S.wizardActive=true;
-  const t=S.videoEl?S.videoEl.currentTime:S.currentTime;
+  const now=S.videoEl?S.videoEl.currentTime:S.currentTime;
+  // Si hay marcas I/O activas, el clip usa ese rango exacto
+  if (typeof S.markIn==='number' && S.markIn!=null) {
+    S.wizardIn = S.markIn;
+    S.wizardOut = (S.markOut!=null && S.markOut>S.markIn) ? S.markOut : now;
+    if (S.wizardOut <= S.wizardIn + 0.3) S.wizardOut = S.wizardIn + 1;
+  } else { S.wizardIn=null; S.wizardOut=null; }
+  const t = (S.wizardIn!=null) ? S.wizardIn : now;
   S.wizardTimestamp=t;
   const q=Math.min(4,Math.floor(t/120)+1), qt=t%120;
   S.wizardQuarter='Q'+q; S.wizardTime=fmt(Math.max(0,120-qt));
@@ -1771,12 +1787,16 @@ function confirmTag() {
     resultado:resAns?resAns.id:'positivo', resultadoLabel:resAns?resAns.label:'Positive',
     isOk, cuarto:S.wizardQuarter, tiempo:S.wizardTime,
     timestamp:S.wizardTimestamp, buffer:S.buffer,
+    inicio:(S.wizardIn!=null)?S.wizardIn:null,
+    fin:(S.wizardIn!=null)?S.wizardOut:null,
     incluirVideo:vidAns?vidAns.id==='si':true,
     defensaRival:defAns?defAns.label:null,
     pnrTipo:pnrAns?pnrAns.label:null, lado:ladoAns?ladoAns.label:null,
     jugadores:[...S.selectedJugadores]
   };
   S.clips.push(clip);
+  if (typeof clearMarks==='function') clearMarks();
+  S.wizardIn=null; S.wizardOut=null;
   cancelWizard();
   renderClips();
   renderTimeline();
@@ -1844,7 +1864,7 @@ function renderTimeline() {
     labelsHtml+=`<div class="mlt-layer-label" style="color:${layer.color}">${layer.label} <span style="color:var(--text-3)">${clips.length}</span></div>`;
     layersHtml+=`<div class="mlt-layer" style="width:${W}px">`;
     clips.forEach(c => {
-      const start=Math.max(0,c.timestamp-c.buffer), dur=c.buffer*2;
+      const start=(c.fin!=null&&c.inicio!=null)?Math.max(0,c.inicio):Math.max(0,c.timestamp-c.buffer), dur=(c.fin!=null&&c.inicio!=null)?Math.max(1,c.fin-c.inicio):c.buffer*2;
       const x=start*px, w=Math.max(6,dur*px);
       const borderColor=c.isOk?layer.color:'var(--negative)';
       layersHtml+=`<div class="mlt-event" style="left:${x}px;width:${w}px;background:${layer.color}20;border-color:${borderColor};color:${layer.color}" onclick="jumpToClip(${c.timestamp})" title="${c.accion} · ${c.cuarto} ${c.tiempo} · ${c.resultadoLabel}">${c.accion.substring(0,5)}</div>`;
@@ -2340,6 +2360,62 @@ function openExportModal() {
 }
 function closeExportModal() { document.getElementById('export-modal').classList.add('hidden'); }
 
+// ── MARCADO IN / OUT (I = inicio con 2s hacia atrás, O = corte) ──
+const IO_PREROLL = 2; // segundos hacia atrás al apretar I
+
+function curVideoTime() { return S.videoEl ? S.videoEl.currentTime : S.currentTime; }
+
+function ioBadgeEl() {
+  let b = document.getElementById('io-badge');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'io-badge';
+    b.style.cssText = 'position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:650;display:none;align-items:center;gap:8px;background:var(--bg-raised);border:1px solid var(--negative);border-radius:20px;padding:5px 14px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--text);box-shadow:0 6px 20px rgba(0,0,0,.5)';
+    document.body.appendChild(b);
+  }
+  return b;
+}
+function updateIOBadge() {
+  const b = ioBadgeEl();
+  if (S.markIn == null) { b.style.display = 'none'; return; }
+  b.style.display = 'flex';
+  if (S.markOut == null) {
+    b.style.borderColor = 'var(--negative)';
+    b.innerHTML = '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--negative);animation:iopulse 1s infinite"></span> GRABANDO CLIP · IN ' + fmt(S.markIn) + ' — apretá <b style="color:var(--negative)">O</b> para cortar';
+  } else {
+    b.style.borderColor = 'var(--positive)';
+    b.innerHTML = '<span style="color:var(--positive)">✂</span> CORTE ' + fmt(S.markIn) + ' → ' + fmt(S.markOut) + ' (' + Math.round(S.markOut - S.markIn) + 's) · elegí la jugada (Q, W, E…)';
+  }
+}
+(function(){ const st=document.createElement('style'); st.textContent='@keyframes iopulse{0%,100%{opacity:1}50%{opacity:.25}}'; document.head.appendChild(st); })();
+
+function markIn() {
+  S.markIn = Math.max(0, curVideoTime() - IO_PREROLL);
+  S.markOut = null;
+  showHK('I', 'Inicio de acción (−' + IO_PREROLL + 's)');
+  notify('● Inicio marcado en ' + fmt(S.markIn) + ' (' + IO_PREROLL + 's hacia atrás)');
+  updateIOBadge();
+}
+function markOut() {
+  if (S.markIn == null) { notify('⚠ Primero marcá el inicio con la tecla I'); return; }
+  const t = curVideoTime();
+  if (t <= S.markIn + 0.3) { notify('⚠ El corte tiene que ser después del inicio'); return; }
+  S.markOut = t;
+  showHK('O', 'Corte del clip');
+  notify('✂ Corte en ' + fmt(t) + ' — ahora elegí la jugada (Q, W, E…)');
+  updateIOBadge();
+}
+function clearMarks() { S.markIn = null; S.markOut = null; updateIOBadge(); }
+
+// Rango real de un clip: usa inicio/fin exactos si existen, si no el buffer clásico
+function clipRange(c, vid) {
+  const dur = (vid && vid.duration) || 9999;
+  if (c && c.fin != null && c.inicio != null) {
+    return { start: Math.max(0, c.inicio), end: Math.min(dur, c.fin) };
+  }
+  return { start: Math.max(0, c.timestamp - S.buffer), end: Math.min(dur, c.timestamp + S.buffer) };
+}
+
 // ── KEYBOARD SHORTCUTS ──
 document.addEventListener('keydown', e => {
   if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
@@ -2347,6 +2423,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='Escape') {
     const kbo=document.getElementById('kb-overlay');
     if (!kbo.classList.contains('hidden')) { kbo.classList.add('hidden'); return; }
+    if (S.markIn != null && !S.wizardActive) { clearMarks(); notify('Marcas de clip canceladas'); return; }
     closePossModal(); closeExportModal(); cancelWizard(); return;
   }
   if (S.curScreen!=='scout') return;
@@ -2363,15 +2440,19 @@ document.addEventListener('keydown', e => {
 
   const key=e.key.toUpperCase();
 
-  // ── PANEL SWITCHER — O = Offense, D = Defense ──
-  if (key === 'O') { setTagPanelMode('offense'); setTagMode('offense'); showHK('O','Offense Panel'); switchTab('etiquetas'); return; }
+  // ── MARCADO DE CLIP — I = inicio (2s atrás), O = corte ──
+  if (key === 'I') { markIn(); return; }
+  if (key === 'O') { markOut(); return; }
+
+  // ── PANEL SWITCHER — L = Offense, D = Defense ──
+  if (key === 'L') { setTagPanelMode('offense'); setTagMode('offense'); showHK('L','Offense Panel'); switchTab('etiquetas'); return; }
   if (key === 'D') { setTagPanelMode('defense'); setTagMode('defense'); showHK('D','Defense Panel'); switchTab('etiquetas'); return; }
 
   // Focus mode on F (only when no wizard)
   if (key === 'F' && !S.wizardActive) { toggleFocusMode(); return; }
 
   // Tagging
-  const OFF={'Q':'Pick & Roll','W':'Handoff','E':'Isolation','R':'Post Up','T':'Transition','Y':'Off Screen','U':'Horns','I':'Motion','P':'Fast Break','S':'Spain PnR'};
+  const OFF={'Q':'Pick & Roll','W':'Handoff','E':'Isolation','R':'Post Up','T':'Transition','Y':'Off Screen','U':'Horns','M':'Motion','P':'Fast Break','S':'Spain PnR'};
   const DEF={'A':'ICE','S':'Switch','G':'Zone 2-3','H':'Trap','N':'Hedge'};
   const STAT={'Z':'2PT Made','X':'3PT Made','C':'Turnover','V':'Foul'};
 
@@ -2402,7 +2483,7 @@ async function exportGrouped() {
     recorder.start(100); fh=requestAnimationFrame(df); vid.pause();
     for (const g of groups) {
       for (let ci=0;ci<g.clips.length;ci++) {
-        const clip=g.clips[ci],startT=Math.max(0,clip.timestamp-S.buffer),endT=Math.min(vid.duration||9999,clip.timestamp+S.buffer);
+        const clip=g.clips[ci],_r=clipRange(clip,vid),startT=_r.start,endT=_r.end;
         if(pl) pl.textContent=`${g.accion} ${ci+1}/${g.clips.length}`;
         vid.currentTime=startT; await waitSeek(vid); vid.playbackRate=1; await vid.play();
         await new Promise(res=>{const ck=setInterval(()=>{if(pf)pf.style.width=Math.round((processed/totalClips)*100)+'%';if(vid.currentTime>=endT-.08){clearInterval(ck);vid.pause();res();}},40);});
@@ -2448,7 +2529,7 @@ async function exportClips(filterAccion, filename) {
     let fh=null;function df(){if(!vid.paused&&!vid.ended)ctx.drawImage(vid,0,0,canvas.width,canvas.height);fh=requestAnimationFrame(df);}
     recorder.start(100);fh=requestAnimationFrame(df);vid.pause();
     for(let i=0;i<clips.length;i++){
-      const clip=clips[i],startT=Math.max(0,clip.timestamp-S.buffer),endT=Math.min(vid.duration||9999,clip.timestamp+S.buffer);
+      const clip=clips[i],_r=clipRange(clip,vid),startT=_r.start,endT=_r.end;
       if(pl)pl.textContent=`Clip ${i+1}/${clips.length}: ${clip.accion}`;
       vid.currentTime=startT;await waitSeek(vid);vid.playbackRate=1;await vid.play();
       await new Promise(res=>{const ck=setInterval(()=>{if(pf)pf.style.width=Math.round(((i+(vid.currentTime-startT)/(endT-startT))/clips.length)*100)+'%';if(vid.currentTime>=endT-.08){clearInterval(ck);vid.pause();res();}},50);});
@@ -2743,8 +2824,9 @@ async function runExportSequence(seq, filename, sid) {
         currentCard = null;
       } else {
         const clip = seg.clip;
-        const startT = Math.max(0, clip.timestamp - S.buffer);
-        const endT = Math.min(vid.duration || 9999, clip.timestamp + S.buffer);
+        const _r = clipRange(clip, vid);
+        const startT = _r.start;
+        const endT = _r.end;
         if (pl) pl.textContent = `${clip.accion} — clip ${processed + 1}/${clipCount}`;
         currentCard = null;
         vid.currentTime = startT;
@@ -2917,8 +2999,9 @@ function cmPlay(id) {
   if (!c) return;
   if (!S.videoEl) { notify('Cargá un video en el Scout primero.'); return; }
   const vid = S.videoEl;
-  const startT = Math.max(0, c.timestamp - S.buffer);
-  const endT = Math.min(vid.duration || 9999, c.timestamp + S.buffer);
+  const _r = clipRange(c, vid);
+  const startT = _r.start;
+  const endT = _r.end;
   clearInterval(_cmPlayTimer);
   vid.currentTime = startT;
   vid.playbackRate = 1;
@@ -2980,8 +3063,9 @@ async function runPreviewSequence(seq) {
         await sleep(CARD_DUR.gap); currentCard = null;
       } else {
         const clip = seg.clip;
-        const startT = Math.max(0, clip.timestamp - S.buffer);
-        const endT = Math.min(vid.duration || 9999, clip.timestamp + S.buffer);
+        const _r = clipRange(clip, vid);
+        const startT = _r.start;
+        const endT = _r.end;
         currentCard = null;
         label.textContent = `${clip.accion} — clip ${++done}/${clipCount}`;
         vid.currentTime = startT; await waitSeek(vid); vid.playbackRate = 1; await vid.play();
@@ -3179,11 +3263,16 @@ updateClipsBadge();
     };
   }
   function clipToRow(c, gameId, orden) {
+    // Si el clip tiene inicio/fin exactos (marcado con I/O), se codifican como
+    // punto medio + medio largo para que timestamp±buffer reproduzca el rango exacto.
+    const hasIO = (c.fin != null && c.inicio != null);
+    const ts  = hasIO ? (c.inicio + c.fin) / 2 : (c.timestamp || 0);
+    const buf = hasIO ? (c.fin - c.inicio) / 2 : (c.buffer || 5);
     return {
       id: c.id, game_id: gameId, accion: c.accion, tipo: c.tipo,
       resultado: c.resultado || null, resultado_label: c.resultadoLabel || null,
       is_ok: !!c.isOk, cuarto: c.cuarto || null, tiempo: c.tiempo || null,
-      timestamp_sec: c.timestamp || 0, buffer_sec: c.buffer || 5,
+      timestamp_sec: ts, buffer_sec: buf,
       incluir_video: c.incluirVideo !== false,
       defensa_rival: c.defensaRival || null, pnr_tipo: c.pnrTipo || null,
       lado: c.lado || null, jugadores: c.jugadores || [], orden: orden || 0
@@ -3205,6 +3294,8 @@ updateClipsBadge();
           resultado: c.resultado, resultadoLabel: c.resultado_label,
           isOk: c.is_ok, cuarto: c.cuarto, tiempo: c.tiempo,
           timestamp: Number(c.timestamp_sec), buffer: Number(c.buffer_sec),
+          inicio: Math.max(0, Number(c.timestamp_sec) - Number(c.buffer_sec)),
+          fin: Number(c.timestamp_sec) + Number(c.buffer_sec),
           incluirVideo: c.incluir_video, defensaRival: c.defensa_rival,
           pnrTipo: c.pnr_tipo, lado: c.lado, jugadores: c.jugadores || []
         }))
