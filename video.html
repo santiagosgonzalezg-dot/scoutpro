@@ -749,6 +749,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
 <!-- ============ SUPABASE: cliente + configuración ============ -->
 <!-- 1) Cliente oficial de Supabase (se carga desde CDN en el navegador) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="scoutpro-core.js"></script>
 <!-- 2) Pegá acá la URL y la anon key de tu proyecto Supabase.
         Las encontrás en: Supabase → Project Settings → API.
         La anon key es pública (está protegida por RLS), no pasa nada si se ve. -->
@@ -3501,26 +3502,7 @@ updateClipsBadge();
 </style>
 
 <!-- AUTH GATE -->
-<div id="auth-gate">
-  <div class="auth-card">
-    <div class="auth-logo">SCOUT<span>PRO</span></div>
-    <div class="auth-sub">Basketball Intelligence</div>
-    <div class="auth-tabs">
-      <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
-      <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
-    </div>
-    <div class="auth-field">
-      <label>Email</label>
-      <input type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
-    </div>
-    <div class="auth-field">
-      <label>Contraseña</label>
-      <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
-    </div>
-    <button class="auth-btn" id="auth-submit" onclick="authSubmit()">Ingresar</button>
-    <div class="auth-msg" id="auth-msg"></div>
-  </div>
-</div>
+
 
 <!-- PLAYER PICKER -->
 <div class="pp-overlay" id="pp-overlay">
