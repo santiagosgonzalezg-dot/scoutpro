@@ -256,30 +256,7 @@ body.auth-locked .stage{display:none!important}
 </head>
 <body class="auth-locked">
 <!-- LOGIN (portón de acceso) -->
-<div id="auth-gate" style="display:flex">
-  <div class="auth-card">
-    <div class="auth-logo">SCOUT<span>PRO</span></div>
-    <div class="auth-tag">Basketball Intelligence</div>
-    <div class="auth-tabs">
-      <div class="auth-tab active" id="auth-tab-login" onclick="authSetMode('login')">Ingresar</div>
-      <div class="auth-tab" id="auth-tab-signup" onclick="authSetMode('signup')">Crear cuenta</div>
-    </div>
-    <div class="auth-field" id="auth-name-field" style="display:none">
-      <label>Nombre</label>
-      <input type="text" id="auth-name" placeholder="Tu nombre (ej: Santi)" autocomplete="given-name">
-    </div>
-    <div class="auth-field">
-      <label>Email</label>
-      <input type="email" id="auth-email" placeholder="tu@email.com" autocomplete="email">
-    </div>
-    <div class="auth-field">
-      <label>Contraseña</label>
-      <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()">
-    </div>
-    <button class="auth-btn" id="auth-submit" onclick="authSubmit()">Ingresar</button>
-    <div class="auth-msg" id="auth-msg"></div>
-  </div>
-</div>
+
 
 <div class="stage">
   <!-- IZQUIERDA -->
@@ -327,12 +304,6 @@ body.auth-locked .stage{display:none!important}
     <div class="welcome">
       <div class="hi">Bienvenido</div>
       <h1>Hola, <span class="name" id="coachName">Coach</span><button id="nameEdit" class="name-edit" title="Editar tu perfil (nombre y club)" onclick="startEditName()" style="display:none" aria-label="Editar perfil">✎</button></h1>
-      <div class="name-editor" id="nameEditor" style="display:none">
-        <input type="text" id="nameInput" placeholder="Tu nombre (ej: Santi)" autocomplete="given-name" onkeydown="if(event.key==='Enter')saveName(); if(event.key==='Escape')cancelEditName()">
-        <input type="text" id="clubInput" placeholder="Tu club (ej: Larrañaga)" autocomplete="off" onkeydown="if(event.key==='Enter')saveName(); if(event.key==='Escape')cancelEditName()">
-        <button class="name-save" onclick="saveName()">Guardar</button>
-        <button class="name-cancel" onclick="cancelEditName()">Cancelar</button>
-      </div>
       <div class="club-row" id="clubRow" style="display:none">
         <div class="club-badge mono" id="clubBadge">·</div>
         <div class="club-name">Tu club · <b id="clubName">tu equipo</b></div>
@@ -493,118 +464,28 @@ body.auth-locked .stage{display:none!important}
 })();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="scoutpro-core.js"></script>
 <script>
-/* Portón de acceso — mismo Supabase que el resto del ecosistema */
+/* Identidad — todo lo maneja scoutpro-core.js; acá solo pintamos el saludo */
 (function(){
-  const URL="https://jqudeomgafqilqmqcqzg.supabase.co";
-  const KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8";
-  const $=id=>document.getElementById(id);
-  let mode='login', sb=null;
-  try{ if(window.supabase&&window.supabase.createClient){ sb=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); window._sb=sb; } }catch(e){}
-  const gate=()=>$('auth-gate');
-  function showGate(){ document.body.classList.add('auth-locked'); if(gate())gate().style.display='flex'; }
-  function hideGate(){ document.body.classList.remove('auth-locked'); if(gate())gate().style.display='none'; }
-  function setMsg(t,k){ const m=$('auth-msg'); if(!m)return; m.textContent=t||''; m.className='auth-msg'+(k?' '+k:''); }
-  window.authSetMode=function(m){ mode=m; $('auth-tab-login').classList.toggle('active',m==='login'); $('auth-tab-signup').classList.toggle('active',m==='signup'); $('auth-submit').textContent=m==='login'?'Ingresar':'Crear cuenta'; var nf=$('auth-name-field'); if(nf)nf.style.display=(m==='signup')?'flex':'none'; setMsg(''); };
-  function tradErr(e){ const m=(e&&e.message)?e.message:String(e);
-    if(/Invalid login/i.test(m))return'Email o contraseña incorrectos.';
-    if(/already registered|already exists|User already/i.test(m))return'Ese email ya tiene cuenta. Probá ingresar.';
-    if(/at least 6|password should be|weak/i.test(m))return'La contraseña debe tener al menos 6 caracteres.';
-    if(/confirm/i.test(m))return'Confirmá tu email antes de ingresar.';
-    if(/rate limit|too many/i.test(m))return'Demasiados intentos. Esperá un momento.';
-    return m; }
-  window.authSubmit=async function(){
-    if(!sb){ setMsg('No se pudo conectar al servidor.','err'); return; }
-    const email=($('auth-email').value||'').trim(), pass=$('auth-pass').value||'';
-    if(!email||!pass){ setMsg('Completá email y contraseña.','err'); return; }
-    const btn=$('auth-submit'); btn.disabled=true;
-    try{
-      if(mode==='signup'){
-        const name=(($('auth-name')&&$('auth-name').value)||'').trim();
-        const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name}}}); if(error)throw error;
-        if(data&&data.session){ hideGate(); } else { setMsg('Cuenta creada. Si te pide confirmar por email, hacelo y después ingresá.','ok'); window.authSetMode('login'); }
-      }else{
-        const {error}=await sb.auth.signInWithPassword({email,password:pass}); if(error)throw error; hideGate();
-      }
-    }catch(e){ setMsg(tradErr(e),'err'); }
-    finally{ btn.disabled=false; }
-  };
-  window.authLogout=async function(){ try{ if(sb)await sb.auth.signOut(); }catch(e){} try{localStorage.removeItem('sp_coach');}catch(e){} showGate(); location.reload(); };
-  function firstNameOf(name){ return ((name||'').trim().split(/\s+/)[0]||''); }
-  function niceNameFromEmail(email){
-    let base=((email||'').split('@')[0]||'').replace(/[._-]+/g,' ').trim();
-    if(!base)return'';
-    // Si quedó una sola palabra pegada (sin separadores), no inventamos un nombre.
-    if(base.indexOf(' ')===-1)return'';
-    return base.replace(/\b\w/g,c=>c.toUpperCase());
+  function paint(p){
+    p=p||{};
+    var first=((p.nombre||'').trim().split(/\s+/)[0])||'Coach';
+    var nameEl=document.getElementById('coachName'); if(nameEl)nameEl.textContent=first;
+    var edit=document.getElementById('nameEdit'); if(edit)edit.style.display='inline-flex';
+    var row=document.getElementById('clubRow'), nm=document.getElementById('clubName'), bd=document.getElementById('clubBadge');
+    var club=(p.club||'').trim(), equipo=(p.equipo||'').trim();
+    if(club||equipo){
+      if(row)row.style.display='flex';
+      if(nm)nm.textContent=club+(equipo&&equipo.toUpperCase()!==club.toUpperCase()?' \u00b7 '+equipo:'');
+      if(bd)bd.textContent=(club||equipo).charAt(0).toUpperCase();
+    } else if(row){ row.style.display='none'; }
+    var foot=document.getElementById('footState');
+    if(foot)foot.innerHTML='<a class="logout-link" onclick="ScoutPro.logout()">No sos '+first+'? Ingresar con otro usuario</a>';
   }
-  function setGreeting(name){
-    const first=firstNameOf(name)||'Coach';
-    const nameEl=$('coachName'); if(nameEl)nameEl.textContent=first;
-    const footState=$('footState'); if(footState)footState.innerHTML='<a class="logout-link" onclick="authLogout()">No sos '+first+'? Ingresar con otro usuario</a>';
-  }
-  function setClub(club){
-    club=(club||'').trim();
-    const row=$('clubRow'), nm=$('clubName'), bd=$('clubBadge');
-    if(club){ if(row)row.style.display='flex'; if(nm)nm.textContent=club; if(bd)bd.textContent=club.charAt(0).toUpperCase(); }
-    else{ if(row)row.style.display='none'; }
-  }
-  // Guarda el perfil en el storage que comparten TODAS las secciones (Estadístico, etc.)
-  function persistProfile(nombre,club){
-    let coach={}; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{};}catch(e){}
-    if(nombre!=null) coach.nombre=nombre;
-    if(club!=null) coach.club=club;
-    try{localStorage.setItem('sp_coach',JSON.stringify(coach));}catch(e){}
-    return coach;
-  }
-  function applyUserIdentity(user){
-    if(!user)return;
-    const editBtn=$('nameEdit'); if(editBtn)editBtn.style.display='inline-flex';
-    let coach={}; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{};}catch(e){}
-    const meta=user.user_metadata||{};
-    // NOMBRE: lo guardado por el coach > metadatos de la cuenta > derivado del email
-    const nombre=((coach.nombre||'').trim())||((meta.full_name||meta.name||'').trim())||niceNameFromEmail(user.email)||'Coach';
-    // CLUB: lo guardado por el coach > el club asociado a la cuenta
-    const club=((coach.club||'').trim())||((meta.club||'').trim());
-    // Sembramos el storage compartido para que el resto de secciones lean lo mismo desde el arranque
-    persistProfile(nombre,club);
-    setGreeting(nombre);
-    setClub(club);
-  }
-  window.startEditName=function(){
-    let coach={}; try{const s=localStorage.getItem('sp_coach'); if(s)coach=JSON.parse(s)||{};}catch(e){}
-    const cur=(($('coachName')&&$('coachName').textContent)||'').trim();
-    const ni=$('nameInput'); if(ni)ni.value=(coach.nombre||((cur&&cur.toLowerCase()!=='coach')?cur:''))||'';
-    const ci=$('clubInput'); if(ci)ci.value=(coach.club||'')||'';
-    if($('nameEditor'))$('nameEditor').style.display='flex';
-    if($('coachName'))$('coachName').style.display='none';
-    if($('nameEdit'))$('nameEdit').style.display='none';
-    if(ni)setTimeout(()=>ni.focus(),0);
-  };
-  window.cancelEditName=function(){
-    if($('nameEditor'))$('nameEditor').style.display='none';
-    if($('coachName'))$('coachName').style.display='';
-    if($('nameEdit'))$('nameEdit').style.display='inline-flex';
-  };
-  window.saveName=async function(){
-    const ni=$('nameInput'); const nombre=((ni&&ni.value)||'').trim();
-    const ci=$('clubInput'); const club=((ci&&ci.value)||'').trim();
-    if(!nombre){ if(ni)ni.focus(); return; }
-    const btns=document.querySelectorAll('.name-save,.name-cancel'); btns.forEach(b=>b.disabled=true);
-    try{ if(sb)await sb.auth.updateUser({data:{full_name:nombre,club:club}}); }catch(e){}
-    persistProfile(nombre,club);
-    setGreeting(nombre);
-    setClub(club);
-    btns.forEach(b=>b.disabled=false);
-    window.cancelEditName();
-  };
-  function boot(){
-    if(!sb){ showGate(); setMsg('No se pudo conectar al servidor. Revisá tu conexión y recargá la página.','err'); return; } // sin servidor NO se libera el acceso
-    showGate();
-    sb.auth.getSession().then(({data})=>{ if(data&&data.session){ hideGate(); applyUserIdentity(data.session.user); } });
-    sb.auth.onAuthStateChange((ev,session)=>{ if(session){ hideGate(); applyUserIdentity(session.user); } else showGate(); });
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot); else boot();
+  window.startEditName=function(){ if(window.ScoutPro)ScoutPro.editProfile(); };
+  document.addEventListener('sp:profile',function(e){paint(e.detail);});
+  if(window.ScoutPro)ScoutPro.ready.then(function(r){paint(r.profile);});
 })();
 </script>
 <!-- Menú de navegación compartido (mismo archivo en todas las secciones) -->
