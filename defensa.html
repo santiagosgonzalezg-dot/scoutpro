@@ -609,6 +609,22 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 .btn-reset:hover{border-color:var(--negative);color:var(--negative)}
 .status{font-family:var(--mono);font-size:11px}
 .status.ok{color:var(--positive)}.status.err{color:var(--negative)}.status.load{color:var(--t2)}
+/* tipos por perfil */
+.tipos-panel{padding:15px 16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:13px}
+.chip{display:inline-flex;align-items:center;gap:7px;background:var(--bg-panel);border:1px solid var(--b2);border-radius:20px;padding:6px 8px 6px 13px;font-size:13px;font-weight:600;color:var(--t1)}
+.chip .x{border:none;background:none;color:var(--t3);cursor:pointer;font-family:var(--mono);font-size:12px;line-height:1;padding:2px 4px;transition:color var(--t)}
+.chip .x:hover{color:var(--negative)}
+.addrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.addrow input{background:var(--bg-panel);border:1px solid var(--b2);border-radius:5px;color:var(--t1);font-family:var(--ui);font-size:14px;padding:9px 11px;flex:1;min-width:180px}
+.addrow input:focus{outline:none;border-color:var(--offense)}
+.btn-add{background:var(--offense);color:#1a0c02;font-weight:500}
+.btn-add:hover{filter:brightness(1.1)}
+.sug{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px;align-items:center}
+.sug-l{width:100%;font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--t3);text-transform:uppercase;margin-bottom:2px}
+.sug button{background:none;border:1px dashed var(--b2);border-radius:20px;color:var(--t2);font-family:var(--ui);font-size:12px;padding:5px 12px;cursor:pointer;transition:all var(--t)}
+.sug button:hover{border-color:var(--offense);color:var(--offense)}
+.tp-status{display:block;margin-top:9px;min-height:13px}
 .foot{color:var(--t3);font-family:var(--mono);font-size:10px;margin-top:30px;line-height:1.6}
 </style>
 </head>
@@ -635,6 +651,17 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
     <div class="fld"><label>Jornada</label><input id="jornada" placeholder="Ej: 5"></div>
   </div>
 
+  <div class="sec">Mis tipos de jugada</div>
+  <div class="panel tipos-panel">
+    <div class="chips" id="chips"></div>
+    <div class="addrow">
+      <input id="nuevoTipo" placeholder="Escribí tu jugada… Ej: Rebote ofensivo" maxlength="34">
+      <button class="btn btn-add" onclick="agregarTipo()">+ Agregar</button>
+    </div>
+    <div class="sug" id="sug"></div>
+    <span class="status tp-status" id="tiposStatus"></span>
+  </div>
+
   <div class="sec">Registrar anotación del rival</div>
   <div class="grid" id="grid"></div>
 
@@ -652,7 +679,8 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 
   <div class="foot">
     Tagueo manual · cada toque suma una anotación del rival del tipo elegido.<br>
-    Tirá libre = botón +1 · doble = +2 · triple = +3 · el botón ✕ deshace la última de esa jugada.
+    Tiro libre = botón +1 · doble = +2 · triple = +3 · el botón ✕ deshace la última de esa jugada.<br>
+    Tu lista de jugadas es propia de tu perfil: se guarda en este navegador y en tu cuenta.
   </div>
 </div>
 
@@ -662,7 +690,12 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 let sb=null;
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_URL,SB_KEY);return sb;}
 
-const TIPOS=[
+/* ── Tipos de jugada por perfil ────────────────────────────────
+   Cada cuenta arma su propia lista: agrega, quita o toma de las
+   sugeridas. Se guarda en el navegador y, si hay sesión, también
+   en la cuenta (user_metadata.defensa_tipos), así viaja con el
+   perfil entre dispositivos. */
+const SUGERIDOS=[
   {k:'iso',label:'Aislamiento'},
   {k:'pnr_c',label:'PnR central'},
   {k:'pnr_l',label:'PnR lateral'},
@@ -676,8 +709,95 @@ const TIPOS=[
   {k:'drive',label:'Penetración 1v1'},
   {k:'tl',label:'Tiro libre'},
 ];
-const state={};TIPOS.forEach(t=>state[t.k]={pts:0,jug:0});
-const hist=[]; // {k,pts}
+let TIPOS=[];        // lista propia del perfil
+let USER_ID=null;    // se completa cuando hay sesión
+const state={};      // {k:{pts,jug}}
+const hist=[];       // {k,pts}
+
+function escHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function slugTipo(label){
+  let base=label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'tipo';
+  let k=base,i=2;
+  while(TIPOS.some(t=>t.k===k))k=base+'_'+(i++);
+  return k;
+}
+function lsKeyTipos(){return 'defensa_tipos_'+(USER_ID||'local');}
+function leerTiposGuardados(){
+  try{
+    const s=localStorage.getItem(lsKeyTipos());if(!s)return null;
+    const a=JSON.parse(s);
+    if(Array.isArray(a)&&a.length&&a.every(t=>t&&typeof t.k==='string'&&typeof t.label==='string'))return a;
+  }catch(e){}
+  return null;
+}
+function persistirTipos(){
+  try{localStorage.setItem(lsKeyTipos(),JSON.stringify(TIPOS));}catch(e){}
+  const c=getSB();
+  if(c&&USER_ID)c.auth.updateUser({data:{defensa_tipos:TIPOS}}).catch(()=>{});
+}
+function ensureState(){TIPOS.forEach(t=>{if(!state[t.k])state[t.k]={pts:0,jug:0};});}
+function tiposMsg(msg,cls){const e=document.getElementById('tiposStatus');e.textContent=msg||'';e.className='status tp-status '+(cls||'');}
+
+function agregarTipo(){
+  const inp=document.getElementById('nuevoTipo');
+  const label=(inp.value||'').trim().replace(/\s+/g,' ');
+  if(!label){tiposMsg('Escribí el nombre de la jugada.','err');return;}
+  if(TIPOS.some(t=>t.label.toLowerCase()===label.toLowerCase())){tiposMsg('Ya tenés esa jugada en tu lista.','err');return;}
+  TIPOS.push({k:slugTipo(label),label});
+  inp.value='';tiposMsg('');
+  ensureState();persistirTipos();renderTipos();
+}
+function agregarSugerido(k){
+  const s=SUGERIDOS.find(t=>t.k===k);if(!s)return;
+  if(TIPOS.some(t=>t.label.toLowerCase()===s.label.toLowerCase()))return;
+  TIPOS.push({k:TIPOS.some(t=>t.k===s.k)?slugTipo(s.label):s.k,label:s.label});
+  tiposMsg('');
+  ensureState();persistirTipos();renderTipos();
+}
+function quitarTipo(k){
+  const t=TIPOS.find(x=>x.k===k);if(!t)return;
+  const s=state[k];
+  if(s&&s.jug>0&&!confirm('"'+t.label+'" tiene '+s.jug+' jugada(s) registradas en este partido. ¿Quitarla igual? Se pierde lo anotado de ese tipo.'))return;
+  TIPOS=TIPOS.filter(x=>x.k!==k);
+  delete state[k];
+  for(let i=hist.length-1;i>=0;i--)if(hist[i].k===k)hist.splice(i,1);
+  persistirTipos();renderTipos();
+}
+function renderTipos(){
+  document.getElementById('chips').innerHTML=TIPOS.length
+    ? TIPOS.map(t=>'<span class="chip">'+escHTML(t.label)
+        +'<button class="x" title="Quitar de mi lista" onclick="quitarTipo(\''+t.k+'\')">✕</button></span>').join('')
+    : '<span class="empty">Tu lista está vacía. Escribí tu propia jugada o tocá una sugerida.</span>';
+  const faltan=SUGERIDOS.filter(s=>!TIPOS.some(t=>t.label.toLowerCase()===s.label.toLowerCase()));
+  document.getElementById('sug').innerHTML=faltan.length
+    ? '<span class="sug-l">Sugeridas · tocá para agregar</span>'
+      +faltan.map(s=>'<button onclick="agregarSugerido(\''+s.k+'\')">+ '+escHTML(s.label)+'</button>').join('')
+    : '';
+  buildGrid();render();
+}
+async function initTipos(){
+  // 1) respuesta inmediata: lo guardado en este navegador, o las sugeridas
+  TIPOS=leerTiposGuardados()||SUGERIDOS.slice();
+  ensureState();renderTipos();
+  // 2) si hay sesión, manda la lista guardada en la cuenta
+  const c=getSB();if(!c)return;
+  try{
+    const {data}=await c.auth.getUser();
+    if(!data||!data.user)return;
+    USER_ID=data.user.id;
+    const meta=data.user.user_metadata||{};
+    const remotos=(Array.isArray(meta.defensa_tipos)&&meta.defensa_tipos.length
+      &&meta.defensa_tipos.every(t=>t&&typeof t.k==='string'&&typeof t.label==='string'))
+      ? meta.defensa_tipos : null;
+    const propios=leerTiposGuardados(); // ahora con la clave de este usuario
+    const lista=remotos||propios;
+    if(lista)TIPOS=lista;
+    ensureState();
+    try{localStorage.setItem(lsKeyTipos(),JSON.stringify(TIPOS));}catch(e){}
+    renderTipos();
+  }catch(e){}
+}
 
 function add(k,pts){state[k].pts+=pts;state[k].jug++;hist.push({k,pts});render();}
 function undo(k){
@@ -690,7 +810,7 @@ function reiniciar(){if(!confirm('¿Borrar todo lo registrado de este partido?')
 function buildGrid(){
   document.getElementById('grid').innerHTML=TIPOS.map(t=>{
     const s=state[t.k];
-    return '<div class="card"><div class="name">'+t.label+'</div>'+
+    return '<div class="card"><div class="name">'+escHTML(t.label)+'</div>'+
       '<div class="meta" id="m_'+t.k+'">'+s.jug+' jugadas</div>'+
       '<div class="pts" id="p_'+t.k+'">'+s.pts+'<small>pts</small></div>'+
       '<div class="btns">'+
@@ -719,7 +839,7 @@ function render(){
     const w=Math.round(r.pts/max*100);
     const share=totP?Math.round(r.pts/totP*100):0;
     const ppj=r.jug?(r.pts/r.jug).toFixed(2):'0';
-    return '<div class="brk-row"><span class="brk-name">'+r.label+'</span>'+
+    return '<div class="brk-row"><span class="brk-name">'+escHTML(r.label)+'</span>'+
       '<span class="brk-track"><span class="brk-fill" style="width:'+w+'%"></span></span>'+
       '<span class="brk-val"><b>'+r.pts+'</b>pts · '+share+'% · '+ppj+' p/j</span></div>';
   }).join('');
@@ -750,7 +870,8 @@ async function guardar(){
 }
 
 document.getElementById('fecha').value=new Date().toISOString().slice(0,10);
-buildGrid();render();
+document.getElementById('nuevoTipo').addEventListener('keydown',e=>{if(e.key==='Enter')agregarTipo();});
+initTipos();
 </script>
   <script>
 /* ScoutPRO · Menú de navegación compartido
