@@ -201,6 +201,10 @@
     + '.spc-mail{width:58px;height:58px;border-radius:16px;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.4);'
     + 'display:flex;align-items:center;justify-content:center;margin:0 auto 16px}'
     + '.spc-mail svg{width:26px;height:26px;stroke:#f97316}'
+    + '.spc-pw{position:relative}'
+    + '.spc-pw input{padding-right:78px}'
+    + ".spc-see{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:none;color:#8891a0;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;cursor:pointer;padding:6px}"
+    + '.spc-see:hover{color:#f97316}'
     + '@media(max-width:480px){.spc-card{padding:24px 18px}.spc-row{flex-direction:column;gap:0}}';
 
   var style = document.createElement('style'); style.textContent = css;
@@ -270,7 +274,7 @@
       + '<div class="spc-tab' + (mode === 'signup' ? ' active' : '') + '" id="spc-tab-signup">Crear cuenta</div>'
       + '</div>'
       + '<div class="spc-field"><label>Email</label><input type="email" id="spc-email" placeholder="tu@email.com" autocomplete="email"></div>'
-      + '<div class="spc-field"><label>Contraseña</label><input type="password" id="spc-pass" placeholder="••••••••" autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '"></div>'
+      + '<div class="spc-field"><label>Contraseña</label><div class="spc-pw"><input type="password" id="spc-pass" placeholder="••••••••" autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '"><button type="button" class="spc-see" id="spc-see">VER</button></div></div>'
       + '<button class="spc-btn" id="spc-submit">' + (mode === 'login' ? 'Ingresar' : 'Crear cuenta') + '</button>'
       + '<div class="spc-msg" id="spc-msg"></div>'
       + (mode === 'login' ? '<a class="spc-link" id="spc-forgot">¿Olvidaste tu contraseña?</a>' : '<div class="spc-msg" style="min-height:0">Después de crearla te pedimos los datos de tu equipo.</div>')
@@ -281,6 +285,13 @@
     $('spc-pass').onkeydown = function (ev) { if (ev.key === 'Enter') submitAuth(); };
     $('spc-email').onkeydown = function (ev) { if (ev.key === 'Enter') $('spc-pass').focus(); };
     $('spc-submit').onclick = submitAuth;
+    var see = $('spc-see');
+    if (see) see.onclick = function () {
+      var p = $('spc-pass'), on = p.type === 'password';
+      p.type = on ? 'text' : 'password';
+      see.textContent = on ? 'OCULTAR' : 'VER';
+      p.focus();
+    };
     var fg = $('spc-forgot'); if (fg) fg.onclick = viewForgot;
     setTimeout(function () { var e = $('spc-email'); if (e) e.focus(); }, 40);
   }
@@ -290,6 +301,9 @@
     var email = ($('spc-email').value || '').trim(), pass = $('spc-pass').value || '';
     if (!email || !pass) { setMsg('Completá email y contraseña.', 'err'); return; }
     var btn = $('spc-submit'); btn.disabled = true; setMsg('');
+    var lbl = btn.textContent;
+    btn.textContent = (mode === 'signup' ? 'Creando cuenta…' : 'Ingresando…');
+    var fail = function (e) { btn.disabled = false; btn.textContent = lbl; setMsg(humanErr(e), 'err'); };
     if (mode === 'signup') {
       var opts = {};
       var ru = returnURL(); if (ru) opts.emailRedirectTo = ru;
@@ -303,7 +317,7 @@
             viewCheckEmail(email);
           }
         })
-        .catch(function (e) { btn.disabled = false; setMsg(humanErr(e), 'err'); });
+        .catch(fail);
     } else {
       sb.auth.signInWithPassword({ email: email, password: pass })
         .then(function (r) {
@@ -311,7 +325,7 @@
           // Recarga limpia: todas las secciones arrancan ya con sesión
           location.reload();
         })
-        .catch(function (e) { btn.disabled = false; setMsg(humanErr(e), 'err'); });
+        .catch(fail);
     }
   }
 
@@ -365,19 +379,25 @@
     show('<div class="spc-card">' + head()
       + '<div class="spc-h">Nueva contraseña</div>'
       + '<div class="spc-sub">Definí la contraseña con la que vas a entrar de ahora en más.</div>'
-      + '<div class="spc-field"><label>Nueva contraseña</label><input type="password" id="spc-p1" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>'
+      + '<div class="spc-field"><label>Nueva contraseña</label><div class="spc-pw"><input type="password" id="spc-p1" placeholder="Mínimo 6 caracteres" autocomplete="new-password"><button type="button" class="spc-see" id="spc-see2">VER</button></div></div>'
       + '<div class="spc-field"><label>Repetila</label><input type="password" id="spc-p2" placeholder="••••••••" autocomplete="new-password"></div>'
       + '<button class="spc-btn" id="spc-save">Guardar y entrar</button>'
       + '<div class="spc-msg" id="spc-msg"></div>'
       + '</div>');
+    var see2 = $('spc-see2');
+    if (see2) see2.onclick = function () {
+      var a = $('spc-p1'), b = $('spc-p2'), on = a.type === 'password';
+      a.type = b.type = on ? 'text' : 'password';
+      see2.textContent = on ? 'OCULTAR' : 'VER';
+    };
     $('spc-save').onclick = function () {
       var a = $('spc-p1').value || '', b = $('spc-p2').value || '';
       if (a.length < 6) { setMsg('Mínimo 6 caracteres.', 'err'); return; }
       if (a !== b) { setMsg('Las contraseñas no coinciden.', 'err'); return; }
-      var btn = $('spc-save'); btn.disabled = true;
+      var btn = $('spc-save'); btn.disabled = true; btn.textContent = 'Guardando…';
       sb.auth.updateUser({ password: a })
         .then(function (r) { if (r.error) throw r.error; cleanURL(); location.reload(); })
-        .catch(function (e) { btn.disabled = false; setMsg(humanErr(e), 'err'); });
+        .catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar y entrar'; setMsg(humanErr(e), 'err'); });
     };
   }
 
@@ -432,7 +452,8 @@
         + ROLES.map(function (r) { return '<option value="' + r[0] + '"' + (d.rol === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('')
         + '</select></div>'
         + '<button class="spc-btn" id="spc-next">Siguiente</button>'
-        + '<div class="spc-msg" id="spc-msg"></div>';
+        + '<div class="spc-msg" id="spc-msg"></div>'
+        + '<a class="spc-link" id="spc-back-auth">' + (wiz.editing ? '← Cancelar' : '← Volver al ingreso') + '</a>';
     } else if (wiz.step === 2) {
       body = '<div class="spc-h">Tu equipo</div>'
         + '<div class="spc-sub">Con esto cada sección — partidos, estadístico, esfuerzo, video — ya sabe para qué equipo trabaja.</div>'
@@ -477,6 +498,18 @@
       wiz.step++; renderWizard();
     };
     if (prev) prev.onclick = function () { wiz.step--; renderWizard(); };
+    var backAuth = $('spc-back-auth');
+    if (backAuth) backAuth.onclick = function () {
+      if (wiz.editing) { hide(); broadcast(); return; } // editar perfil: cerrar sin guardar
+      // Registro nuevo: cerramos la sesion recien creada y volvemos al ingreso
+      backAuth.textContent = 'Volviendo…';
+      var fin = function () {
+        CURRENT.user = null;
+        try { localStorage.removeItem(LS_COACH); } catch (e) { }
+        mode = 'login'; viewAuth();
+      };
+      if (sb) sb.auth.signOut().then(fin).catch(fin); else fin();
+    };
     if (fin) fin.onclick = function () {
       fin.disabled = true;
       persistProfile(wiz.data, function () {
@@ -1012,16 +1045,15 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
 })();
 </script>
 <script>
-/* ScoutPRO · Menú de navegación compartido
+/* ScoutPRO · Menú de navegación compartido (v2)
    ───────────────────────────────────────────────
-   Cómo usarlo: agregá esta línea antes de </body> en CADA sección:
-       <script src="scoutpro-nav.js"><\/script>
-   El menú se inyecta solo, marca la sección actual y es igual en todas las páginas.
-   Para cambiar los botones o los enlaces, editá SOLO este archivo. */
+   Escritorio: fila de botones arriba a la derecha.
+   Móvil (≤860px): botón hamburguesa que abre un panel lateral.
+   Además oculta los enlaces duplicados de la topbar (.tb-nav)
+   y mejora el contraste del gris más tenue (--t3). */
 (function(){
   if(window.__spnav) return; window.__spnav=1;
 
-  // Secciones de la app. home:true es la pantalla de inicio (Menú).
   var items=[
     { label:'Menú',           href:'index.html',       home:true,
       icon:'<path d="M3 9.5 12 3l9 6.5"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/>' },
@@ -1044,6 +1076,7 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
   ];
 
   var css = ''
+    /* barra escritorio */
     + '.spnav{position:fixed;top:14px;right:16px;z-index:500;display:flex;gap:8px;flex-wrap:wrap;'
     + 'justify-content:flex-end;max-width:calc(100vw - 32px);'
     + "font-family:'DM Sans',system-ui,-apple-system,sans-serif}"
@@ -1054,25 +1087,77 @@ body.auth-locked .topbar,body.auth-locked .wrap{display:none!important}
     + '.spnav a:hover{background:rgba(30,32,42,.96);border-color:rgba(255,255,255,.28);color:#fff;transform:translateY(-1px)}'
     + '.spnav a.active{color:#f97316;border-color:rgba(249,115,22,.5);background:rgba(249,115,22,.12)}'
     + '.spnav a svg{width:17px;height:17px;flex:none}'
-    + '@media(max-width:680px){.spnav{top:10px;right:10px;gap:6px}.spnav a{padding:9px 10px}.spnav .lbl{display:none}}';
+    /* hamburguesa móvil */
+    + '.spnav-burger{display:none;position:fixed;top:12px;right:12px;z-index:600;width:46px;height:46px;'
+    + 'border-radius:13px;background:rgba(22,24,32,.92);border:1px solid rgba(255,255,255,.16);color:#e7eaf2;'
+    + '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;align-items:center;justify-content:center;padding:0}'
+    + '.spnav-burger svg{width:22px;height:22px}'
+    + '.spnav-back{position:fixed;inset:0;z-index:590;display:none;background:rgba(7,8,12,.66);'
+    + '-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}'
+    + '.spnav-back.on{display:block}'
+    + '.spnav-sheet{position:absolute;top:0;right:0;bottom:0;width:min(300px,84vw);background:#0f1117;'
+    + 'border-left:1px solid rgba(255,255,255,.1);padding:16px 12px;overflow:auto;display:flex;flex-direction:column;gap:5px;'
+    + "font-family:'DM Sans',system-ui,-apple-system,sans-serif}"
+    + ".spnav-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;letter-spacing:.02em;"
+    + 'text-transform:uppercase;color:#fff;padding:6px 12px 12px}'
+    + '.spnav-title span{color:#f97316}'
+    + '.spnav-sheet a{display:flex;align-items:center;gap:13px;padding:14px;border-radius:12px;color:#c4cad6;'
+    + 'text-decoration:none;font-size:15.5px;font-weight:600;border:1px solid transparent}'
+    + '.spnav-sheet a:active{background:rgba(30,32,42,.9)}'
+    + '.spnav-sheet a.active{color:#f97316;background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.45)}'
+    + '.spnav-sheet a svg{width:20px;height:20px;flex:none}'
+    + '@media(max-width:860px){.spnav{display:none}.spnav-burger{display:flex}}'
+    + '@media(min-width:861px){.spnav-burger,.spnav-back{display:none!important}}'
+    /* enlaces duplicados de la topbar: fuera (la nav compartida ya cubre todo) */
+    + '.tb-nav{display:none!important}'
+    /* contraste global: el gris más tenue sube un escalón para ser legible */
+    + ':root{--t3:#6b7484}';
 
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
 
   var cur=(location.pathname.split('/').pop()||'').toLowerCase();
-  var nav=document.createElement('nav'); nav.className='spnav'; nav.setAttribute('aria-label','Navegación');
-
-  items.forEach(function(it){
-    var a=document.createElement('a'); a.href=it.href;
+  function isActive(it){
     var f=it.href.toLowerCase().split('#')[0];
     var isHomeNow = it.home && (cur==='' || cur.indexOf('index')===0);
-    if(f===cur || isHomeNow) a.className='active';
+    return f===cur || isHomeNow;
+  }
+  function mkLink(it){
+    var a=document.createElement('a'); a.href=it.href;
+    if(isActive(it)) a.className='active';
     a.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
       +'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+it.icon+'</svg>'
       +'<span class="lbl">'+it.label+'</span>';
-    nav.appendChild(a);
-  });
+    return a;
+  }
 
-  function mount(){ if(document.body) document.body.appendChild(nav); }
+  // barra de escritorio
+  var nav=document.createElement('nav'); nav.className='spnav'; nav.setAttribute('aria-label','Navegación');
+  items.forEach(function(it){ nav.appendChild(mkLink(it)); });
+
+  // hamburguesa + panel móvil
+  var burger=document.createElement('button'); burger.className='spnav-burger';
+  burger.setAttribute('aria-label','Abrir menú');
+  burger.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
+  var back=document.createElement('div'); back.className='spnav-back';
+  var sheet=document.createElement('nav'); sheet.className='spnav-sheet'; sheet.setAttribute('aria-label','Navegación');
+  var title=document.createElement('div'); title.className='spnav-title';
+  title.innerHTML='Scout<span>Pro</span>';
+  sheet.appendChild(title);
+  items.forEach(function(it){ sheet.appendChild(mkLink(it)); });
+  back.appendChild(sheet);
+
+  function openSheet(){ back.classList.add('on'); document.documentElement.style.overflow='hidden'; }
+  function closeSheet(){ back.classList.remove('on'); document.documentElement.style.overflow=''; }
+  burger.onclick=openSheet;
+  back.addEventListener('click',function(e){ if(e.target===back) closeSheet(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeSheet(); });
+
+  function mount(){
+    if(!document.body) return;
+    document.body.appendChild(nav);
+    document.body.appendChild(burger);
+    document.body.appendChild(back);
+  }
   if(document.body) mount(); else document.addEventListener('DOMContentLoaded',mount);
 })();
 
