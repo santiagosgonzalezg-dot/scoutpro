@@ -431,7 +431,8 @@
         + ROLES.map(function (r) { return '<option value="' + r[0] + '"' + (d.rol === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('')
         + '</select></div>'
         + '<button class="spc-btn" id="spc-next">Siguiente</button>'
-        + '<div class="spc-msg" id="spc-msg"></div>';
+        + '<div class="spc-msg" id="spc-msg"></div>'
+        + '<a class="spc-link" id="spc-back-auth">' + (wiz.editing ? '← Cancelar' : '← Volver al ingreso') + '</a>';
     } else if (wiz.step === 2) {
       body = '<div class="spc-h">Tu equipo</div>'
         + '<div class="spc-sub">Con esto cada sección — partidos, estadístico, esfuerzo, video — ya sabe para qué equipo trabaja.</div>'
@@ -476,6 +477,18 @@
       wiz.step++; renderWizard();
     };
     if (prev) prev.onclick = function () { wiz.step--; renderWizard(); };
+    var backAuth = $('spc-back-auth');
+    if (backAuth) backAuth.onclick = function () {
+      if (wiz.editing) { hide(); broadcast(); return; } // editar perfil: cerrar sin guardar
+      // Registro nuevo: cerramos la sesion recien creada y volvemos al ingreso
+      backAuth.textContent = 'Volviendo…';
+      var fin = function () {
+        CURRENT.user = null;
+        try { localStorage.removeItem(LS_COACH); } catch (e) { }
+        mode = 'login'; viewAuth();
+      };
+      if (sb) sb.auth.signOut().then(fin).catch(fin); else fin();
+    };
     if (fin) fin.onclick = function () {
       fin.disabled = true;
       persistProfile(wiz.data, function () {
