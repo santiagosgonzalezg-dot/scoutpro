@@ -792,6 +792,13 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
     ['analista', 'Analista de video'],
     ['otro', 'Otro']
   ];
+  var LIGAS = [
+    ['dta', 'DTA'],
+    ['lda', 'LDA'],
+    ['liga', 'LIGA'],
+    ['femenina', 'Liga Femenina'],
+    ['formativas', 'Formativas']
+  ];
 
   /* URL de retorno para los emails (confirmación / recuperación).
      Solo tiene sentido cuando la app corre en un servidor http(s). */
@@ -848,6 +855,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
       rol: (meta.rol || '').trim(),
       club: (meta.club || '').trim(),
       equipo: (meta.equipo || '').trim(),
+      liga: (meta.liga || '').trim(),
       categoria: (meta.categoria || '').trim(),
       temporada: (meta.temporada || '').trim()
     };
@@ -863,7 +871,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
   function persistProfile(p, done) {
     var meta = {
       nombre: p.nombre, apellido: p.apellido, rol: p.rol,
-      club: p.club, equipo: p.equipo, categoria: p.categoria, temporada: p.temporada,
+      club: p.club, equipo: p.equipo, liga: p.liga, categoria: p.categoria, temporada: p.temporada,
       full_name: (p.nombre + ' ' + (p.apellido || '')).trim(),
       onboarded: true
     };
@@ -1157,10 +1165,18 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         rol: p.rol || base.rol || '',
         club: p.club || base.club || '',
         equipo: p.equipo || base.equipo || '',
+        liga: p.liga || base.liga || '',
         categoria: p.categoria || base.categoria || '',
         temporada: p.temporada || base.temporada || ''
       }
     };
+    renderWizard();
+  }
+
+  function askLiga() {
+    openWizard(true);
+    wiz.askLiga = true;
+    wiz.step = 2;
     renderWizard();
   }
 
@@ -1194,12 +1210,17 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         + '</select></div>'
         + '<button class="spc-btn" id="spc-next">Siguiente</button>'
         + '<div class="spc-msg" id="spc-msg"></div>'
-        + '<a class="spc-link" id="spc-back-auth">' + (wiz.editing ? '← Cancelar' : '← Volver al ingreso') + '</a>';
+        + (wiz.askLiga ? '' : '<a class="spc-link" id="spc-back-auth">' + (wiz.editing ? '← Cancelar' : '← Volver al ingreso') + '</a>');
     } else if (wiz.step === 2) {
       body = '<div class="spc-h">Tu equipo</div>'
         + '<div class="spc-sub">Con esto cada sección — partidos, estadístico, esfuerzo, video — ya sabe para qué equipo trabaja.</div>'
+        + (wiz.askLiga ? '<div class="spc-msg err" style="margin:-8px 0 14px">Nos falta un dato: elegí la liga a la que pertenece tu equipo.</div>' : '')
         + '<div class="spc-field"><label>Club</label><input id="spc-club" value="' + esc(d.club) + '" placeholder="Ej: Malvín"></div>'
         + '<div class="spc-field"><label>Equipo (como figura en las planillas)</label><input id="spc-equipo" value="' + esc(d.equipo) + '" placeholder="Ej: MALVIN"></div>'
+        + '<div class="spc-field"><label>Liga</label><select id="spc-liga">'
+        + '<option value="">— Elegí la liga —</option>'
+        + LIGAS.map(function (l) { return '<option value="' + l[0] + '"' + (d.liga === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('')
+        + '</select></div>'
         + '<div class="spc-row">'
         + '<div class="spc-field"><label>Categoría</label><input id="spc-categoria" value="' + esc(d.categoria) + '" placeholder="Ej: U19 / Primera"></div>'
         + '<div class="spc-field"><label>Temporada</label><input id="spc-temporada" value="' + esc(d.temporada) + '" placeholder="Ej: 2026"></div>'
@@ -1209,6 +1230,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         + '<a class="spc-link" id="spc-prev">← Atrás</a>';
     } else {
       var rolTxt = (ROLES.filter(function (r) { return r[0] === d.rol; })[0] || ['', '—'])[1];
+      var ligaTxt = (LIGAS.filter(function (l) { return l[0] === d.liga; })[0] || ['', '—'])[1];
       body = '<div class="spc-h">Todo listo</div>'
         + '<div class="spc-sub">Revisá que esté bien. Lo podés cambiar cuando quieras desde tu perfil.</div>'
         + '<div class="spc-sum">'
@@ -1216,6 +1238,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         + '<div><span>Rol</span><b>' + esc(rolTxt) + '</b></div>'
         + '<div><span>Club</span><b>' + esc(d.club || '—') + '</b></div>'
         + '<div><span>Equipo</span><b>' + esc(d.equipo || '—') + '</b></div>'
+        + '<div><span>Liga</span><b>' + esc(ligaTxt) + '</b></div>'
         + (d.categoria ? '<div><span>Categoría</span><b>' + esc(d.categoria) + '</b></div>' : '')
         + (d.temporada ? '<div><span>Temporada</span><b>' + esc(d.temporada) + '</b></div>' : '')
         + '</div>'
@@ -1232,9 +1255,10 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         if (!wiz.data.nombre) { setMsg('Escribí tu nombre.', 'err'); return; }
         if (!wiz.data.rol) { setMsg('Elegí tu rol en el staff.', 'err'); return; }
       } else if (wiz.step === 2) {
-        grab(['club', 'equipo', 'categoria', 'temporada']);
+        grab(['club', 'equipo', 'liga', 'categoria', 'temporada']);
         if (!wiz.data.club) { setMsg('Escribí el nombre de tu club.', 'err'); return; }
         if (!wiz.data.equipo) { setMsg('Escribí el nombre de tu equipo.', 'err'); return; }
+        if (!wiz.data.liga) { setMsg('Elegí la liga a la que pertenece tu equipo.', 'err'); return; }
       }
       wiz.step++; renderWizard();
     };
@@ -1298,7 +1322,12 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
           CURRENT.profile = profileFromMeta(meta);
           writeLocal(CURRENT.profile);
           if (FROM_EMAIL) cleanURL();
-          finishReady();
+          if (!CURRENT.profile.liga) {
+            // Cuenta creada antes de las ligas: pedimos la liga ahora
+            askLiga();
+          } else {
+            finishReady();
+          }
         } else {
           if (FROM_EMAIL) cleanURL();
           openWizard(false);   // registro inicial: identidad + equipo
