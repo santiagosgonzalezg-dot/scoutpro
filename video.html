@@ -5117,12 +5117,14 @@ updateClipsBadge();
 })();
 </script>
  <script>
-/* ScoutPRO · Menú de navegación compartido (v2)
+/* ScoutPRO · Menú de navegación compartido (v3)
    ───────────────────────────────────────────────
-   Escritorio: fila de botones arriba a la derecha.
-   Móvil (≤860px): botón hamburguesa que abre un panel lateral.
-   Además oculta los enlaces duplicados de la topbar (.tb-nav)
-   y mejora el contraste del gris más tenue (--t3). */
+   Un solo botón (hamburguesa) en TODOS los tamaños, que abre un
+   panel lateral con las secciones. Así el menú nunca se superpone
+   con las barras propias de cada página (Video, Partido, etc.).
+   Además oculta los enlaces duplicados de la topbar (.tb-nav),
+   deja lugar en las barras propias para el botón y mejora el
+   contraste del gris más tenue (--t3). */
 (function(){
   if(window.__spnav) return; window.__spnav=1;
 
@@ -5148,23 +5150,13 @@ updateClipsBadge();
   ];
 
   var css = ''
-    /* barra escritorio */
-    + '.spnav{position:fixed;top:14px;right:16px;z-index:500;display:flex;gap:8px;flex-wrap:wrap;'
-    + 'justify-content:flex-end;max-width:calc(100vw - 32px);'
-    + "font-family:'DM Sans',system-ui,-apple-system,sans-serif}"
-    + '.spnav a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:9px 13px;'
-    + 'border-radius:11px;background:rgba(22,24,32,.85);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);'
-    + 'border:1px solid rgba(255,255,255,.12);color:#c4cad6;font-size:13px;font-weight:600;'
-    + 'letter-spacing:.01em;line-height:1;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,transform .15s}'
-    + '.spnav a:hover{background:rgba(30,32,42,.96);border-color:rgba(255,255,255,.28);color:#fff;transform:translateY(-1px)}'
-    + '.spnav a.active{color:#f97316;border-color:rgba(249,115,22,.5);background:rgba(249,115,22,.12)}'
-    + '.spnav a svg{width:17px;height:17px;flex:none}'
-    /* hamburguesa móvil */
-    + '.spnav-burger{display:none;position:fixed;top:12px;right:12px;z-index:600;width:46px;height:46px;'
-    + 'border-radius:13px;background:rgba(22,24,32,.92);border:1px solid rgba(255,255,255,.16);color:#e7eaf2;'
-    + '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;align-items:center;justify-content:center;padding:0}'
+    + '.spnav-burger{display:flex;position:fixed;top:10px;right:12px;z-index:960;width:46px;height:46px;'
+    + 'border-radius:13px;background:rgba(22,24,32,.92);border:1px solid rgba(255,255,255,.18);color:#e7eaf2;'
+    + '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;align-items:center;justify-content:center;padding:0;'
+    + 'transition:border-color .15s,color .15s}'
+    + '.spnav-burger:hover{border-color:rgba(249,115,22,.6);color:#f97316}'
     + '.spnav-burger svg{width:22px;height:22px}'
-    + '.spnav-back{position:fixed;inset:0;z-index:590;display:none;background:rgba(7,8,12,.66);'
+    + '.spnav-back{position:fixed;inset:0;z-index:950;display:none;background:rgba(7,8,12,.66);'
     + '-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}'
     + '.spnav-back.on{display:block}'
     + '.spnav-sheet{position:absolute;top:0;right:0;bottom:0;width:min(300px,84vw);background:#0f1117;'
@@ -5174,16 +5166,15 @@ updateClipsBadge();
     + 'text-transform:uppercase;color:#fff;padding:6px 12px 12px}'
     + '.spnav-title span{color:#f97316}'
     + '.spnav-sheet a{display:flex;align-items:center;gap:13px;padding:14px;border-radius:12px;color:#c4cad6;'
-    + 'text-decoration:none;font-size:15.5px;font-weight:600;border:1px solid transparent}'
-    + '.spnav-sheet a:active{background:rgba(30,32,42,.9)}'
+    + 'text-decoration:none;font-size:15.5px;font-weight:600;border:1px solid transparent;transition:background .12s,color .12s}'
+    + '.spnav-sheet a:hover{background:rgba(30,32,42,.9);color:#fff}'
     + '.spnav-sheet a.active{color:#f97316;background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.45)}'
     + '.spnav-sheet a svg{width:20px;height:20px;flex:none}'
-    + '@media(max-width:1280px){.spnav .lbl{display:none}.spnav a{padding:11px 12px}}'
-    + '@media(max-width:860px){.spnav{display:none}.spnav-burger{display:flex}}'
-    + '@media(min-width:861px){.spnav-burger,.spnav-back{display:none!important}}'
-    /* enlaces duplicados de la topbar: fuera (la nav compartida ya cubre todo) */
+    /* enlaces duplicados de la topbar: fuera */
     + '.tb-nav{display:none!important}'
-    /* contraste global: el gris más tenue sube un escalón para ser legible */
+    /* aire a la derecha en las barras propias para que el botón no tape nada */
+    + '.topbar,.splash-topnav{padding-right:70px!important}'
+    /* contraste global */
     + ':root{--t3:#6b7484}';
 
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
@@ -5203,11 +5194,6 @@ updateClipsBadge();
     return a;
   }
 
-  // barra de escritorio
-  var nav=document.createElement('nav'); nav.className='spnav'; nav.setAttribute('aria-label','Navegación');
-  items.forEach(function(it){ nav.appendChild(mkLink(it)); });
-
-  // hamburguesa + panel móvil
   var burger=document.createElement('button'); burger.className='spnav-burger';
   burger.setAttribute('aria-label','Abrir menú');
   burger.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
@@ -5227,7 +5213,6 @@ updateClipsBadge();
 
   function mount(){
     if(!document.body) return;
-    document.body.appendChild(nav);
     document.body.appendChild(burger);
     document.body.appendChild(back);
   }
