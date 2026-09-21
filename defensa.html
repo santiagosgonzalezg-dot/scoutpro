@@ -200,6 +200,10 @@
     + '.spc-mail{width:58px;height:58px;border-radius:16px;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.4);'
     + 'display:flex;align-items:center;justify-content:center;margin:0 auto 16px}'
     + '.spc-mail svg{width:26px;height:26px;stroke:#f97316}'
+    + '.spc-pw{position:relative}'
+    + '.spc-pw input{padding-right:78px}'
+    + ".spc-see{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:none;color:#8891a0;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;cursor:pointer;padding:6px}"
+    + '.spc-see:hover{color:#f97316}'
     + '@media(max-width:480px){.spc-card{padding:24px 18px}.spc-row{flex-direction:column;gap:0}}';
 
   var style = document.createElement('style'); style.textContent = css;
@@ -269,7 +273,7 @@
       + '<div class="spc-tab' + (mode === 'signup' ? ' active' : '') + '" id="spc-tab-signup">Crear cuenta</div>'
       + '</div>'
       + '<div class="spc-field"><label>Email</label><input type="email" id="spc-email" placeholder="tu@email.com" autocomplete="email"></div>'
-      + '<div class="spc-field"><label>Contraseña</label><input type="password" id="spc-pass" placeholder="••••••••" autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '"></div>'
+      + '<div class="spc-field"><label>Contraseña</label><div class="spc-pw"><input type="password" id="spc-pass" placeholder="••••••••" autocomplete="' + (mode === 'signup' ? 'new-password' : 'current-password') + '"><button type="button" class="spc-see" id="spc-see">VER</button></div></div>'
       + '<button class="spc-btn" id="spc-submit">' + (mode === 'login' ? 'Ingresar' : 'Crear cuenta') + '</button>'
       + '<div class="spc-msg" id="spc-msg"></div>'
       + (mode === 'login' ? '<a class="spc-link" id="spc-forgot">¿Olvidaste tu contraseña?</a>' : '<div class="spc-msg" style="min-height:0">Después de crearla te pedimos los datos de tu equipo.</div>')
@@ -280,6 +284,13 @@
     $('spc-pass').onkeydown = function (ev) { if (ev.key === 'Enter') submitAuth(); };
     $('spc-email').onkeydown = function (ev) { if (ev.key === 'Enter') $('spc-pass').focus(); };
     $('spc-submit').onclick = submitAuth;
+    var see = $('spc-see');
+    if (see) see.onclick = function () {
+      var p = $('spc-pass'), on = p.type === 'password';
+      p.type = on ? 'text' : 'password';
+      see.textContent = on ? 'OCULTAR' : 'VER';
+      p.focus();
+    };
     var fg = $('spc-forgot'); if (fg) fg.onclick = viewForgot;
     setTimeout(function () { var e = $('spc-email'); if (e) e.focus(); }, 40);
   }
@@ -289,6 +300,9 @@
     var email = ($('spc-email').value || '').trim(), pass = $('spc-pass').value || '';
     if (!email || !pass) { setMsg('Completá email y contraseña.', 'err'); return; }
     var btn = $('spc-submit'); btn.disabled = true; setMsg('');
+    var lbl = btn.textContent;
+    btn.textContent = (mode === 'signup' ? 'Creando cuenta…' : 'Ingresando…');
+    var fail = function (e) { btn.disabled = false; btn.textContent = lbl; setMsg(humanErr(e), 'err'); };
     if (mode === 'signup') {
       var opts = {};
       var ru = returnURL(); if (ru) opts.emailRedirectTo = ru;
@@ -302,7 +316,7 @@
             viewCheckEmail(email);
           }
         })
-        .catch(function (e) { btn.disabled = false; setMsg(humanErr(e), 'err'); });
+        .catch(fail);
     } else {
       sb.auth.signInWithPassword({ email: email, password: pass })
         .then(function (r) {
@@ -310,7 +324,7 @@
           // Recarga limpia: todas las secciones arrancan ya con sesión
           location.reload();
         })
-        .catch(function (e) { btn.disabled = false; setMsg(humanErr(e), 'err'); });
+        .catch(fail);
     }
   }
 
@@ -364,19 +378,25 @@
     show('<div class="spc-card">' + head()
       + '<div class="spc-h">Nueva contraseña</div>'
       + '<div class="spc-sub">Definí la contraseña con la que vas a entrar de ahora en más.</div>'
-      + '<div class="spc-field"><label>Nueva contraseña</label><input type="password" id="spc-p1" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>'
+      + '<div class="spc-field"><label>Nueva contraseña</label><div class="spc-pw"><input type="password" id="spc-p1" placeholder="Mínimo 6 caracteres" autocomplete="new-password"><button type="button" class="spc-see" id="spc-see2">VER</button></div></div>'
       + '<div class="spc-field"><label>Repetila</label><input type="password" id="spc-p2" placeholder="••••••••" autocomplete="new-password"></div>'
       + '<button class="spc-btn" id="spc-save">Guardar y entrar</button>'
       + '<div class="spc-msg" id="spc-msg"></div>'
       + '</div>');
+    var see2 = $('spc-see2');
+    if (see2) see2.onclick = function () {
+      var a = $('spc-p1'), b = $('spc-p2'), on = a.type === 'password';
+      a.type = b.type = on ? 'text' : 'password';
+      see2.textContent = on ? 'OCULTAR' : 'VER';
+    };
     $('spc-save').onclick = function () {
       var a = $('spc-p1').value || '', b = $('spc-p2').value || '';
       if (a.length < 6) { setMsg('Mínimo 6 caracteres.', 'err'); return; }
       if (a !== b) { setMsg('Las contraseñas no coinciden.', 'err'); return; }
-      var btn = $('spc-save'); btn.disabled = true;
+      var btn = $('spc-save'); btn.disabled = true; btn.textContent = 'Guardando…';
       sb.auth.updateUser({ password: a })
         .then(function (r) { if (r.error) throw r.error; cleanURL(); location.reload(); })
-        .catch(function (e) { btn.disabled = false; setMsg(humanErr(e), 'err'); });
+        .catch(function (e) { btn.disabled = false; btn.textContent = 'Guardar y entrar'; setMsg(humanErr(e), 'err'); });
     };
   }
 
@@ -639,6 +659,46 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 .sug button:hover{border-color:var(--offense);color:var(--offense)}
 .tp-status{display:block;margin-top:9px;min-height:13px}
 .foot{color:var(--t3);font-family:var(--mono);font-size:10px;margin-top:30px;line-height:1.6}
+
+/* ═══ v3: cuartos · toast · modal · offline · tipografía ═══ */
+.sec-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:26px 0 12px;flex-wrap:wrap}
+.sec-row .sec{margin:0}
+.btn-ghost{background:var(--bg-panel);border:1px solid var(--b2);color:var(--t2)}
+.btn-ghost:hover,.btn-ghost.on{border-color:var(--offense);color:var(--offense)}
+.qbar{display:flex;align-items:center;gap:12px;margin:16px 0 2px;flex-wrap:wrap}
+.q-l{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--t2)}
+.qsel{display:flex;gap:6px}
+.qsel button{min-width:54px;padding:10px 0;border-radius:6px;background:var(--bg-panel);border:1px solid var(--b2);color:var(--t2);font-family:var(--disp);font-weight:800;font-size:16px;cursor:pointer;transition:all var(--t)}
+.qsel button.on{color:var(--offense);border-color:rgba(249,115,22,.6);background:rgba(249,115,22,.13)}
+.qtabs{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+.qtabs button{padding:6px 14px;border-radius:20px;background:none;border:1px solid var(--b2);color:var(--t2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all var(--t)}
+.qtabs button.on{color:var(--offense);border-color:rgba(249,115,22,.6);background:rgba(249,115,22,.1)}
+.qmini{font-family:var(--mono);font-size:11px;color:var(--t2);letter-spacing:.4px;margin:-6px 0 12px}
+.card.hit{animation:hitfx .45s ease}
+@keyframes hitfx{0%{border-color:var(--offense);box-shadow:0 0 0 3px rgba(249,115,22,.4)}100%{border-color:var(--b1);box-shadow:none}}
+.btns .b1{flex:.62;font-size:13px;color:var(--t2)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(8px);z-index:800;background:#161820;border:1px solid rgba(249,115,22,.55);border-radius:12px;padding:12px 16px;font-size:14px;color:var(--t1);box-shadow:0 14px 40px rgba(0,0,0,.5);opacity:0;transition:opacity .18s,transform .18s;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 28px)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast[hidden]{display:none}
+.t-undo{border:none;background:none;color:var(--offense);font-family:var(--mono);font-size:11px;letter-spacing:.1em;cursor:pointer;padding:4px 2px;white-space:nowrap}
+.mback{position:fixed;inset:0;z-index:900;background:rgba(7,8,12,.72);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:20px}
+.mback[hidden]{display:none}
+.mcard{width:390px;max-width:100%;background:#0f1117;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.mtitle{font-family:var(--disp);font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+.mtext{font-size:14px;color:var(--t2);line-height:1.55;margin-bottom:18px}
+.mtext b{color:var(--t1)}
+.mrow{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.btn-danger{background:var(--negative);color:#2a0707;font-weight:600}
+.btn-danger:hover{filter:brightness(1.1)}
+.net-badge{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:700;background:#2a1616;border:1px solid rgba(240,80,80,.6);color:#ffb4b4;font-family:var(--mono);font-size:11px;padding:8px 14px;border-radius:20px;max-width:calc(100vw - 24px);text-align:center}
+.net-badge[hidden]{display:none}
+/* tipografía más legible */
+.card .meta{font-size:11px}
+.fld label{font-size:10.5px}
+.brk-val{font-size:12px}
+.status{font-size:12px}
+.foot{font-size:11px;color:var(--t2)}
+.total .l{font-size:11px}
 </style>
 </head>
 <body>
@@ -653,7 +713,7 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 <div class="wrap">
   <div class="intro">
     <h1>Cómo nos anotaron</h1>
-    <p>Mientras mirás el partido o el video, tocá el tipo de jugada cada vez que el rival anota. Abajo ves al instante de dónde te hacen más daño. Es para leer tu defensa, nada más.</p>
+    <p>Mientras mirás el partido o el video, tocá el tipo de jugada cada vez que el rival anota. Todo queda guardado en el dispositivo al instante: si se cierra la página, al volver seguís donde estabas.</p>
   </div>
 
   <div class="setup">
@@ -664,8 +724,16 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
     <div class="fld"><label>Jornada</label><input id="jornada" placeholder="Ej: 5"></div>
   </div>
 
-  <div class="sec">Mis tipos de jugada</div>
-  <div class="panel tipos-panel">
+  <div class="qbar">
+    <span class="q-l">Cuarto activo</span>
+    <div class="qsel" id="qsel"></div>
+  </div>
+
+  <div class="sec-row">
+    <div class="sec">Registrar anotación del rival</div>
+    <button class="btn btn-ghost" id="btnTipos" onclick="toggleTipos()">✎ Editar mis jugadas</button>
+  </div>
+  <div class="panel tipos-panel" id="tiposPanel" hidden>
     <div class="chips" id="chips"></div>
     <div class="addrow">
       <input id="nuevoTipo" placeholder="Escribí tu jugada… Ej: Rebote ofensivo" maxlength="34">
@@ -674,13 +742,13 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
     <div class="sug" id="sug"></div>
     <span class="status tp-status" id="tiposStatus"></span>
   </div>
-
-  <div class="sec">Registrar anotación del rival</div>
   <div class="grid" id="grid"></div>
 
   <div class="sec">De dónde nos anotaron</div>
   <div class="panel">
     <div class="total"><span class="n" id="totPts">0</span><span class="l">puntos recibidos · <span id="totJug">0</span> jugadas</span></div>
+    <div class="qmini" id="qmini"></div>
+    <div class="qtabs" id="qtabs"></div>
     <div id="brk"><div class="empty">Todavía no registraste nada. Tocá una jugada arriba cuando el rival anote.</div></div>
   </div>
 
@@ -691,9 +759,22 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
   </div>
 
   <div class="foot">
-    Tagueo manual · cada toque suma una anotación del rival del tipo elegido.<br>
-    Tiro libre = botón +1 · doble = +2 · triple = +3 · el botón ✕ deshace la última de esa jugada.<br>
-    Tu lista de jugadas es propia de tu perfil: se guarda en este navegador y en tu cuenta.
+    Tagueo manual · elegí el cuarto activo y tocá la jugada cuando el rival anote.<br>
+    Tiro libre = +1 · doble = +2 · triple = +3 · la ✕ de cada tarjeta deshace la última de esa jugada.<br>
+    Tu lista de jugadas es propia de tu perfil y todo lo tagueado se autoguarda en el dispositivo.
+  </div>
+</div>
+
+<div class="net-badge" id="netBadge" hidden>⚠ Sin conexión — lo que taguees queda guardado en este dispositivo</div>
+<div class="toast" id="toast" hidden></div>
+<div class="mback" id="mback" hidden>
+  <div class="mcard">
+    <div class="mtitle" id="mtitle"></div>
+    <div class="mtext" id="mtext"></div>
+    <div class="mrow">
+      <button class="btn btn-reset" id="mcancel">Cancelar</button>
+      <button class="btn btn-save" id="mok">Aceptar</button>
+    </div>
   </div>
 </div>
 
@@ -703,11 +784,14 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 let sb=null;
 function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_URL,SB_KEY);return sb;}
 
-/* ── Tipos de jugada por perfil ────────────────────────────────
-   Cada cuenta arma su propia lista: agrega, quita o toma de las
-   sugeridas. Se guarda en el navegador y, si hay sesión, también
-   en la cuenta (user_metadata.defensa_tipos), así viaja con el
-   perfil entre dispositivos. */
+/* ═══ Defensa v3 ═════════════════════════════════════════════════
+   · Tipos de jugada propios de cada perfil (chips + sugeridas)
+   · Cuarto activo Q1-Q4 y desglose filtrable por cuarto
+   · Autosave: cada toque queda en el dispositivo; al volver ofrece continuar
+   · Toast con DESHACER + vibración + flash al taguear
+   · Modales propios (nada de confirm() nativo)
+   · Sin conexión: aviso y cola de guardado que reintenta sola
+   ════════════════════════════════════════════════════════════════ */
 const SUGERIDOS=[
   {k:'iso',label:'Aislamiento'},
   {k:'pnr_c',label:'PnR central'},
@@ -722,12 +806,19 @@ const SUGERIDOS=[
   {k:'drive',label:'Penetración 1v1'},
   {k:'tl',label:'Tiro libre'},
 ];
-let TIPOS=[];        // lista propia del perfil
-let USER_ID=null;    // se completa cuando hay sesión
-const state={};      // {k:{pts,jug}}
-const hist=[];       // {k,pts}
+const CUARTOS=['q1','q2','q3','q4'];
+const QLBL={q1:'Q1',q2:'Q2',q3:'Q3',q4:'Q4'};
+let TIPOS=[];      // lista propia del perfil
+let USER_ID=null;
+let Q='q1';        // cuarto activo para taguear
+let VISTA='all';   // filtro del desglose
+let hist=[];       // {id,k,pts,q}
+let nextId=1;
 
 function escHTML(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function val(id){const e=document.getElementById(id);return e?(e.value||''):'';}
+
+/* ── Tipos por perfil ── */
 function slugTipo(label){
   let base=label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'tipo';
@@ -749,7 +840,6 @@ function persistirTipos(){
   const c=getSB();
   if(c&&USER_ID)c.auth.updateUser({data:{defensa_tipos:TIPOS}}).catch(()=>{});
 }
-function ensureState(){TIPOS.forEach(t=>{if(!state[t.k])state[t.k]={pts:0,jug:0};});}
 function tiposMsg(msg,cls){const e=document.getElementById('tiposStatus');e.textContent=msg||'';e.className='status tp-status '+(cls||'');}
 
 function agregarTipo(){
@@ -759,23 +849,36 @@ function agregarTipo(){
   if(TIPOS.some(t=>t.label.toLowerCase()===label.toLowerCase())){tiposMsg('Ya tenés esa jugada en tu lista.','err');return;}
   TIPOS.push({k:slugTipo(label),label});
   inp.value='';tiposMsg('');
-  ensureState();persistirTipos();renderTipos();
+  persistirTipos();renderTipos();
 }
 function agregarSugerido(k){
   const s=SUGERIDOS.find(t=>t.k===k);if(!s)return;
   if(TIPOS.some(t=>t.label.toLowerCase()===s.label.toLowerCase()))return;
   TIPOS.push({k:TIPOS.some(t=>t.k===s.k)?slugTipo(s.label):s.k,label:s.label});
   tiposMsg('');
-  ensureState();persistirTipos();renderTipos();
+  persistirTipos();renderTipos();
 }
 function quitarTipo(k){
   const t=TIPOS.find(x=>x.k===k);if(!t)return;
-  const s=state[k];
-  if(s&&s.jug>0&&!confirm('"'+t.label+'" tiene '+s.jug+' jugada(s) registradas en este partido. ¿Quitarla igual? Se pierde lo anotado de ese tipo.'))return;
-  TIPOS=TIPOS.filter(x=>x.k!==k);
-  delete state[k];
-  for(let i=hist.length-1;i>=0;i--)if(hist[i].k===k)hist.splice(i,1);
-  persistirTipos();renderTipos();
+  const n=hist.filter(h=>h.k===k).length;
+  const sacar=()=>{
+    TIPOS=TIPOS.filter(x=>x.k!==k);
+    hist=hist.filter(h=>h.k!==k);
+    persistirTipos();autosave();renderTipos();
+  };
+  if(n>0){
+    modal({
+      title:'Quitar jugada',
+      text:'"'+escHTML(t.label)+'" tiene <b>'+n+'</b> jugada'+(n>1?'s':'')+' registradas en este partido. Si la quitás, se pierde lo anotado de ese tipo.',
+      ok:'Quitar igual',cancel:'Cancelar',danger:true,onOk:sacar
+    });
+  }else sacar();
+}
+function toggleTipos(){
+  const p=document.getElementById('tiposPanel');
+  p.hidden=!p.hidden;
+  document.getElementById('btnTipos').classList.toggle('on',!p.hidden);
+  if(!p.hidden)setTimeout(()=>{const i=document.getElementById('nuevoTipo');if(i)i.focus();},40);
 }
 function renderTipos(){
   document.getElementById('chips').innerHTML=TIPOS.length
@@ -787,66 +890,128 @@ function renderTipos(){
     ? '<span class="sug-l">Sugeridas · tocá para agregar</span>'
       +faltan.map(s=>'<button onclick="agregarSugerido(\''+s.k+'\')">+ '+escHTML(s.label)+'</button>').join('')
     : '';
+  // sin jugadas definidas no se puede taguear: abrimos el panel solo
+  if(!TIPOS.length){document.getElementById('tiposPanel').hidden=false;document.getElementById('btnTipos').classList.add('on');}
   buildGrid();render();
 }
-async function initTipos(){
-  // 1) respuesta inmediata: lo guardado en este navegador, o las sugeridas
-  TIPOS=leerTiposGuardados()||SUGERIDOS.slice();
-  ensureState();renderTipos();
-  // 2) si hay sesión, manda la lista guardada en la cuenta
-  const c=getSB();if(!c)return;
-  try{
-    const {data}=await c.auth.getUser();
-    if(!data||!data.user)return;
-    USER_ID=data.user.id;
-    const meta=data.user.user_metadata||{};
-    const remotos=(Array.isArray(meta.defensa_tipos)&&meta.defensa_tipos.length
-      &&meta.defensa_tipos.every(t=>t&&typeof t.k==='string'&&typeof t.label==='string'))
-      ? meta.defensa_tipos : null;
-    const propios=leerTiposGuardados(); // ahora con la clave de este usuario
-    const lista=remotos||propios;
-    if(lista)TIPOS=lista;
-    ensureState();
-    try{localStorage.setItem(lsKeyTipos(),JSON.stringify(TIPOS));}catch(e){}
-    renderTipos();
-  }catch(e){}
+
+/* ── Totales desde el historial ── */
+function tot(k,q){
+  let p=0,j=0;
+  for(const h of hist){if(h.k!==k)continue;if(q!=='all'&&h.q!==q)continue;p+=h.pts;j++;}
+  return {pts:p,jug:j};
+}
+function totAll(q){
+  let p=0,j=0;
+  for(const h of hist){if(q!=='all'&&h.q!==q)continue;p+=h.pts;j++;}
+  return {pts:p,jug:j};
 }
 
-function add(k,pts){state[k].pts+=pts;state[k].jug++;hist.push({k,pts});render();}
-function undo(k){
-  // deshace la última anotación de ese tipo
-  for(let i=hist.length-1;i>=0;i--){if(hist[i].k===k){state[k].pts-=hist[i].pts;state[k].jug--;hist.splice(i,1);break;}}
+/* ── Modal propio ── */
+function modal(o){
+  const b=document.getElementById('mback');
+  document.getElementById('mtitle').textContent=o.title||'';
+  document.getElementById('mtext').innerHTML=o.text||'';
+  const ok=document.getElementById('mok'),ca=document.getElementById('mcancel');
+  ok.textContent=o.ok||'Aceptar';ca.textContent=o.cancel||'Cancelar';
+  ok.className='btn '+(o.danger?'btn-danger':'btn-save');
+  b.hidden=false;
+  ok.onclick=()=>{b.hidden=true;o.onOk&&o.onOk();};
+  ca.onclick=()=>{b.hidden=true;o.onCancel&&o.onCancel();};
+  b.onclick=e=>{if(e.target===b){b.hidden=true;o.onCancel&&o.onCancel();}};
+}
+
+/* ── Toast con deshacer ── */
+let toastT=null,toastUndoId=null;
+function toast(html,undoId){
+  const t=document.getElementById('toast');
+  toastUndoId=undoId==null?null:undoId;
+  t.innerHTML=html+(undoId!=null?'<button class="t-undo" onclick="undoToast()">DESHACER</button>':'');
+  t.hidden=false;
+  requestAnimationFrame(()=>t.classList.add('on'));
+  clearTimeout(toastT);
+  toastT=setTimeout(()=>{t.classList.remove('on');setTimeout(()=>{t.hidden=true;},200);},4000);
+}
+function undoToast(){
+  if(toastUndoId==null)return;
+  const i=hist.findIndex(h=>h.id===toastUndoId);
+  if(i>=0){hist.splice(i,1);autosave();render();}
+  toastUndoId=null;
+  const t=document.getElementById('toast');t.classList.remove('on');t.hidden=true;
+}
+
+/* ── Taguear ── */
+function add(k,pts){
+  const t=TIPOS.find(x=>x.k===k);if(!t)return;
+  const ev={id:nextId++,k,pts,q:Q};
+  hist.push(ev);autosave();
+  try{if(navigator.vibrate)navigator.vibrate(20);}catch(e){}
+  const card=document.getElementById('c_'+k);
+  if(card){card.classList.remove('hit');void card.offsetWidth;card.classList.add('hit');}
+  toast('<b>'+escHTML(t.label)+'</b>&nbsp;+'+pts+' · '+QLBL[Q],ev.id);
   render();
 }
-function reiniciar(){if(!confirm('¿Borrar todo lo registrado de este partido?'))return;TIPOS.forEach(t=>state[t.k]={pts:0,jug:0});hist.length=0;status('');render();}
+function undo(k){
+  for(let i=hist.length-1;i>=0;i--){if(hist[i].k===k){hist.splice(i,1);break;}}
+  autosave();render();
+}
+function reiniciar(){
+  if(!hist.length){status('No hay nada para borrar.','load');return;}
+  modal({
+    title:'Reiniciar partido',
+    text:'Se borra <b>todo</b> lo registrado de este partido ('+hist.length+' jugadas). Esto no se puede deshacer.',
+    ok:'Borrar todo',cancel:'Cancelar',danger:true,
+    onOk:()=>{hist=[];nextId=1;try{localStorage.removeItem(lsKeyLive());}catch(e){}status('');render();}
+  });
+}
 
+/* ── Cuartos ── */
+function setQ(q){Q=q;autosave();renderQsel();render();}
+function renderQsel(){
+  document.getElementById('qsel').innerHTML=CUARTOS.map(q=>
+    '<button class="'+(Q===q?'on':'')+'" onclick="setQ(\''+q+'\')">'+QLBL[q]+'</button>').join('');
+}
+function setVista(v){VISTA=v;renderQtabs();render();}
+function renderQtabs(){
+  const all=[['all','Todo el partido']].concat(CUARTOS.map(q=>[q,QLBL[q]]));
+  document.getElementById('qtabs').innerHTML=all.map(([v,l])=>
+    '<button class="'+(VISTA===v?'on':'')+'" onclick="setVista(\''+v+'\')">'+l+'</button>').join('');
+}
+
+/* ── Grilla y desglose ── */
 function buildGrid(){
   document.getElementById('grid').innerHTML=TIPOS.map(t=>{
-    const s=state[t.k];
-    return '<div class="card"><div class="name">'+escHTML(t.label)+'</div>'+
-      '<div class="meta" id="m_'+t.k+'">'+s.jug+' jugadas</div>'+
-      '<div class="pts" id="p_'+t.k+'">'+s.pts+'<small>pts</small></div>'+
+    return '<div class="card" id="c_'+t.k+'"><div class="name">'+escHTML(t.label)+'</div>'+
+      '<div class="meta" id="m_'+t.k+'"></div>'+
+      '<div class="pts" id="p_'+t.k+'">0<small>pts</small></div>'+
       '<div class="btns">'+
         '<button onclick="add(\''+t.k+'\',2)">+2</button>'+
         '<button onclick="add(\''+t.k+'\',3)">+3</button>'+
-        '<button onclick="add(\''+t.k+'\',1)">+1</button>'+
-        '<button class="undo" onclick="undo(\''+t.k+'\')" title="Deshacer última">✕</button>'+
+        '<button class="b1" onclick="add(\''+t.k+'\',1)">+1</button>'+
+        '<button class="undo" onclick="undo(\''+t.k+'\')" title="Deshacer última de esta jugada">✕</button>'+
       '</div></div>';
   }).join('');
 }
 function render(){
-  let totP=0,totJ=0;
-  TIPOS.forEach(t=>{const s=state[t.k];totP+=s.pts;totJ+=s.jug;
+  TIPOS.forEach(t=>{
+    const sq=tot(t.k,Q),sa=tot(t.k,'all');
     const pe=document.getElementById('p_'+t.k),me=document.getElementById('m_'+t.k);
-    if(pe)pe.innerHTML=s.pts+'<small>pts</small>';
-    if(me)me.textContent=s.jug+' jugadas';
+    if(pe)pe.innerHTML=sq.pts+'<small>pts</small>';
+    if(me)me.textContent=QLBL[Q]+' · '+sq.jug+' jugadas · partido: '+sa.pts+' pts';
   });
-  document.getElementById('totPts').textContent=totP;
-  document.getElementById('totJug').textContent=totJ;
-  // breakdown ordenado por puntos
-  const rows=TIPOS.map(t=>({label:t.label,...state[t.k]})).filter(r=>r.jug>0).sort((a,b)=>b.pts-a.pts);
+  const ta=totAll('all');
+  document.getElementById('totPts').textContent=ta.pts;
+  document.getElementById('totJug').textContent=ta.jug;
+  document.getElementById('qmini').textContent=CUARTOS.map(q=>QLBL[q]+' '+totAll(q).pts).join('  ·  ');
+  const rows=TIPOS.map(t=>({label:t.label,...tot(t.k,VISTA)})).filter(r=>r.jug>0).sort((a,b)=>b.pts-a.pts);
   const brk=document.getElementById('brk');
-  if(!rows.length){brk.innerHTML='<div class="empty">Todavía no registraste nada. Tocá una jugada arriba cuando el rival anote.</div>';return;}
+  if(!rows.length){
+    brk.innerHTML='<div class="empty">'+(VISTA==='all'
+      ?'Todavía no registraste nada. Tocá una jugada arriba cuando el rival anote.'
+      :'Sin jugadas registradas en '+QLBL[VISTA]+'.')+'</div>';
+    return;
+  }
+  const totP=rows.reduce((s,r)=>s+r.pts,0);
   const max=Math.max(...rows.map(r=>r.pts),1);
   brk.innerHTML=rows.map(r=>{
     const w=Math.round(r.pts/max*100);
@@ -859,44 +1024,150 @@ function render(){
 }
 function status(msg,cls){const e=document.getElementById('status');e.textContent=msg||'';e.className='status '+(cls||'');}
 
+/* ── Autosave en el dispositivo ── */
+function lsKeyLive(){return 'defensa_live_'+(USER_ID||'local');}
+function autosave(){
+  const d={v:1,ts:Date.now(),q:Q,nextId,hist,
+    f:{fecha:val('fecha'),fase:val('fase'),jornada:val('jornada'),nuestro:val('nuestro'),rival:val('rival')}};
+  try{localStorage.setItem(lsKeyLive(),JSON.stringify(d));}catch(e){}
+}
+function restaurar(d){
+  hist=Array.isArray(d.hist)?d.hist.filter(h=>h&&h.k&&h.pts):[];
+  nextId=d.nextId||hist.length+1;
+  Q=CUARTOS.includes(d.q)?d.q:'q1';
+  const f=d.f||{};
+  ['fecha','fase','jornada','nuestro','rival'].forEach(id=>{
+    if(f[id]!=null&&f[id]!=='')document.getElementById(id).value=f[id];
+  });
+  renderQsel();render();
+}
+function checkLive(){
+  let d=null;
+  try{const s=localStorage.getItem(lsKeyLive());if(s)d=JSON.parse(s);}catch(e){}
+  if(!d||!Array.isArray(d.hist)||!d.hist.length)return;
+  const f=d.f||{};
+  modal({
+    title:'Partido sin guardar',
+    text:'Encontré un partido en curso'+(f.rival?' vs <b>'+escHTML(f.rival)+'</b>':'')
+      +(f.fecha?' ('+escHTML(f.fecha)+')':'')+' con <b>'+d.hist.length+'</b> jugadas tagueadas en este dispositivo. ¿Continuás donde quedaste?',
+    ok:'Continuar partido',cancel:'Empezar de cero',
+    onOk:()=>restaurar(d),
+    onCancel:()=>{try{localStorage.removeItem(lsKeyLive());}catch(e){}}
+  });
+}
+
+/* ── Conexión y cola de guardado ── */
+function lsKeyCola(){return 'defensa_cola_'+(USER_ID||'local');}
+function updNet(){
+  const b=document.getElementById('netBadge');
+  b.hidden=navigator.onLine!==false;
+}
+async function reintentar(){
+  let p=null;
+  try{const s=localStorage.getItem(lsKeyCola());if(s)p=JSON.parse(s);}catch(e){}
+  if(!p||!Array.isArray(p.rows)||!p.rows.length)return;
+  const c=getSB();if(!c)return;
+  status('Subiendo guardado pendiente…','load');
+  try{
+    await c.from('defensa_log').delete().eq('match_key',p.matchKey);
+    const {error}=await c.from('defensa_log').insert(p.rows);
+    if(error)throw error;
+    try{localStorage.removeItem(lsKeyCola());}catch(e){}
+    status('✓ Guardado pendiente subido ('+p.rows.length+' tipos).','ok');
+  }catch(e){
+    status('El guardado pendiente sigue en cola. Se reintenta al volver la conexión.','load');
+  }
+}
+function encolar(rows,matchKey){
+  try{localStorage.setItem(lsKeyCola(),JSON.stringify({rows,matchKey,ts:Date.now()}));}catch(e){}
+}
+
 async function guardar(){
-  const totJ=TIPOS.reduce((s,t)=>s+state[t.k].jug,0);
-  if(!totJ){status('No hay nada para guardar todavía.','err');return;}
-  const c=getSB();if(!c){status('No se pudo conectar a la base.','err');return;}
-  const fecha=document.getElementById('fecha').value||null;
-  const fase=document.getElementById('fase').value.trim()||null;
-  const jornada=document.getElementById('jornada').value.trim()||null;
-  const nuestro=document.getElementById('nuestro').value.trim()||null;
-  const rival=document.getElementById('rival').value.trim()||null;
+  if(!hist.length){status('No hay nada para guardar todavía.','err');return;}
+  const fecha=val('fecha')||null;
+  const fase=val('fase').trim()||null;
+  const jornada=val('jornada').trim()||null;
+  const nuestro=val('nuestro').trim()||null;
+  const rival=val('rival').trim()||null;
   const matchKey=(fecha||'s-f')+'__'+(nuestro||'eq')+'__'+(rival||'riv');
-  const rows=TIPOS.filter(t=>state[t.k].jug>0).map(t=>({
+  const rows=TIPOS.map(t=>({t,s:tot(t.k,'all')})).filter(x=>x.s.jug>0).map(x=>({
     match_key:matchKey,fecha,fase,jornada,nuestro,rival,
-    tipo:t.label,eventos:state[t.k].jug,puntos:state[t.k].pts
+    tipo:x.t.label,eventos:x.s.jug,puntos:x.s.pts
   }));
+  if(navigator.onLine===false){
+    encolar(rows,matchKey);
+    status('Sin conexión: quedó en cola y se sube solo al volver internet.','load');
+    return;
+  }
+  const c=getSB();if(!c){encolar(rows,matchKey);status('No se pudo conectar: quedó en cola para reintentar.','load');return;}
   status('Guardando…','load');
   try{
     await c.from('defensa_log').delete().eq('match_key',matchKey);
     const {error}=await c.from('defensa_log').insert(rows);
     if(error)throw error;
+    try{localStorage.removeItem(lsKeyCola());}catch(e){}
     status('✓ Guardado: '+rows.length+' tipos de jugada.','ok');
-  }catch(e){ status('No se pudo guardar: '+(e.message||e),'err'); }
+  }catch(e){
+    encolar(rows,matchKey);
+    status('No se pudo guardar ahora: quedó en cola y se reintenta al volver la conexión.','load');
+  }
+}
+
+/* ── Arranque ── */
+async function initTipos(){
+  TIPOS=leerTiposGuardados()||SUGERIDOS.slice();
+  renderTipos();
+  const c=getSB();
+  if(c){
+    try{
+      const {data}=await c.auth.getUser();
+      if(data&&data.user){
+        const uid=data.user.id;
+        // migrar lo guardado como "local" a la clave del usuario
+        ['defensa_tipos_','defensa_live_','defensa_cola_'].forEach(pre=>{
+          try{
+            const loc=localStorage.getItem(pre+'local');
+            if(loc&&!localStorage.getItem(pre+uid)){localStorage.setItem(pre+uid,loc);localStorage.removeItem(pre+'local');}
+          }catch(e){}
+        });
+        USER_ID=uid;
+        const meta=data.user.user_metadata||{};
+        const remotos=(Array.isArray(meta.defensa_tipos)&&meta.defensa_tipos.length
+          &&meta.defensa_tipos.every(t=>t&&typeof t.k==='string'&&typeof t.label==='string'))
+          ? meta.defensa_tipos : null;
+        const propios=leerTiposGuardados();
+        const lista=remotos||propios;
+        if(lista)TIPOS=lista;
+        try{localStorage.setItem(lsKeyTipos(),JSON.stringify(TIPOS));}catch(e){}
+        renderTipos();
+      }
+    }catch(e){}
+  }
+  updNet();
+  checkLive();
+  if(navigator.onLine!==false)reintentar();
 }
 
 document.getElementById('fecha').value=new Date().toISOString().slice(0,10);
 document.getElementById('nuevoTipo').addEventListener('keydown',e=>{if(e.key==='Enter')agregarTipo();});
+['fecha','fase','jornada','nuestro','rival'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{if(hist.length)autosave();});
+});
+window.addEventListener('online',()=>{updNet();reintentar();});
+window.addEventListener('offline',updNet);
+renderQsel();renderQtabs();
 initTipos();
 </script>
   <script>
-/* ScoutPRO · Menú de navegación compartido
+/* ScoutPRO · Menú de navegación compartido (v2)
    ───────────────────────────────────────────────
-   Cómo usarlo: agregá esta línea antes de </body> en CADA sección:
-       <script src="scoutpro-nav.js"><\/script>
-   El menú se inyecta solo, marca la sección actual y es igual en todas las páginas.
-   Para cambiar los botones o los enlaces, editá SOLO este archivo. */
+   Escritorio: fila de botones arriba a la derecha.
+   Móvil (≤860px): botón hamburguesa que abre un panel lateral.
+   Además oculta los enlaces duplicados de la topbar (.tb-nav)
+   y mejora el contraste del gris más tenue (--t3). */
 (function(){
   if(window.__spnav) return; window.__spnav=1;
 
-  // Secciones de la app. home:true es la pantalla de inicio (Menú).
   var items=[
     { label:'Menú',           href:'index.html',       home:true,
       icon:'<path d="M3 9.5 12 3l9 6.5"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/>' },
@@ -919,6 +1190,7 @@ initTipos();
   ];
 
   var css = ''
+    /* barra escritorio */
     + '.spnav{position:fixed;top:14px;right:16px;z-index:500;display:flex;gap:8px;flex-wrap:wrap;'
     + 'justify-content:flex-end;max-width:calc(100vw - 32px);'
     + "font-family:'DM Sans',system-ui,-apple-system,sans-serif}"
@@ -929,25 +1201,77 @@ initTipos();
     + '.spnav a:hover{background:rgba(30,32,42,.96);border-color:rgba(255,255,255,.28);color:#fff;transform:translateY(-1px)}'
     + '.spnav a.active{color:#f97316;border-color:rgba(249,115,22,.5);background:rgba(249,115,22,.12)}'
     + '.spnav a svg{width:17px;height:17px;flex:none}'
-    + '@media(max-width:680px){.spnav{top:10px;right:10px;gap:6px}.spnav a{padding:9px 10px}.spnav .lbl{display:none}}';
+    /* hamburguesa móvil */
+    + '.spnav-burger{display:none;position:fixed;top:12px;right:12px;z-index:600;width:46px;height:46px;'
+    + 'border-radius:13px;background:rgba(22,24,32,.92);border:1px solid rgba(255,255,255,.16);color:#e7eaf2;'
+    + '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;align-items:center;justify-content:center;padding:0}'
+    + '.spnav-burger svg{width:22px;height:22px}'
+    + '.spnav-back{position:fixed;inset:0;z-index:590;display:none;background:rgba(7,8,12,.66);'
+    + '-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}'
+    + '.spnav-back.on{display:block}'
+    + '.spnav-sheet{position:absolute;top:0;right:0;bottom:0;width:min(300px,84vw);background:#0f1117;'
+    + 'border-left:1px solid rgba(255,255,255,.1);padding:16px 12px;overflow:auto;display:flex;flex-direction:column;gap:5px;'
+    + "font-family:'DM Sans',system-ui,-apple-system,sans-serif}"
+    + ".spnav-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;letter-spacing:.02em;"
+    + 'text-transform:uppercase;color:#fff;padding:6px 12px 12px}'
+    + '.spnav-title span{color:#f97316}'
+    + '.spnav-sheet a{display:flex;align-items:center;gap:13px;padding:14px;border-radius:12px;color:#c4cad6;'
+    + 'text-decoration:none;font-size:15.5px;font-weight:600;border:1px solid transparent}'
+    + '.spnav-sheet a:active{background:rgba(30,32,42,.9)}'
+    + '.spnav-sheet a.active{color:#f97316;background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.45)}'
+    + '.spnav-sheet a svg{width:20px;height:20px;flex:none}'
+    + '@media(max-width:860px){.spnav{display:none}.spnav-burger{display:flex}}'
+    + '@media(min-width:861px){.spnav-burger,.spnav-back{display:none!important}}'
+    /* enlaces duplicados de la topbar: fuera (la nav compartida ya cubre todo) */
+    + '.tb-nav{display:none!important}'
+    /* contraste global: el gris más tenue sube un escalón para ser legible */
+    + ':root{--t3:#6b7484}';
 
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
 
   var cur=(location.pathname.split('/').pop()||'').toLowerCase();
-  var nav=document.createElement('nav'); nav.className='spnav'; nav.setAttribute('aria-label','Navegación');
-
-  items.forEach(function(it){
-    var a=document.createElement('a'); a.href=it.href;
+  function isActive(it){
     var f=it.href.toLowerCase().split('#')[0];
     var isHomeNow = it.home && (cur==='' || cur.indexOf('index')===0);
-    if(f===cur || isHomeNow) a.className='active';
+    return f===cur || isHomeNow;
+  }
+  function mkLink(it){
+    var a=document.createElement('a'); a.href=it.href;
+    if(isActive(it)) a.className='active';
     a.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
       +'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+it.icon+'</svg>'
       +'<span class="lbl">'+it.label+'</span>';
-    nav.appendChild(a);
-  });
+    return a;
+  }
 
-  function mount(){ if(document.body) document.body.appendChild(nav); }
+  // barra de escritorio
+  var nav=document.createElement('nav'); nav.className='spnav'; nav.setAttribute('aria-label','Navegación');
+  items.forEach(function(it){ nav.appendChild(mkLink(it)); });
+
+  // hamburguesa + panel móvil
+  var burger=document.createElement('button'); burger.className='spnav-burger';
+  burger.setAttribute('aria-label','Abrir menú');
+  burger.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
+  var back=document.createElement('div'); back.className='spnav-back';
+  var sheet=document.createElement('nav'); sheet.className='spnav-sheet'; sheet.setAttribute('aria-label','Navegación');
+  var title=document.createElement('div'); title.className='spnav-title';
+  title.innerHTML='Scout<span>Pro</span>';
+  sheet.appendChild(title);
+  items.forEach(function(it){ sheet.appendChild(mkLink(it)); });
+  back.appendChild(sheet);
+
+  function openSheet(){ back.classList.add('on'); document.documentElement.style.overflow='hidden'; }
+  function closeSheet(){ back.classList.remove('on'); document.documentElement.style.overflow=''; }
+  burger.onclick=openSheet;
+  back.addEventListener('click',function(e){ if(e.target===back) closeSheet(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeSheet(); });
+
+  function mount(){
+    if(!document.body) return;
+    document.body.appendChild(nav);
+    document.body.appendChild(burger);
+    document.body.appendChild(back);
+  }
   if(document.body) mount(); else document.addEventListener('DOMContentLoaded',mount);
 })();
 
