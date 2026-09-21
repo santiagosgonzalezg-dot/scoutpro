@@ -1223,6 +1223,13 @@ select.qsel option{background:#161820}
     ['analista', 'Analista de video'],
     ['otro', 'Otro']
   ];
+  var LIGAS = [
+    ['dta', 'DTA'],
+    ['lda', 'LDA'],
+    ['liga', 'LIGA'],
+    ['femenina', 'Liga Femenina'],
+    ['formativas', 'Formativas']
+  ];
 
   /* URL de retorno para los emails (confirmación / recuperación).
      Solo tiene sentido cuando la app corre en un servidor http(s). */
@@ -1279,6 +1286,7 @@ select.qsel option{background:#161820}
       rol: (meta.rol || '').trim(),
       club: (meta.club || '').trim(),
       equipo: (meta.equipo || '').trim(),
+      liga: (meta.liga || '').trim(),
       categoria: (meta.categoria || '').trim(),
       temporada: (meta.temporada || '').trim()
     };
@@ -1294,7 +1302,7 @@ select.qsel option{background:#161820}
   function persistProfile(p, done) {
     var meta = {
       nombre: p.nombre, apellido: p.apellido, rol: p.rol,
-      club: p.club, equipo: p.equipo, categoria: p.categoria, temporada: p.temporada,
+      club: p.club, equipo: p.equipo, liga: p.liga, categoria: p.categoria, temporada: p.temporada,
       full_name: (p.nombre + ' ' + (p.apellido || '')).trim(),
       onboarded: true
     };
@@ -1588,10 +1596,18 @@ select.qsel option{background:#161820}
         rol: p.rol || base.rol || '',
         club: p.club || base.club || '',
         equipo: p.equipo || base.equipo || '',
+        liga: p.liga || base.liga || '',
         categoria: p.categoria || base.categoria || '',
         temporada: p.temporada || base.temporada || ''
       }
     };
+    renderWizard();
+  }
+
+  function askLiga() {
+    openWizard(true);
+    wiz.askLiga = true;
+    wiz.step = 2;
     renderWizard();
   }
 
@@ -1625,12 +1641,17 @@ select.qsel option{background:#161820}
         + '</select></div>'
         + '<button class="spc-btn" id="spc-next">Siguiente</button>'
         + '<div class="spc-msg" id="spc-msg"></div>'
-        + '<a class="spc-link" id="spc-back-auth">' + (wiz.editing ? '← Cancelar' : '← Volver al ingreso') + '</a>';
+        + (wiz.askLiga ? '' : '<a class="spc-link" id="spc-back-auth">' + (wiz.editing ? '← Cancelar' : '← Volver al ingreso') + '</a>');
     } else if (wiz.step === 2) {
       body = '<div class="spc-h">Tu equipo</div>'
         + '<div class="spc-sub">Con esto cada sección — partidos, estadístico, esfuerzo, video — ya sabe para qué equipo trabaja.</div>'
+        + (wiz.askLiga ? '<div class="spc-msg err" style="margin:-8px 0 14px">Nos falta un dato: elegí la liga a la que pertenece tu equipo.</div>' : '')
         + '<div class="spc-field"><label>Club</label><input id="spc-club" value="' + esc(d.club) + '" placeholder="Ej: Malvín"></div>'
         + '<div class="spc-field"><label>Equipo (como figura en las planillas)</label><input id="spc-equipo" value="' + esc(d.equipo) + '" placeholder="Ej: MALVIN"></div>'
+        + '<div class="spc-field"><label>Liga</label><select id="spc-liga">'
+        + '<option value="">— Elegí la liga —</option>'
+        + LIGAS.map(function (l) { return '<option value="' + l[0] + '"' + (d.liga === l[0] ? ' selected' : '') + '>' + l[1] + '</option>'; }).join('')
+        + '</select></div>'
         + '<div class="spc-row">'
         + '<div class="spc-field"><label>Categoría</label><input id="spc-categoria" value="' + esc(d.categoria) + '" placeholder="Ej: U19 / Primera"></div>'
         + '<div class="spc-field"><label>Temporada</label><input id="spc-temporada" value="' + esc(d.temporada) + '" placeholder="Ej: 2026"></div>'
@@ -1640,6 +1661,7 @@ select.qsel option{background:#161820}
         + '<a class="spc-link" id="spc-prev">← Atrás</a>';
     } else {
       var rolTxt = (ROLES.filter(function (r) { return r[0] === d.rol; })[0] || ['', '—'])[1];
+      var ligaTxt = (LIGAS.filter(function (l) { return l[0] === d.liga; })[0] || ['', '—'])[1];
       body = '<div class="spc-h">Todo listo</div>'
         + '<div class="spc-sub">Revisá que esté bien. Lo podés cambiar cuando quieras desde tu perfil.</div>'
         + '<div class="spc-sum">'
@@ -1647,6 +1669,7 @@ select.qsel option{background:#161820}
         + '<div><span>Rol</span><b>' + esc(rolTxt) + '</b></div>'
         + '<div><span>Club</span><b>' + esc(d.club || '—') + '</b></div>'
         + '<div><span>Equipo</span><b>' + esc(d.equipo || '—') + '</b></div>'
+        + '<div><span>Liga</span><b>' + esc(ligaTxt) + '</b></div>'
         + (d.categoria ? '<div><span>Categoría</span><b>' + esc(d.categoria) + '</b></div>' : '')
         + (d.temporada ? '<div><span>Temporada</span><b>' + esc(d.temporada) + '</b></div>' : '')
         + '</div>'
@@ -1663,9 +1686,10 @@ select.qsel option{background:#161820}
         if (!wiz.data.nombre) { setMsg('Escribí tu nombre.', 'err'); return; }
         if (!wiz.data.rol) { setMsg('Elegí tu rol en el staff.', 'err'); return; }
       } else if (wiz.step === 2) {
-        grab(['club', 'equipo', 'categoria', 'temporada']);
+        grab(['club', 'equipo', 'liga', 'categoria', 'temporada']);
         if (!wiz.data.club) { setMsg('Escribí el nombre de tu club.', 'err'); return; }
         if (!wiz.data.equipo) { setMsg('Escribí el nombre de tu equipo.', 'err'); return; }
+        if (!wiz.data.liga) { setMsg('Elegí la liga a la que pertenece tu equipo.', 'err'); return; }
       }
       wiz.step++; renderWizard();
     };
@@ -1729,7 +1753,12 @@ select.qsel option{background:#161820}
           CURRENT.profile = profileFromMeta(meta);
           writeLocal(CURRENT.profile);
           if (FROM_EMAIL) cleanURL();
-          finishReady();
+          if (!CURRENT.profile.liga) {
+            // Cuenta creada antes de las ligas: pedimos la liga ahora
+            askLiga();
+          } else {
+            finishReady();
+          }
         } else {
           if (FROM_EMAIL) cleanURL();
           openWizard(false);   // registro inicial: identidad + equipo
@@ -4151,12 +4180,14 @@ async function renderPlaybook(){
 </script>
 
 </html><script>
-/* ScoutPRO · Menú de navegación compartido (v2)
+/* ScoutPRO · Menú de navegación compartido (v3)
    ───────────────────────────────────────────────
-   Escritorio: fila de botones arriba a la derecha.
-   Móvil (≤860px): botón hamburguesa que abre un panel lateral.
-   Además oculta los enlaces duplicados de la topbar (.tb-nav)
-   y mejora el contraste del gris más tenue (--t3). */
+   Un solo botón (hamburguesa) en TODOS los tamaños, que abre un
+   panel lateral con las secciones. Así el menú nunca se superpone
+   con las barras propias de cada página (Video, Partido, etc.).
+   Además oculta los enlaces duplicados de la topbar (.tb-nav),
+   deja lugar en las barras propias para el botón y mejora el
+   contraste del gris más tenue (--t3). */
 (function(){
   if(window.__spnav) return; window.__spnav=1;
 
@@ -4182,23 +4213,13 @@ async function renderPlaybook(){
   ];
 
   var css = ''
-    /* barra escritorio */
-    + '.spnav{position:fixed;top:14px;right:16px;z-index:500;display:flex;gap:8px;flex-wrap:wrap;'
-    + 'justify-content:flex-end;max-width:calc(100vw - 32px);'
-    + "font-family:'DM Sans',system-ui,-apple-system,sans-serif}"
-    + '.spnav a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:9px 13px;'
-    + 'border-radius:11px;background:rgba(22,24,32,.85);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);'
-    + 'border:1px solid rgba(255,255,255,.12);color:#c4cad6;font-size:13px;font-weight:600;'
-    + 'letter-spacing:.01em;line-height:1;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,transform .15s}'
-    + '.spnav a:hover{background:rgba(30,32,42,.96);border-color:rgba(255,255,255,.28);color:#fff;transform:translateY(-1px)}'
-    + '.spnav a.active{color:#f97316;border-color:rgba(249,115,22,.5);background:rgba(249,115,22,.12)}'
-    + '.spnav a svg{width:17px;height:17px;flex:none}'
-    /* hamburguesa móvil */
-    + '.spnav-burger{display:none;position:fixed;top:12px;right:12px;z-index:600;width:46px;height:46px;'
-    + 'border-radius:13px;background:rgba(22,24,32,.92);border:1px solid rgba(255,255,255,.16);color:#e7eaf2;'
-    + '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;align-items:center;justify-content:center;padding:0}'
+    + '.spnav-burger{display:flex;position:fixed;top:10px;right:12px;z-index:960;width:46px;height:46px;'
+    + 'border-radius:13px;background:rgba(22,24,32,.92);border:1px solid rgba(255,255,255,.18);color:#e7eaf2;'
+    + '-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);cursor:pointer;align-items:center;justify-content:center;padding:0;'
+    + 'transition:border-color .15s,color .15s}'
+    + '.spnav-burger:hover{border-color:rgba(249,115,22,.6);color:#f97316}'
     + '.spnav-burger svg{width:22px;height:22px}'
-    + '.spnav-back{position:fixed;inset:0;z-index:590;display:none;background:rgba(7,8,12,.66);'
+    + '.spnav-back{position:fixed;inset:0;z-index:950;display:none;background:rgba(7,8,12,.66);'
     + '-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}'
     + '.spnav-back.on{display:block}'
     + '.spnav-sheet{position:absolute;top:0;right:0;bottom:0;width:min(300px,84vw);background:#0f1117;'
@@ -4208,15 +4229,15 @@ async function renderPlaybook(){
     + 'text-transform:uppercase;color:#fff;padding:6px 12px 12px}'
     + '.spnav-title span{color:#f97316}'
     + '.spnav-sheet a{display:flex;align-items:center;gap:13px;padding:14px;border-radius:12px;color:#c4cad6;'
-    + 'text-decoration:none;font-size:15.5px;font-weight:600;border:1px solid transparent}'
-    + '.spnav-sheet a:active{background:rgba(30,32,42,.9)}'
+    + 'text-decoration:none;font-size:15.5px;font-weight:600;border:1px solid transparent;transition:background .12s,color .12s}'
+    + '.spnav-sheet a:hover{background:rgba(30,32,42,.9);color:#fff}'
     + '.spnav-sheet a.active{color:#f97316;background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.45)}'
     + '.spnav-sheet a svg{width:20px;height:20px;flex:none}'
-    + '@media(max-width:860px){.spnav{display:none}.spnav-burger{display:flex}}'
-    + '@media(min-width:861px){.spnav-burger,.spnav-back{display:none!important}}'
-    /* enlaces duplicados de la topbar: fuera (la nav compartida ya cubre todo) */
+    /* enlaces duplicados de la topbar: fuera */
     + '.tb-nav{display:none!important}'
-    /* contraste global: el gris más tenue sube un escalón para ser legible */
+    /* aire a la derecha en las barras propias para que el botón no tape nada */
+    + '.topbar,.splash-topnav{padding-right:70px!important}'
+    /* contraste global */
     + ':root{--t3:#6b7484}';
 
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
@@ -4236,11 +4257,6 @@ async function renderPlaybook(){
     return a;
   }
 
-  // barra de escritorio
-  var nav=document.createElement('nav'); nav.className='spnav'; nav.setAttribute('aria-label','Navegación');
-  items.forEach(function(it){ nav.appendChild(mkLink(it)); });
-
-  // hamburguesa + panel móvil
   var burger=document.createElement('button'); burger.className='spnav-burger';
   burger.setAttribute('aria-label','Abrir menú');
   burger.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>';
@@ -4260,7 +4276,6 @@ async function renderPlaybook(){
 
   function mount(){
     if(!document.body) return;
-    document.body.appendChild(nav);
     document.body.appendChild(burger);
     document.body.appendChild(back);
   }
