@@ -829,6 +829,14 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
       <div class="field"><label>Fecha</label><input id="mFecha" type="date"></div>
       <div class="field"><label>Fase</label><input id="mFase" placeholder="Liga / Playoff"></div>
       <div class="field"><label>Jornada</label><input id="mJornada" placeholder="Fecha 12"></div>
+      <div class="field"><label>Liga</label><select id="mLiga" style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:var(--r);padding:9px var(--sp-3);font-family:var(--font-mono);font-size:12px;color:var(--text);outline:none">
+        <option value="">— Elegí la liga —</option>
+        <option value="dta">DTA</option>
+        <option value="lda">LDA · Ascenso</option>
+        <option value="liga">LIGA · Uruguaya</option>
+        <option value="femenina">Liga Femenina</option>
+        <option value="formativas">Formativas</option>
+      </select></div>
       <button class="btn-save" id="saveBtn" onclick="saveMatch()">↑ Guardar partido</button>
       <span style="width:1px;height:30px;background:var(--border-light);margin:0 4px"></span>
       <div class="field"><label>Informe de</label><select id="pgTeam" style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:var(--r);padding:9px var(--sp-3);font-family:var(--font-mono);font-size:12px;color:var(--text);outline:none"></select></div>
@@ -1186,6 +1194,8 @@ async function saveMatch(){
   const fecha=document.getElementById('mFecha').value||null;
   const fase=document.getElementById('mFase').value.trim()||null;
   const jornada=document.getElementById('mJornada').value.trim()||null;
+  const ligaSel=(document.getElementById('mLiga').value||'').trim();
+  if(!ligaSel){saveStatusMsg('err','Elegí la liga del partido antes de guardar.');return;}
   // ID del partido: si el dato no trae un número largo (5+ dígitos), generamos uno
   // ESTABLE con equipos+fecha+fase+jornada. Antes, sin ID numérico, match_id quedaba
   // vacío ('') => no se borraba lo anterior (se DUPLICABA al reguardar) y todos los
@@ -1203,7 +1213,7 @@ async function saveMatch(){
     const rival=S.teams[team===1?2:1].name;
     for(const r of Object.values(acc[team])){
       const m=calcMetrics(r);
-      rows.push({match_id:matchId,fecha,fase,jornada,liga:ligaDelPerfil(),
+      rows.push({match_id:matchId,fecha,fase,jornada,liga:ligaSel,
         equipo:S.teams[team].name,rival,es_local:team===1,
         jugadores:r.players.map(p=>({num:p.num,name:p.name})),
         jugadores_key:r.players.map(p=>p.pid).sort().join('||'),
@@ -1939,6 +1949,19 @@ function switchView(v){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
 }
+
+// Liga por defecto: la del perfil (el usuario puede cambiarla antes de guardar)
+(function(){
+  function setDefaultLiga(){
+    try{
+      const sel=document.getElementById('mLiga');if(!sel||sel.value)return;
+      const p=(window.ScoutPro&&window.ScoutPro.profile)?window.ScoutPro.profile():null;
+      if(p&&p.liga&&[...sel.options].some(o=>o.value===p.liga))sel.value=p.liga;
+    }catch(e){}
+  }
+  setDefaultLiga();
+  if(window.ScoutPro&&window.ScoutPro.ready)window.ScoutPro.ready.then(setDefaultLiga);
+})();
 </script>
   <script>
 /* ScoutPRO · Menú de navegación compartido (v3)
