@@ -799,6 +799,12 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
     ['femenina', 'Liga Femenina'],
     ['formativas', 'Formativas']
   ];
+  /* Cuentas administradoras del programa: entran sin asistente de
+     registro y tienen potestad total en la app. */
+  var ADMIN_EMAILS = ['admin@scoutpro.app'];
+  function esAdmin(user) {
+    return !!user && ADMIN_EMAILS.indexOf(String(user.email || '').trim().toLowerCase()) !== -1;
+  }
 
   /* URL de retorno para los emails (confirmación / recuperación).
      Solo tiene sentido cuando la app corre en un servidor http(s). */
@@ -892,6 +898,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
     ready: ready,
     profile: currentProfile,
     logout: doLogout,
+    isAdmin: function () { return !!CURRENT.isAdmin; },
     editProfile: function () { openWizard(true); }
   };
   if (!window.authLogout) window.authLogout = doLogout;
@@ -1316,7 +1323,17 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         CURRENT.user = session.user;
         var meta = session.user.user_metadata || {};
         if (IS_RECOVERY) { viewNewPassword(); return; }
-        if (meta.onboarded) {
+        if (esAdmin(user)) {
+          // Admin del programa: directo adentro, sin registro ni liga
+          CURRENT.profile = profileFromMeta(meta);
+          if (!CURRENT.profile.nombre) CURRENT.profile.nombre = 'Admin';
+          if (!CURRENT.profile.rol) CURRENT.profile.rol = 'admin';
+          CURRENT.profile.admin = true;
+          CURRENT.isAdmin = true;
+          writeLocal(CURRENT.profile);
+          if (FROM_EMAIL) cleanURL();
+          finishReady();
+        } else if (meta.onboarded) {
           // La cuenta manda: sembramos el storage compartido para que
           // cada sección adopte el mismo equipo desde el arranque.
           CURRENT.profile = profileFromMeta(meta);
