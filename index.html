@@ -1161,8 +1161,10 @@ body.sp-visible .eyebrow,body.sp-visible .brand,body.sp-visible .subtitle,body.s
     + '.spnav-sheet a:hover{background:rgba(30,32,42,.9);color:#fff}'
     + '.spnav-sheet a.active{color:#f97316;background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.45)}'
     + '.spnav-sheet a svg{width:20px;height:20px;flex:none}'
-    /* enlaces duplicados de la topbar: fuera */
+    /* enlaces duplicados de la topbar: fuera (el menú desplegable ya cubre todo) */
     + '.tb-nav{display:none!important}'
+    + 'a.tb-btn[href]{display:none!important}'
+    + 'a.stn-btn[href]{display:none!important}'
     /* aire a la derecha en las barras propias para que el botón no tape nada */
     + '.topbar,.splash-topnav{padding-right:70px!important}'
     /* contraste global */
