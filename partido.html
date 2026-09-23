@@ -1754,7 +1754,7 @@ select.qsel option{background:#161820}
         CURRENT.user = session.user;
         var meta = session.user.user_metadata || {};
         if (IS_RECOVERY) { viewNewPassword(); return; }
-        if (esAdmin(user)) {
+        if (esAdmin(session.user)) {
           // Admin del programa: directo adentro, sin registro ni liga
           CURRENT.profile = profileFromMeta(meta);
           if (!CURRENT.profile.nombre) CURRENT.profile.nombre = 'Admin';
