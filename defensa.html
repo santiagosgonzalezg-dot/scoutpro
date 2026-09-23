@@ -738,6 +738,18 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
 .btn-danger:hover{filter:brightness(1.1)}
 .net-badge{position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:700;background:#2a1616;border:1px solid rgba(240,80,80,.6);color:#ffb4b4;font-family:var(--mono);font-size:11px;padding:8px 14px;border-radius:20px;max-width:calc(100vw - 24px);text-align:center}
 .net-badge[hidden]{display:none}
+/* defensa activa + stops */
+.dsel button{min-width:0;padding:9px 13px;font-size:13px;font-family:var(--ui);font-weight:700}
+.btn-stop{background:rgba(52,199,120,.14);border:1px solid rgba(52,199,120,.55);color:var(--positive);font-weight:700}
+.btn-stop:hover{background:rgba(52,199,120,.22)}
+.btn-stop.hit{animation:hitfx .45s ease}
+.def-row{display:grid;grid-template-columns:1.6fr .7fr .7fr .8fr .6fr .9fr;gap:8px;align-items:center;padding:9px 4px;border-bottom:1px solid var(--b1);font-family:var(--mono);font-size:12.5px;color:var(--t1)}
+.def-row:last-child{border-bottom:none}
+.def-head{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--b2)}
+.def-n{font-family:var(--ui);font-weight:700;font-size:13.5px}
+.def-ok{color:var(--positive)}
+.def-mal{color:var(--negative)}
+@media(max-width:560px){.def-row{grid-template-columns:1.3fr .6fr .6fr .7fr .55fr .8fr;font-size:11.5px}}
 /* tipografía más legible */
 .card .meta{font-size:11px}
 .fld label{font-size:10.5px}
@@ -775,6 +787,12 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
     <div class="qsel" id="qsel"></div>
   </div>
 
+  <div class="qbar">
+    <span class="q-l">Defensa activa</span>
+    <div class="qsel dsel" id="dsel"></div>
+    <button class="btn btn-stop" id="btnStop" onclick="stopDef()" title="Posesión del rival sin puntos (fallo, pérdida, robo)">🛑 Stop</button>
+  </div>
+
   <div class="sec-row">
     <div class="sec">Registrar anotación del rival</div>
     <button class="btn btn-ghost" id="btnTipos" onclick="toggleTipos()">✎ Editar mis jugadas</button>
@@ -796,6 +814,12 @@ body{margin:0;background:var(--bg-base);color:var(--t1);font-family:var(--ui);fo
     <div class="qmini" id="qmini"></div>
     <div class="qtabs" id="qtabs"></div>
     <div id="brk"><div class="empty">Todavía no registraste nada. Tocá una jugada arriba cuando el rival anote.</div></div>
+  </div>
+
+  <div class="sec">Rendimiento por defensa</div>
+  <div class="panel">
+    <div class="qmini" id="defFiltro"></div>
+    <div id="defBrk"><div class="empty">Todavía no hay posesiones marcadas.</div></div>
   </div>
 
   <div class="savebar">
@@ -854,6 +878,9 @@ const SUGERIDOS=[
 ];
 const CUARTOS=['q1','q2','q3','q4'];
 const QLBL={q1:'Q1',q2:'Q2',q3:'Q3',q4:'Q4'};
+const DEFENSAS=[['hombre','Hombre'],['z23','Zona 2-3'],['z32','Zona 3-2'],['z131','Zona 1-3-1'],['press','Presión'],['mixta','Mixta']];
+function dLabel(d){const x=DEFENSAS.find(e=>e[0]===d);return x?x[1]:'Sin marcar';}
+let D='hombre';       // defensa activa
 let TIPOS=[];      // lista propia del perfil
 let USER_ID=null;
 let Q='q1';        // cuarto activo para taguear
@@ -949,8 +976,19 @@ function tot(k,q){
 }
 function totAll(q){
   let p=0,j=0;
-  for(const h of hist){if(q!=='all'&&h.q!==q)continue;p+=h.pts;j++;}
+  for(const h of hist){if(h.stop)continue;if(q!=='all'&&h.q!==q)continue;p+=h.pts;j++;}
   return {pts:p,jug:j};
+}
+function defStats(q){
+  const m={};
+  for(const h of hist){
+    if(q!=='all'&&h.q!==q)continue;
+    const d=h.d||'__sin';
+    if(!m[d])m[d]={pos:0,stops:0,pts:0};
+    m[d].pos++;
+    if(h.stop)m[d].stops++;else m[d].pts+=h.pts;
+  }
+  return m;
 }
 
 /* ── Modal propio ── */
@@ -989,17 +1027,26 @@ function undoToast(){
 /* ── Taguear ── */
 function add(k,pts){
   const t=TIPOS.find(x=>x.k===k);if(!t)return;
-  const ev={id:nextId++,k,pts,q:Q};
+  const ev={id:nextId++,k,pts,q:Q,d:D};
   hist.push(ev);autosave();
   try{if(navigator.vibrate)navigator.vibrate(20);}catch(e){}
   const card=document.getElementById('c_'+k);
   if(card){card.classList.remove('hit');void card.offsetWidth;card.classList.add('hit');}
-  toast('<b>'+escHTML(t.label)+'</b>&nbsp;+'+pts+' · '+QLBL[Q],ev.id);
+  toast('<b>'+escHTML(t.label)+'</b>&nbsp;+'+pts+' · '+QLBL[Q]+' · '+dLabel(D),ev.id);
   render();
 }
 function undo(k){
   for(let i=hist.length-1;i>=0;i--){if(hist[i].k===k){hist.splice(i,1);break;}}
   autosave();render();
+}
+function stopDef(){
+  const ev={id:nextId++,stop:true,k:null,pts:0,q:Q,d:D};
+  hist.push(ev);autosave();
+  try{if(navigator.vibrate)navigator.vibrate([15,40,15]);}catch(e){}
+  const b=document.getElementById('btnStop');
+  if(b){b.classList.remove('hit');void b.offsetWidth;b.classList.add('hit');}
+  toast('🛑 <b>Stop defensivo</b> · '+QLBL[Q]+' · '+dLabel(D),ev.id);
+  render();
 }
 function reiniciar(){
   if(!hist.length){status('No hay nada para borrar.','load');return;}
@@ -1013,6 +1060,11 @@ function reiniciar(){
 
 /* ── Cuartos ── */
 function setQ(q){Q=q;autosave();renderQsel();render();}
+function setD(d){D=d;autosave();renderDsel();}
+function renderDsel(){
+  document.getElementById('dsel').innerHTML=DEFENSAS.map(([d,l])=>
+    '<button class="'+(D===d?'on':'')+'" onclick="setD(\''+d+'\')">'+l+'</button>').join('');
+}
 function renderQsel(){
   document.getElementById('qsel').innerHTML=CUARTOS.map(q=>
     '<button class="'+(Q===q?'on':'')+'" onclick="setQ(\''+q+'\')">'+QLBL[q]+'</button>').join('');
@@ -1057,6 +1109,7 @@ function render(){
       :'Sin jugadas registradas en '+QLBL[VISTA]+'.')+'</div>';
     return;
   }
+  renderDefPanel();
   const totP=rows.reduce((s,r)=>s+r.pts,0);
   const max=Math.max(...rows.map(r=>r.pts),1);
   brk.innerHTML=rows.map(r=>{
@@ -1068,24 +1121,39 @@ function render(){
       '<span class="brk-val"><b>'+r.pts+'</b>pts · '+share+'% · '+ppj+' p/j</span></div>';
   }).join('');
 }
+function renderDefPanel(){
+  const el=document.getElementById('defBrk');if(!el)return;
+  document.getElementById('defFiltro').textContent=(VISTA==='all'?'Todo el partido':QLBL[VISTA])+' · sigue el filtro de cuartos del panel de arriba';
+  const m=defStats(VISTA);
+  const orden=DEFENSAS.map(x=>x[0]).concat(Object.keys(m).includes('__sin')?['__sin']:[]);
+  const rows=orden.filter(d=>m[d]&&m[d].pos>0).map(d=>({d,...m[d]}));
+  if(!rows.length){el.innerHTML='<div class="empty">Todavía no hay posesiones marcadas'+(VISTA!=='all'?' en '+QLBL[VISTA]:'')+'. Tocá 🛑 Stop cuando el rival no anote, y las anotaciones se marcan solas con la defensa activa.</div>';return;}
+  el.innerHTML='<div class="def-row def-head"><span>Defensa</span><span>Pos.</span><span>Stops</span><span>% stop</span><span>Pts</span><span>Pts/pos</span></div>'+
+    rows.map(r=>{
+      const st=r.pos?Math.round(r.stops/r.pos*100):0;
+      const ppp=r.pos?(r.pts/r.pos).toFixed(2):'0.00';
+      return '<div class="def-row"><span class="def-n">'+dLabel(r.d)+'</span><span>'+r.pos+'</span><span>'+r.stops+'</span><span class="'+(st>=60?'def-ok':st<=40?'def-mal':'')+'">'+st+'%</span><span>'+r.pts+'</span><span class="'+(r.pos&&r.pts/r.pos<=0.85?'def-ok':r.pos&&r.pts/r.pos>=1.05?'def-mal':'')+'"><b>'+ppp+'</b></span></div>';
+    }).join('');
+}
 function status(msg,cls){const e=document.getElementById('status');e.textContent=msg||'';e.className='status '+(cls||'');}
 
 /* ── Autosave en el dispositivo ── */
 function lsKeyLive(){return 'defensa_live_'+(USER_ID||'local');}
 function autosave(){
-  const d={v:1,ts:Date.now(),q:Q,nextId,hist,
+  const d={v:2,ts:Date.now(),q:Q,d:D,nextId,hist,
     f:{fecha:val('fecha'),fase:val('fase'),jornada:val('jornada'),nuestro:val('nuestro'),rival:val('rival')}};
   try{localStorage.setItem(lsKeyLive(),JSON.stringify(d));}catch(e){}
 }
 function restaurar(d){
-  hist=Array.isArray(d.hist)?d.hist.filter(h=>h&&h.k&&h.pts):[];
+  hist=Array.isArray(d.hist)?d.hist.filter(h=>h&&(h.stop||(h.k&&h.pts))):[];
   nextId=d.nextId||hist.length+1;
   Q=CUARTOS.includes(d.q)?d.q:'q1';
+  if(d.d&&DEFENSAS.some(x=>x[0]===d.d))D=d.d;
   const f=d.f||{};
   ['fecha','fase','jornada','nuestro','rival'].forEach(id=>{
     if(f[id]!=null&&f[id]!=='')document.getElementById(id).value=f[id];
   });
-  renderQsel();render();
+  renderQsel();renderDsel();render();
 }
 function checkLive(){
   let d=null;
@@ -1118,14 +1186,19 @@ async function reintentar(){
     await c.from('defensa_log').delete().eq('match_key',p.matchKey);
     const {error}=await c.from('defensa_log').insert(p.rows);
     if(error)throw error;
+    if(Array.isArray(p.rowsEsq)&&p.rowsEsq.length){
+      await c.from('defensa_esquemas_log').delete().eq('match_key',p.matchKey);
+      const r2=await c.from('defensa_esquemas_log').insert(p.rowsEsq);
+      if(r2.error)throw r2.error;
+    }
     try{localStorage.removeItem(lsKeyCola());}catch(e){}
     status('✓ Guardado pendiente subido ('+p.rows.length+' tipos).','ok');
   }catch(e){
     status('El guardado pendiente sigue en cola. Se reintenta al volver la conexión.','load');
   }
 }
-function encolar(rows,matchKey){
-  try{localStorage.setItem(lsKeyCola(),JSON.stringify({rows,matchKey,ts:Date.now()}));}catch(e){}
+function encolar(rows,matchKey,rowsEsq){
+  try{localStorage.setItem(lsKeyCola(),JSON.stringify({rows,rowsEsq:rowsEsq||[],matchKey,ts:Date.now()}));}catch(e){}
 }
 
 async function guardar(){
@@ -1140,21 +1213,31 @@ async function guardar(){
     match_key:matchKey,fecha,fase,jornada,nuestro,rival,
     tipo:x.t.label,eventos:x.s.jug,puntos:x.s.pts
   }));
+  const em=defStats('all');
+  const rowsEsq=Object.keys(em).filter(d=>em[d].pos>0).map(d=>({
+    match_key:matchKey,fecha,fase,jornada,nuestro,rival,
+    esquema:dLabel(d),posesiones:em[d].pos,stops:em[d].stops,puntos:em[d].pts
+  }));
   if(navigator.onLine===false){
-    encolar(rows,matchKey);
+    encolar(rows,matchKey,rowsEsq);
     status('Sin conexión: quedó en cola y se sube solo al volver internet.','load');
     return;
   }
-  const c=getSB();if(!c){encolar(rows,matchKey);status('No se pudo conectar: quedó en cola para reintentar.','load');return;}
+  const c=getSB();if(!c){encolar(rows,matchKey,rowsEsq);status('No se pudo conectar: quedó en cola para reintentar.','load');return;}
   status('Guardando…','load');
   try{
     await c.from('defensa_log').delete().eq('match_key',matchKey);
     const {error}=await c.from('defensa_log').insert(rows);
     if(error)throw error;
+    await c.from('defensa_esquemas_log').delete().eq('match_key',matchKey);
+    if(rowsEsq.length){
+      const r2=await c.from('defensa_esquemas_log').insert(rowsEsq);
+      if(r2.error)throw r2.error;
+    }
     try{localStorage.removeItem(lsKeyCola());}catch(e){}
-    status('✓ Guardado: '+rows.length+' tipos de jugada.','ok');
+    status('✓ Guardado: '+rows.length+' tipos de jugada · '+rowsEsq.length+' defensas.','ok');
   }catch(e){
-    encolar(rows,matchKey);
+    encolar(rows,matchKey,rowsEsq);
     status('No se pudo guardar ahora: quedó en cola y se reintenta al volver la conexión.','load');
   }
 }
@@ -1201,7 +1284,7 @@ document.getElementById('nuevoTipo').addEventListener('keydown',e=>{if(e.key==='
 });
 window.addEventListener('online',()=>{updNet();reintentar();});
 window.addEventListener('offline',updNet);
-renderQsel();renderQtabs();
+renderQsel();renderQtabs();renderDsel();
 initTipos();
 </script>
   <script>
