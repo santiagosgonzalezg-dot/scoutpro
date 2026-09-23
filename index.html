@@ -1043,7 +1043,7 @@ body.sp-visible .eyebrow,body.sp-visible .brand,body.sp-visible .subtitle,body.s
         CURRENT.user = session.user;
         var meta = session.user.user_metadata || {};
         if (IS_RECOVERY) { viewNewPassword(); return; }
-        if (esAdmin(user)) {
+        if (esAdmin(session.user)) {
           // Admin del programa: directo adentro, sin registro ni liga
           CURRENT.profile = profileFromMeta(meta);
           if (!CURRENT.profile.nombre) CURRENT.profile.nombre = 'Admin';
