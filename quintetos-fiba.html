@@ -839,6 +839,13 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 </div>
 
 <script>
+function ligaDelPerfil(){
+  try{
+    const p=(window.ScoutPro&&window.ScoutPro.profile)?window.ScoutPro.profile():null;
+    return (p&&p.liga)?p.liga:null;
+  }catch(e){return null;}
+}
+
 // ════════════════════════════════════════════════════════════════
 //  ESTADO
 // ════════════════════════════════════════════════════════════════
@@ -1148,7 +1155,7 @@ async function saveMatch(){
     const rival=S.teams[team===1?2:1].name;
     for(const r of Object.values(acc[team])){
       const m=calcMetrics(r);
-      rows.push({match_id:matchId,fecha,fase,jornada,
+      rows.push({match_id:matchId,fecha,fase,jornada,liga:ligaDelPerfil(),
         equipo:S.teams[team].name,rival,es_local:team===1,
         jugadores:r.players.map(p=>({num:p.num,name:p.name})),
         jugadores_key:r.players.map(p=>p.pid).sort().join('||'),
