@@ -311,6 +311,31 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
 .focus-toggle { font-family: var(--font-mono); font-size: 8px; color: var(--text-3); background: none; border: 1px solid var(--border-subtle); border-radius: var(--r-sm); padding: 1px 6px; cursor: pointer; transition: all var(--t-fast); }
 .focus-toggle:hover { color: var(--text-2); border-color: var(--border-light); }
 
+/* ── ZOOM + PANTALLA COMPLETA DEL VIDEO ── */
+.video-stage { display: flex; flex-direction: column; flex-shrink: 0; }
+.video-player video { transform-origin: center center; will-change: transform; }
+.video-player.zoomed { cursor: grab; }
+.video-player.zoomed.panning { cursor: grabbing; }
+.video-player.zoomed video { transition: none; }
+.vz-group { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; }
+.vz-btn { font-family: var(--font-mono); font-size: 10px; min-width: 22px; height: 20px; color: var(--text-2); background: none; border: 1px solid var(--border-subtle); border-radius: var(--r-sm); padding: 0 6px; cursor: pointer; transition: all var(--t-fast); }
+.vz-btn:hover { color: var(--text); border-color: var(--border-light); }
+.vz-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.vz-level { font-family: var(--font-mono); font-size: 9px; color: var(--text-3); min-width: 34px; text-align: center; cursor: pointer; }
+.vz-level.on { color: var(--accent); }
+.vz-badge { position: absolute; top: 8px; left: 8px; z-index: 5; font-family: var(--font-mono); font-size: 10px; color: #fff; background: rgba(0,0,0,.6); border-radius: 4px; padding: 2px 7px; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.vz-badge.show { opacity: 1; }
+.vz-minimap { position: absolute; right: 8px; bottom: 8px; z-index: 5; width: 96px; aspect-ratio: 16/9; border: 1px solid rgba(255,255,255,.45); background: rgba(0,0,0,.35); border-radius: 3px; pointer-events: none; display: none; }
+.vz-minimap i { position: absolute; border: 1.5px solid var(--accent); background: rgba(255,255,255,.08); }
+.video-player.zoomed .vz-minimap { display: block; }
+
+.video-stage:fullscreen, .video-stage:-webkit-full-screen, .video-stage.pseudo-fs { width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; }
+.video-stage.pseudo-fs { position: fixed; inset: 0; z-index: 900; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.video-stage:fullscreen .video-area, .video-stage:-webkit-full-screen .video-area, .video-stage.pseudo-fs .video-area { flex: 1; min-height: 0; display: flex; }
+.video-stage:fullscreen .video-player, .video-stage:-webkit-full-screen .video-player, .video-stage.pseudo-fs .video-player { max-height: none; aspect-ratio: auto; height: 100%; flex: 1; }
+.video-stage:fullscreen .wizard-box, .video-stage:-webkit-full-screen .wizard-box, .video-stage.pseudo-fs .wizard-box { position: absolute; top: 12px; right: 12px; width: 300px; max-height: calc(100% - 90px); overflow-y: auto; z-index: 60; margin: 0; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+
+
 /* MEGA TIMELINE */
 .ml-timeline { flex-shrink: 0; background: var(--bg-raised); border-bottom: 1px solid var(--border-subtle); overflow: hidden; }
 .mlt-header { display: flex; align-items: center; justify-content: space-between; padding: 2px var(--sp-3); border-bottom: 1px solid var(--border-subtle); }
@@ -1614,7 +1639,10 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         <button class="mi-btn def-btn" id="mode-def-btn" onclick="setTagMode('defense')">DEF</button>
       </div>
     </div>
+    <div class="video-stage" id="video-stage">
     <div class="video-area">
+      <div class="vz-badge" id="vz-badge">1.0×</div>
+      <div class="vz-minimap" id="vz-minimap"><i id="vz-minimap-view"></i></div>
       <div class="video-player" id="video-player" onclick="handleVideoClick()">
         <div class="video-placeholder" id="video-placeholder">
           <div class="vph-icon">▶</div>
@@ -1640,9 +1668,16 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
           <button class="sp-btn" onclick="setSpeed(1.5)">1.5×</button>
           <button class="sp-btn" onclick="setSpeed(2)">2×</button>
         </div>
+        <div class="vz-group">
+          <button class="vz-btn" onclick="vzStep(-1)" title="Alejar (tecla −)">−</button>
+          <span class="vz-level" id="vz-level" onclick="vzReset()" title="Zoom actual · clic para volver a 1× (tecla 0)">1.0×</span>
+          <button class="vz-btn" onclick="vzStep(1)" title="Acercar (tecla +)">+</button>
+          <button class="vz-btn" id="vz-fs-btn" onclick="toggleVideoFullscreen()" title="Pantalla completa (tecla B)">⛶</button>
+        </div>
         <button class="focus-toggle" onclick="toggleFocusMode()" title="Toggle focus mode">Focus</button>
       </div>
     </div>
+    </div><!-- /video-stage -->
     <!-- MEGA TIMELINE -->
     <div class="ml-timeline" id="ml-timeline">
       <div class="mlt-header">
@@ -2253,7 +2288,7 @@ function renderSplash() {
   }
 }
 
-function handleVideoClick() { if (!S.videoEl) { document.getElementById('video-file').click(); return; } togglePlay(); }
+function handleVideoClick() { if (VZ.dragged) { VZ.dragged=false; return; } if (!S.videoEl) { document.getElementById('video-file').click(); return; } togglePlay(); }
 function fileSelected(inp) {
   if (!inp.files[0]) return;
   if (S.videoURL) URL.revokeObjectURL(S.videoURL);
@@ -2262,7 +2297,7 @@ function fileSelected(inp) {
   player.innerHTML='';
   const vid=document.createElement('video');
   vid.src=S.videoURL; vid.style.cssText='width:100%;height:100%;object-fit:contain;background:#000'; vid.controls=false;
-  player.appendChild(vid); S.videoEl=vid;
+  player.appendChild(vid); S.videoEl=vid; vzReset(true);
   vid.addEventListener('timeupdate',updateTimeUI);
   vid.addEventListener('loadedmetadata',()=>{ S.duration=vid.duration; updateTimeUI(); });
   const fi=document.createElement('input'); fi.type='file'; fi.id='video-file'; fi.accept='video/*'; fi.style.display='none'; fi.onchange=function(){ fileSelected(this); }; player.appendChild(fi);
@@ -3028,6 +3063,149 @@ function clipRange(c, vid) {
   return { start: Math.max(0, c.timestamp - S.buffer), end: Math.min(dur, c.timestamp + S.buffer) };
 }
 
+// ── ZOOM + PANTALLA COMPLETA DEL VIDEO ──
+const VZ = { z:1, tx:0, ty:0, min:1, max:16, dragged:false, drag:null, pinch:null, badgeT:null, moved:[] };
+function vzEl() { return S.videoEl; }
+function vzClamp() {
+  const p=document.getElementById('video-player'); if (!p) return;
+  const w=p.clientWidth, h=p.clientHeight;
+  const mx=(VZ.z-1)*w/2, my=(VZ.z-1)*h/2;
+  VZ.tx=Math.max(-mx,Math.min(mx,VZ.tx)); VZ.ty=Math.max(-my,Math.min(my,VZ.ty));
+}
+function vzApply(showBadge) {
+  vzClamp();
+  const v=vzEl(), p=document.getElementById('video-player');
+  if (v) v.style.transform = VZ.z>1 ? `translate(${VZ.tx}px,${VZ.ty}px) scale(${VZ.z})` : '';
+  if (p) p.classList.toggle('zoomed', VZ.z>1);
+  const txt=VZ.z.toFixed(1)+'×';
+  const lv=document.getElementById('vz-level'); if (lv) { lv.textContent=txt; lv.classList.toggle('on',VZ.z>1); }
+  const b=document.getElementById('vz-badge');
+  if (b && showBadge!==false) { b.textContent=txt; b.classList.add('show'); clearTimeout(VZ.badgeT); VZ.badgeT=setTimeout(()=>b.classList.remove('show'),900); }
+  // minimapa: rectángulo de la zona visible
+  const mv=document.getElementById('vz-minimap-view');
+  if (mv && p && VZ.z>1) {
+    const w=p.clientWidth, h=p.clientHeight, vw=100/VZ.z;
+    const left=50 - vw/2 - (VZ.tx/(w*VZ.z))*100, top=50 - vw/2 - (VZ.ty/(h*VZ.z))*100;
+    mv.style.cssText=`width:${vw}%;height:${vw}%;left:${left}%;top:${top}%`;
+  }
+}
+// Zoom hacia un punto (cx,cy relativos al centro del reproductor)
+function vzZoomAt(newZ, cx, cy) {
+  newZ=Math.max(VZ.min,Math.min(VZ.max,newZ));
+  const k=newZ/VZ.z;
+  VZ.tx = cx - (cx - VZ.tx)*k; VZ.ty = cy - (cy - VZ.ty)*k; VZ.z=newZ;
+  if (VZ.z<=1.001) { VZ.z=1; VZ.tx=0; VZ.ty=0; }
+  vzApply();
+}
+function vzStep(dir) { if (!vzEl()) { notify('Cargá un video primero.'); return; } vzZoomAt(dir>0?VZ.z*1.25:VZ.z/1.25, 0, 0); }
+function vzReset(silent) { VZ.z=1; VZ.tx=0; VZ.ty=0; vzApply(!silent); }
+function vzPanBy(dx,dy) { VZ.tx+=dx; VZ.ty+=dy; vzApply(false); }
+function vzCenterOf(p, clientX, clientY) { const r=p.getBoundingClientRect(); return [clientX-r.left-r.width/2, clientY-r.top-r.height/2]; }
+
+(function initVideoZoom(){
+  const p=document.getElementById('video-player'); if (!p) return;
+  // Rueda / trackpad: zoom hacia el cursor
+  p.addEventListener('wheel', e=>{
+    if (!vzEl()) return;
+    e.preventDefault();
+    const [cx,cy]=vzCenterOf(p,e.clientX,e.clientY);
+    const factor=Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0025));
+    vzZoomAt(VZ.z*factor, cx, cy);
+  }, {passive:false});
+  // Doble clic: acercar 2.5× en ese punto, o volver a 1×
+  p.addEventListener('dblclick', e=>{
+    if (!vzEl()) return;
+    e.preventDefault();
+    if (VZ.z>1) { vzReset(); return; }
+    const [cx,cy]=vzCenterOf(p,e.clientX,e.clientY); vzZoomAt(2.5,cx,cy);
+  });
+  // Arrastrar para mover el encuadre (mouse) y pellizcar para zoom (táctil)
+  const pts=new Map();
+  p.addEventListener('pointerdown', e=>{
+    if (!vzEl()) return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if (pts.size===2) {
+      const [a,b]=[...pts.values()];
+      const [cx,cy]=vzCenterOf(p,(a.x+b.x)/2,(a.y+b.y)/2);
+      VZ.pinch={d:Math.hypot(a.x-b.x,a.y-b.y), z:VZ.z, tx:VZ.tx, ty:VZ.ty, cx, cy}; VZ.drag=null; VZ.dragged=true;
+    } else if (pts.size===1) {
+      VZ.drag={x:e.clientX,y:e.clientY,tx:VZ.tx,ty:VZ.ty,moved:false};
+    }
+  });
+  p.addEventListener('pointermove', e=>{
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if (VZ.pinch && pts.size>=2) {
+      const [a,b]=[...pts.values()];
+      const d=Math.hypot(a.x-b.x,a.y-b.y);
+      VZ.z=VZ.pinch.z; VZ.tx=VZ.pinch.tx; VZ.ty=VZ.pinch.ty;
+      vzZoomAt(VZ.pinch.z*d/VZ.pinch.d, VZ.pinch.cx, VZ.pinch.cy);
+      return;
+    }
+    if (VZ.drag && VZ.z>1) {
+      const dx=e.clientX-VZ.drag.x, dy=e.clientY-VZ.drag.y;
+      if (!VZ.drag.moved && Math.hypot(dx,dy)>4) { VZ.drag.moved=true; p.classList.add('panning'); try{p.setPointerCapture(e.pointerId);}catch(_){} }
+      if (VZ.drag.moved) { VZ.tx=VZ.drag.tx+dx; VZ.ty=VZ.drag.ty+dy; vzApply(false); }
+    }
+  });
+  const end=e=>{
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (VZ.drag && VZ.drag.moved) VZ.dragged=true;
+    if (pts.size<2) VZ.pinch=null;
+    if (pts.size===0) { VZ.drag=null; p.classList.remove('panning'); setTimeout(()=>{ VZ.dragged=false; },0); }
+  };
+  p.addEventListener('pointerup', end); p.addEventListener('pointercancel', end);
+  p.style.touchAction='none';
+  window.addEventListener('resize', ()=>vzApply(false));
+})();
+
+// Pantalla completa: el video + controles; se traen adentro los avisos y el asistente de etiquetado
+const VFS = { moved:[] };
+function vfsIsOn() {
+  const st=document.getElementById('video-stage');
+  return !!(document.fullscreenElement===st || document.webkitFullscreenElement===st || st.classList.contains('pseudo-fs'));
+}
+function vfsBring(on) {
+  const st=document.getElementById('video-stage');
+  if (on) {
+    ['wizard-box','hk-hint','notif','poss-modal'].forEach(id=>{
+      const el=document.getElementById(id); if (!el) return;
+      VFS.moved.push({el, parent:el.parentNode, next:el.nextSibling});
+      st.appendChild(el);
+    });
+  } else {
+    VFS.moved.reverse().forEach(m=>{ m.parent.insertBefore(m.el, m.next); });
+    VFS.moved=[];
+  }
+  const btn=document.getElementById('vz-fs-btn'); if (btn) btn.textContent = on ? '✕' : '⛶';
+  setTimeout(()=>vzApply(false),60);
+}
+function toggleVideoFullscreen() {
+  const st=document.getElementById('video-stage'); if (!st) return;
+  if (vfsIsOn()) {
+    if (st.classList.contains('pseudo-fs')) { st.classList.remove('pseudo-fs'); vfsBring(false); return; }
+    (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+    return;
+  }
+  const req=st.requestFullscreen||st.webkitRequestFullscreen;
+  if (req) {
+    try { const r=req.call(st); if (r && r.catch) r.catch(()=>{ st.classList.add('pseudo-fs'); vfsBring(true); }); }
+    catch(_) { st.classList.add('pseudo-fs'); vfsBring(true); }
+  } else { st.classList.add('pseudo-fs'); vfsBring(true); } // iPhone: pantalla completa simulada
+}
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,()=>{
+  const st=document.getElementById('video-stage');
+  const on=(document.fullscreenElement||document.webkitFullscreenElement)===st;
+  if (on && !VFS.moved.length) vfsBring(true);
+  else if (!on && VFS.moved.length && !st.classList.contains('pseudo-fs')) vfsBring(false);
+}));
+// Esc cierra la pantalla completa simulada
+document.addEventListener('keydown', e=>{
+  const st=document.getElementById('video-stage');
+  if (e.key==='Escape' && st && st.classList.contains('pseudo-fs')) { st.classList.remove('pseudo-fs'); vfsBring(false); }
+}, true);
+
 // ── KEYBOARD SHORTCUTS ──
 document.addEventListener('keydown', e => {
   if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
@@ -3047,6 +3225,13 @@ document.addEventListener('keydown', e => {
   }
   // Playback
   if (e.key===' ') { e.preventDefault(); togglePlay(); return; }
+  // Zoom del video: + / − / 0 · Pantalla completa: B
+  if (e.key==='+'||e.key==='=') { e.preventDefault(); vzStep(1); return; }
+  if (e.key==='-'||e.key==='_') { e.preventDefault(); vzStep(-1); return; }
+  if (e.key==='0') { vzReset(); return; }
+  if (e.key.toUpperCase()==='B' && !e.ctrlKey && !e.metaKey) { toggleVideoFullscreen(); return; }
+  // Con zoom: flechas arriba/abajo mueven el encuadre
+  if (VZ.z>1 && (e.key==='ArrowUp'||e.key==='ArrowDown')) { e.preventDefault(); vzPanBy(0, e.key==='ArrowUp'?60:-60); return; }
   if (e.key==='ArrowLeft'||e.key.toLowerCase()==='j') { skipTime(-5); return; }
   if (e.key==='ArrowRight'||e.key.toLowerCase()==='k') { skipTime(5); return; }
 
