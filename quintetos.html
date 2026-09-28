@@ -62,6 +62,36 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .matchcard.show{display:block}
 .savebar{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4);margin-bottom:var(--sp-4);display:none}
 .savebar.show{display:block}
+/* ── Partidos cargados: editar / borrar ── */
+.mg{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);margin-bottom:var(--sp-4)}
+.mg-head{display:flex;align-items:center;gap:10px;padding:12px var(--sp-4);cursor:pointer;user-select:none}
+.mg-title{font-family:var(--font-disp);font-weight:700;font-size:16px;letter-spacing:.5px;color:var(--text)}
+.mg-count{font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+.mg-caret{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-2);transition:transform .15s}
+.mg.open .mg-caret{transform:rotate(180deg)}
+.mg-body{display:none;padding:0 var(--sp-4) var(--sp-4)}
+.mg.open .mg-body{display:block}
+.mg-tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.mg-tools input,.mg-tools select,.mg-edit input,.mg-edit select{background:var(--bg-base);border:1px solid var(--border-light);border-radius:var(--r);padding:8px 10px;font-family:var(--font-mono);font-size:12px;color:var(--text);outline:none}
+.mg-tools input{flex:1;min-width:180px}
+.mg-list{display:flex;flex-direction:column;gap:6px;max-height:460px;overflow-y:auto}
+.mg-row{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r);padding:9px 12px}
+.mg-date{font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+.mg-date.bad{color:var(--negative)}
+.mg-teams{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mg-meta{font-family:var(--font-mono);font-size:10px;color:var(--text-2);margin-top:3px}
+.mg-meta .bad{color:var(--negative)}
+.mg-acts{display:flex;gap:6px}
+.mg-btn{background:var(--bg-base);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.mg-btn:hover{color:var(--text);border-color:var(--text-2)}
+.mg-btn.del:hover{color:var(--negative);border-color:var(--negative)}
+.mg-btn.pri{background:var(--offense-bg);border-color:var(--offense-mid);color:var(--offense)}
+.mg-empty{font-family:var(--font-mono);font-size:11px;color:var(--text-2);padding:14px 4px}
+.mg-edit{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding-top:10px;margin-top:4px;border-top:1px solid var(--border-light)}
+.mg-edit .field label{font-family:var(--font-mono);font-size:9px;color:var(--text-2)}
+.mg-msg{font-family:var(--font-mono);font-size:11px;margin-top:8px;min-height:14px}
+.mg-msg.ok{color:var(--positive)} .mg-msg.err{color:var(--negative)} .mg-msg.load{color:var(--text-2)}
+@media(max-width:600px){.mg-row{grid-template-columns:1fr}.mg-acts{justify-content:flex-end}}
 .savebar-row{display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap}
 .sb-title{font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:.5px;color:var(--positive);align-self:center}
 .savebar .field input{padding:7px 10px;font-size:12px}
@@ -821,6 +851,23 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
     <div class="hint">Pegá el número del partido (o el link entero) y tocá «Cargar partido». Arma los quintetos solo, sin Excel.</div>
   </div>
 
+  <div class="mg" id="mgPanel">
+    <div class="mg-head" onclick="mgToggle()">
+      <span class="mg-title">📋 Partidos cargados</span>
+      <span class="mg-count" id="mgCount"></span>
+      <span class="mg-caret">▾</span>
+    </div>
+    <div class="mg-body">
+      <div class="mg-tools">
+        <input id="mgSearch" placeholder="Buscar equipo, fase o jornada…" oninput="mgRender()">
+        <select id="mgLigaF" onchange="mgRender()"><option value="">Todas las ligas</option></select>
+        <button class="mg-btn" onclick="mgLoad()">↻ Actualizar</button>
+      </div>
+      <div class="mg-list" id="mgList"><div class="mg-empty">Cargando…</div></div>
+      <div class="mg-msg" id="mgMsg"></div>
+    </div>
+  </div>
+
   <div class="matchcard" id="matchcard"></div>
 
   <div class="savebar" id="savebar">
@@ -1291,6 +1338,7 @@ async function saveMatch(){
     }else{
       saveStatusMsg('ok','✓ Guardado completo: '+detalle);
     }
+    if(typeof mgLoad==='function')mgLoad();
   }catch(e){
     saveStatusMsg('err','No se pudo guardar: '+(e.message||e));
   }finally{ btn.disabled=false; }
@@ -1948,6 +1996,136 @@ function switchView(v){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  PARTIDOS CARGADOS · corregir datos o borrar un partido
+// ════════════════════════════════════════════════════════════════
+const MG={list:[],loaded:false,editing:null};
+const MG_TABLES=['quintetos_log','jugadores_log','tiros_log','cuartos_log','pbp_log'];
+function mgLigas(){ return [...document.getElementById('mLiga').options].filter(o=>o.value).map(o=>[o.value,o.textContent]); }
+function mgLigaName(v){ const f=mgLigas().find(l=>l[0]===v); return f?f[1]:(v||''); }
+function mgEsc(t){ return String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function mgMsg(type,t){ const el=document.getElementById('mgMsg'); el.className='mg-msg '+type; el.textContent=t||''; }
+function mgToggle(){ const p=document.getElementById('mgPanel'); p.classList.toggle('open'); if(p.classList.contains('open')&&!MG.loaded)mgLoad(); }
+function mgFmtDate(f){ if(!f)return null; const m=String(f).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'/'+m[2]+'/'+m[1]):f; }
+
+async function mgLoad(){
+  const client=getSB(); const list=document.getElementById('mgList');
+  if(!client){ list.innerHTML='<div class="mg-empty">No se pudo conectar a la base.</div>'; return; }
+  list.innerHTML='<div class="mg-empty">Cargando…</div>';
+  try{
+    const byId={}; const PAGE=1000;
+    for(let from=0; from<50000; from+=PAGE){
+      const {data,error}=await client.from('quintetos_log')
+        .select('match_id,fecha,fase,jornada,liga,equipo,rival,es_local')
+        .range(from,from+PAGE-1);
+      if(error)throw error;
+      (data||[]).forEach(r=>{
+        if(!r.match_id)return;
+        let g=byId[r.match_id];
+        if(!g){ g=byId[r.match_id]={id:r.match_id,fecha:r.fecha,fase:r.fase,jornada:r.jornada,liga:r.liga,local:null,visit:null}; }
+        if(r.es_local){ g.local=r.equipo; g.visit=r.rival; }
+        else if(!g.local){ g.local=r.rival; g.visit=r.equipo; }
+      });
+      if(!data||data.length<PAGE)break;
+    }
+    MG.list=Object.values(byId).sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
+    MG.loaded=true;
+    // filtro de ligas
+    const sel=document.getElementById('mgLigaF'), cur=sel.value;
+    sel.innerHTML='<option value="">Todas las ligas</option>'+mgLigas().map(l=>'<option value="'+l[0]+'">'+mgEsc(l[1])+'</option>').join('');
+    sel.value=cur;
+    mgRender();
+  }catch(e){ list.innerHTML='<div class="mg-empty">No se pudo leer la lista: '+mgEsc(e.message||e)+'</div>'; }
+}
+
+function mgRender(){
+  const q=(document.getElementById('mgSearch').value||'').toLowerCase().trim();
+  const lf=document.getElementById('mgLigaF').value;
+  const items=MG.list.filter(g=>{
+    if(lf&&g.liga!==lf)return false;
+    if(!q)return true;
+    return [g.local,g.visit,g.fase,g.jornada,mgLigaName(g.liga),g.fecha].join(' ').toLowerCase().includes(q);
+  });
+  document.getElementById('mgCount').textContent=MG.loaded?('('+MG.list.length+')'):'';
+  const list=document.getElementById('mgList');
+  if(!items.length){ list.innerHTML='<div class="mg-empty">'+(MG.list.length?'Ningún partido coincide con la búsqueda.':'Todavía no hay partidos guardados.')+'</div>'; return; }
+  list.innerHTML=items.map(g=>{
+    const fd=mgFmtDate(g.fecha);
+    const liga=g.liga?mgEsc(mgLigaName(g.liga)):'<span class="bad">sin liga</span>';
+    const meta=[liga, g.fase?mgEsc(g.fase):'', g.jornada?mgEsc(g.jornada):''].filter(Boolean).join(' · ');
+    const id=mgEsc(g.id);
+    let h='<div class="mg-row" data-id="'+id+'">'
+      +'<div class="mg-date'+(fd?'':' bad')+'">'+(fd||'Sin fecha')+'</div>'
+      +'<div style="min-width:0"><div class="mg-teams">'+mgEsc(g.local||'?')+' vs '+mgEsc(g.visit||'?')+'</div><div class="mg-meta">'+meta+'</div></div>'
+      +'<div class="mg-acts"><button class="mg-btn" onclick="mgEdit(\''+id+'\')">✎ Corregir</button><button class="mg-btn del" onclick="mgDelete(\''+id+'\')">🗑 Borrar</button></div>';
+    if(MG.editing===g.id){
+      h+='<div class="mg-edit">'
+        +'<div class="field"><label>Fecha</label><input type="date" id="mgE-fecha" value="'+mgEsc((g.fecha||'').slice(0,10))+'"></div>'
+        +'<div class="field"><label>Fase</label><input id="mgE-fase" value="'+mgEsc(g.fase||'')+'" placeholder="Liga / Playoff"></div>'
+        +'<div class="field"><label>Jornada</label><input id="mgE-jornada" value="'+mgEsc(g.jornada||'')+'" placeholder="Fecha 12"></div>'
+        +'<div class="field"><label>Liga</label><select id="mgE-liga"><option value="">— Elegí la liga —</option>'
+        +mgLigas().map(l=>'<option value="'+l[0]+'"'+(l[0]===g.liga?' selected':'')+'>'+mgEsc(l[1])+'</option>').join('')+'</select></div>'
+        +'<button class="mg-btn pri" onclick="mgSaveEdit(\''+id+'\')">✓ Guardar cambios</button>'
+        +'<button class="mg-btn" onclick="mgEdit(null)">Cancelar</button>'
+        +'</div>';
+    }
+    return h+'</div>';
+  }).join('');
+}
+
+function mgEdit(id){ MG.editing=(MG.editing===id?null:id); mgMsg('',''); mgRender(); }
+
+async function mgSaveEdit(id){
+  const g=MG.list.find(x=>x.id===id); if(!g)return;
+  const client=getSB(); if(!client){ mgMsg('err','No se pudo conectar a la base.'); return; }
+  const fecha=document.getElementById('mgE-fecha').value||null;
+  const fase=document.getElementById('mgE-fase').value.trim()||null;
+  const jornada=document.getElementById('mgE-jornada').value.trim()||null;
+  const liga=document.getElementById('mgE-liga').value||null;
+  if(!liga){ mgMsg('err','Elegí la liga.'); return; }
+  mgMsg('load','Guardando cambios…');
+  try{
+    // Tabla principal (tiene la liga): verificamos que realmente se haya actualizado
+    const {data,error}=await client.from('quintetos_log').update({fecha,fase,jornada,liga}).eq('match_id',id).select('match_id');
+    if(error)throw error;
+    if(!data||!data.length){ mgMsg('err','La base no dejó modificar este partido. Probá borrarlo y volver a cargarlo.'); return; }
+    const fails=[];
+    for(const t of MG_TABLES.slice(1)){
+      const {error:e}=await client.from(t).update({fecha,fase,jornada}).eq('match_id',id);
+      if(e)fails.push(t.replace('_log',''));
+    }
+    Object.assign(g,{fecha,fase,jornada,liga}); MG.editing=null;
+    MG.list.sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||'')));
+    mgRender();
+    mgMsg(fails.length?'err':'ok', fails.length?('⚠ Corregido, pero no se actualizó: '+fails.join(', ')+'.'):'✓ Partido corregido: '+(g.local||'')+' vs '+(g.visit||''));
+  }catch(e){ mgMsg('err','No se pudo guardar: '+(e.message||e)); }
+}
+
+async function mgDelete(id){
+  const g=MG.list.find(x=>x.id===id); if(!g)return;
+  const label=(g.local||'?')+' vs '+(g.visit||'?')+(g.fecha?(' ('+mgFmtDate(g.fecha)+')'):'');
+  if(!confirm('¿Borrar '+label+'?\n\nSe borran sus quintetos, jugadores, tiros, cuartos y jugadas en todas las secciones. No se puede deshacer.'))return;
+  const client=getSB(); if(!client){ mgMsg('err','No se pudo conectar a la base.'); return; }
+  mgMsg('load','Borrando…');
+  const fails=[];
+  // Primero las tablas secundarias; la principal al final, para que el partido
+  // no desaparezca de la lista si algo falla a mitad de camino.
+  for(const t of MG_TABLES.slice(1).concat(MG_TABLES[0])){
+    try{
+      if(t==='quintetos_log'){
+        const {data,error}=await client.from(t).delete().eq('match_id',id).select('match_id');
+        if(error)throw error;
+        if(!data||!data.length){ mgMsg('err','La base no dejó borrar este partido (permisos). Avisale al administrador.'); return; }
+      }else{
+        const {error}=await client.from(t).delete().eq('match_id',id); if(error)throw error;
+      }
+    }catch(e){ fails.push(t.replace('_log','')); }
+  }
+  if(fails.length){ mgMsg('err','⚠ No se pudo borrar todo (falló: '+fails.join(', ')+'). Tocá «Actualizar» y probá de nuevo.'); await mgLoad(); return; }
+  MG.list=MG.list.filter(x=>x.id!==id); if(MG.editing===id)MG.editing=null;
+  mgRender(); mgMsg('ok','✓ Borrado: '+label+'. Ya lo podés volver a cargar.');
 }
 
 // Liga por defecto: la del perfil (el usuario puede cambiarla antes de guardar)
