@@ -1662,6 +1662,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
         </div>
         <input type="file" id="video-file" accept="video/*" style="display:none" onchange="fileSelected(this)">
       </div>
+      <div class="ve-panel" id="ve-panel" role="dialog" aria-label="Mejora de imagen"></div>
     </div>
     <div class="video-controls">
       <div class="timeline" id="timeline" onclick="seekTimeline(event)"><div class="tl-prog" id="tl-prog" style="width:0%"></div></div>
@@ -1684,6 +1685,7 @@ body.focus-mode .scout-right { width: 0; overflow: hidden; }
           <span class="vz-level" id="vz-level" onclick="vzReset()" title="Zoom actual · clic para volver a 1× (tecla 0)">1.0×</span>
           <button class="vz-btn" onclick="vzStep(1)" title="Acercar (tecla +)">+</button>
           <button class="vz-btn" id="vz-fs-btn" onclick="toggleVideoFullscreen()" title="Pantalla completa (tecla B)">⛶</button>
+          <button class="vz-btn ve-btn" id="ve-btn" onclick="veTogglePanel()" title="Mejorar calidad del video" aria-haspopup="true" aria-expanded="false">HD</button>
         </div>
         <button class="focus-toggle" onclick="toggleFocusMode()" title="Toggle focus mode">Focus</button>
       </div>
@@ -2336,6 +2338,7 @@ function fileSelected(inp) {
   const vid=document.createElement('video');
   vid.src=S.videoURL; vid.style.cssText='width:100%;height:100%;object-fit:contain;background:#000'; vid.controls=false;
   player.appendChild(vid); S.videoEl=vid; vzReset(true);
+  if (window.veAttach) veAttach(vid);
   vid.addEventListener('timeupdate',updateTimeUI);
   vid.addEventListener('loadedmetadata',()=>{ S.duration=vid.duration; updateTimeUI(); });
   const fi=document.createElement('input'); fi.type='file'; fi.id='video-file'; fi.accept='video/*'; fi.style.display='none'; fi.onchange=function(){ fileSelected(this); }; player.appendChild(fi);
@@ -3130,6 +3133,7 @@ function vzApply(showBadge) {
     const left=50 - vw/2 - (VZ.tx/(w*VZ.z))*100, top=50 - vw/2 - (VZ.ty/(h*VZ.z))*100;
     mv.style.cssText=`width:${vw}%;height:${vw}%;left:${left}%;top:${top}%`;
   }
+  if (window.veDirty) veDirty();
 }
 // Zoom hacia un punto (cx,cy relativos al centro del reproductor)
 function vzZoomAt(newZ, cx, cy) {
@@ -3309,15 +3313,15 @@ async function exportGrouped() {
   if (pw) pw.classList.add('vis'); notify('⏳ Exporting...');
   try {
     const vid=S.videoEl;
-    const canvas=document.createElement('canvas'); canvas.width=vid.videoWidth||1280; canvas.height=vid.videoHeight||720;
+    const canvas=document.createElement('canvas'); [canvas.width,canvas.height]=veOutSize(vid);
     const ctx=canvas.getContext('2d');
     const mimes=['video/mp4;codecs=h264,aac','video/mp4','video/webm;codecs=vp9,opus','video/webm'];
     let mime='video/webm'; for(const m of mimes) if(MediaRecorder.isTypeSupported(m)){mime=m;break;}
     const chunks=[],stream=canvas.captureStream(30);
     let audioCtx; try{audioCtx=new AudioContext();const src=audioCtx.createMediaElementSource(vid);const dst=audioCtx.createMediaStreamDestination();src.connect(dst);src.connect(audioCtx.destination);const at=dst.stream.getAudioTracks()[0];if(at)stream.addTrack(at);}catch(e){}
-    const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:4000000});
+    const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:veBitrate(canvas.width,canvas.height)});
     recorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
-    let fh=null; function df(){if(!vid.paused&&!vid.ended)ctx.drawImage(vid,0,0,canvas.width,canvas.height);fh=requestAnimationFrame(df);}
+    let fh=null; function df(){if(!vid.paused&&!vid.ended)veDraw(ctx,vid,canvas.width,canvas.height);fh=requestAnimationFrame(df);}
     let processed=0,totalClips=groups.reduce((s,g)=>s+g.clips.length,0);
     recorder.start(100); fh=requestAnimationFrame(df); vid.pause();
     for (const g of groups) {
@@ -3357,15 +3361,15 @@ async function exportClips(filterAccion, filename) {
   if(pw)pw.classList.add('vis'); notify('⏳ Exporting '+clips.length+' clips...');
   try {
     const vid=S.videoEl;
-    const canvas=document.createElement('canvas');canvas.width=vid.videoWidth||1280;canvas.height=vid.videoHeight||720;
+    const canvas=document.createElement('canvas');[canvas.width,canvas.height]=veOutSize(vid);
     const ctx=canvas.getContext('2d');
     const mimes=['video/mp4;codecs=h264,aac','video/mp4','video/webm;codecs=vp9,opus','video/webm'];
     let mime='video/webm';for(const m of mimes)if(MediaRecorder.isTypeSupported(m)){mime=m;break;}
     const chunks=[],stream=canvas.captureStream(30);
     let audioCtx;try{audioCtx=new AudioContext();const src=audioCtx.createMediaElementSource(vid);const dst=audioCtx.createMediaStreamDestination();src.connect(dst);src.connect(audioCtx.destination);const at=dst.stream.getAudioTracks()[0];if(at)stream.addTrack(at);}catch(e){}
-    const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:4000000});
+    const recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:veBitrate(canvas.width,canvas.height)});
     recorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
-    let fh=null;function df(){if(!vid.paused&&!vid.ended)ctx.drawImage(vid,0,0,canvas.width,canvas.height);fh=requestAnimationFrame(df);}
+    let fh=null;function df(){if(!vid.paused&&!vid.ended)veDraw(ctx,vid,canvas.width,canvas.height);fh=requestAnimationFrame(df);}
     recorder.start(100);fh=requestAnimationFrame(df);vid.pause();
     for(let i=0;i<clips.length;i++){
       const clip=clips[i],_r=clipRange(clip,vid),startT=_r.start,endT=_r.end;
@@ -3613,8 +3617,7 @@ async function runExportSequence(seq, filename, sid) {
   try {
     const vid = S.videoEl;
     const canvas = document.createElement('canvas');
-    canvas.width = vid.videoWidth || 1280;
-    canvas.height = vid.videoHeight || 720;
+    [canvas.width, canvas.height] = veOutSize(vid);
     const ctx = canvas.getContext('2d');
 
     const mimes = ['video/mp4;codecs=h264,aac', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
@@ -3632,7 +3635,7 @@ async function runExportSequence(seq, filename, sid) {
       if (at) stream.addTrack(at);
     } catch (e) {}
 
-    const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 4000000 });
+    const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: veBitrate(canvas.width, canvas.height) });
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
     // currentCard !== null  => draw card; else draw video frame
@@ -3641,7 +3644,7 @@ async function runExportSequence(seq, filename, sid) {
       if (currentCard) {
         drawTitleCard(ctx, canvas.width, canvas.height, currentCard);
       } else if (!vid.paused && !vid.ended) {
-        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        veDraw(ctx, vid, canvas.width, canvas.height);
       }
       fh = requestAnimationFrame(df);
     }
@@ -3864,8 +3867,7 @@ async function runPreviewSequence(seq) {
   overlay.id = 'preview-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(4,5,8,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;';
   const canvas = document.createElement('canvas');
-  canvas.width = vid.videoWidth || 1280;
-  canvas.height = vid.videoHeight || 720;
+  [canvas.width, canvas.height] = veOutSize(vid);
   canvas.style.cssText = 'max-width:92vw;max-height:76vh;border-radius:10px;border:1px solid #f9731640;background:#000;box-shadow:0 24px 70px rgba(0,0,0,.6)';
   const bar = document.createElement('div');
   bar.style.cssText = 'display:flex;align-items:center;gap:14px;';
@@ -3885,7 +3887,7 @@ async function runPreviewSequence(seq) {
   let currentCard = null, fh = null;
   function df() {
     if (currentCard) drawTitleCard(ctx, canvas.width, canvas.height, currentCard);
-    else if (!vid.paused && !vid.ended) ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+    else if (!vid.paused && !vid.ended) veDraw(ctx, vid, canvas.width, canvas.height);
     fh = requestAnimationFrame(df);
   }
   fh = requestAnimationFrame(df);
@@ -5495,5 +5497,301 @@ updateClipsBadge();
 })();
 
 </script> 
+<!-- ===================== MEJORA DE VIDEO (HD) ===================== -->
+<style>
+.video-player .ve-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+.video-player.ve-on .ve-canvas { display: block; }
+.video-player.ve-on video { opacity: 0; }
+.ve-btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+.ve-btn[aria-expanded="true"] { border-color: var(--border-strong); color: var(--text); }
+.ve-panel { position: absolute; right: 8px; bottom: 8px; z-index: 70; width: 268px; max-height: calc(100% - 16px); overflow-y: auto;
+  background: rgba(15,17,23,.97); border: 1px solid var(--border-light); border-radius: var(--r-lg); padding: 12px; display: none;
+  box-shadow: 0 10px 34px rgba(0,0,0,.55); font-family: var(--font-ui); color: var(--text); cursor: default; }
+.ve-panel.open { display: block; }
+.ve-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ve-title { font-family: var(--font-disp); font-weight: 700; font-size: 17px; letter-spacing: .3px; }
+.ve-switch { position: relative; width: 34px; height: 18px; border-radius: 9px; background: var(--bg-active); border: 1px solid var(--border-light); cursor: pointer; transition: background var(--t-base); }
+.ve-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--text-2); transition: transform var(--t-base), background var(--t-base); }
+.ve-switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.ve-switch[aria-checked="true"]::after { transform: translateX(16px); background: #fff; }
+.ve-switch:focus-visible, .ve-chip:focus-visible, .ve-panel input:focus-visible, .ve-panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ve-presets { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.ve-chip { font-family: var(--font-ui); font-size: 11px; color: var(--text-2); background: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 3px 9px; cursor: pointer; }
+.ve-chip:hover { color: var(--text); border-color: var(--border-light); }
+.ve-chip.on { color: #fff; background: var(--accent-bg); border-color: var(--accent); }
+.ve-row { display: grid; grid-template-columns: 1fr 34px; align-items: center; gap: 2px 8px; margin-bottom: 7px; }
+.ve-row label { font-size: 11px; color: var(--text-2); grid-column: 1 / -1; display: flex; justify-content: space-between; }
+.ve-row label output { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+.ve-row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); height: 14px; }
+.ve-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; font-size: 11px; color: var(--text-2); }
+.ve-line select { font-family: var(--font-ui); font-size: 11px; color: var(--text); background: var(--bg-panel); border: 1px solid var(--border-light); border-radius: var(--r-sm); padding: 3px 5px; }
+.ve-info { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-subtle); font-size: 10.5px; line-height: 1.45; color: var(--text-3); }
+.ve-info b { color: var(--text-2); font-weight: 500; }
+.ve-cmp-tag { position: absolute; top: 8px; z-index: 6; font-family: var(--font-ui); font-size: 10px; color: #fff; background: rgba(0,0,0,.6); border-radius: 4px; padding: 2px 7px; pointer-events: none; display: none; }
+.video-player.ve-cmp .ve-cmp-tag { display: block; }
+.ve-cmp-tag.l { left: 8px; } .ve-cmp-tag.r { right: 8px; }
+.video-player.zoomed.ve-cmp .ve-cmp-tag.l { left: 60px; }
+</style>
+<script>
+(function(){
+  // ── Shader: escalado bicúbico (Catmull-Rom) + reducción de ruido bilateral + nitidez adaptativa antihalo + color ──
+  const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }';
+  const FS = [
+    'precision highp float;',
+    'uniform sampler2D uTex; uniform vec2 uTexSize, uCanvas, uPan; uniform vec4 uRect;',
+    'uniform float uZoom, uSharp, uDenoise, uBright, uContrast, uSat, uShadows, uSplit;',
+    'vec3 T(vec2 uv){ return texture2D(uTex, uv).rgb; }',
+    'vec3 bicubic(vec2 uv){',
+    '  vec2 sp = uv*uTexSize; vec2 t1 = floor(sp-0.5)+0.5; vec2 f = sp-t1;',
+    '  vec2 w0 = f*(-0.5+f*(1.0-0.5*f)); vec2 w1 = 1.0+f*f*(-2.5+1.5*f);',
+    '  vec2 w2 = f*(0.5+f*(2.0-1.5*f)); vec2 w3 = f*f*(-0.5+0.5*f);',
+    '  vec2 w12 = w1+w2; vec2 t0 = (t1-1.0)/uTexSize; vec2 t3 = (t1+2.0)/uTexSize; vec2 t12 = (t1+w2/w12)/uTexSize;',
+    '  vec3 r = T(vec2(t0.x,t0.y))*w0.x*w0.y + T(vec2(t12.x,t0.y))*w12.x*w0.y + T(vec2(t3.x,t0.y))*w3.x*w0.y;',
+    '  r += T(vec2(t0.x,t12.y))*w0.x*w12.y + T(vec2(t12.x,t12.y))*w12.x*w12.y + T(vec2(t3.x,t12.y))*w3.x*w12.y;',
+    '  r += T(vec2(t0.x,t3.y))*w0.x*w3.y + T(vec2(t12.x,t3.y))*w12.x*w3.y + T(vec2(t3.x,t3.y))*w3.x*w3.y;',
+    '  return r; }',
+    'float bw(vec3 n, vec3 c, float s){ vec3 d = n-c; return exp(-dot(d,d)/s); }',
+    'void main(){',
+    '  vec2 px = vec2(gl_FragCoord.x, uCanvas.y-gl_FragCoord.y);',
+    '  vec2 ctr = uCanvas*0.5; vec2 q = (px-ctr-uPan)/uZoom + ctr;',
+    '  vec2 uv = (q-uRect.xy)/uRect.zw;',
+    '  if (uv.x<0.0||uv.y<0.0||uv.x>1.0||uv.y>1.0){ gl_FragColor = vec4(0.,0.,0.,1.); return; }',
+    '  if (px.x < uSplit){ gl_FragColor = vec4(T(uv),1.); if (uSplit-px.x < 2.0) gl_FragColor = vec4(1.); return; }',
+    '  vec2 d = 1.0/uTexSize;',
+    '  vec3 c = clamp(bicubic(uv), 0.0, 1.0);',
+    '  vec3 a = T(uv+vec2(-d.x,0.)), b = T(uv+vec2(d.x,0.)), e = T(uv+vec2(0.,-d.y)), g = T(uv+vec2(0.,d.y));',
+    '  vec3 h = T(uv+vec2(-d.x,-d.y)), i = T(uv+vec2(d.x,-d.y)), j = T(uv+vec2(-d.x,d.y)), k = T(uv+vec2(d.x,d.y));',
+    '  if (uDenoise > 0.0){',
+    '    float s = mix(0.0015, 0.02, uDenoise);',
+    '    float wa=bw(a,c,s), wb=bw(b,c,s), we=bw(e,c,s), wg=bw(g,c,s);',
+    '    float wh=bw(h,c,s)*.6, wi=bw(i,c,s)*.6, wj=bw(j,c,s)*.6, wk=bw(k,c,s)*.6;',
+    '    vec3 sm = (c + a*wa+b*wb+e*we+g*wg + h*wh+i*wi+j*wj+k*wk) / (1.0+wa+wb+we+wg+wh+wi+wj+wk);',
+    '    c = mix(c, sm, min(1.0, uDenoise*1.2));',
+    '  }',
+    '  if (uSharp > 0.0){',
+    '    vec3 mn = min(c, min(min(a,b), min(e,g))); vec3 mx = max(c, max(max(a,b), max(e,g)));',
+    '    vec3 blur = (a+b+e+g)*0.25;',
+    '    vec3 amp = sqrt(clamp(min(mn, 1.0-mx)/max(mx, 1e-4), 0.0, 1.0));',
+    '    vec3 sh = c + (c-blur)*uSharp*2.2*(0.35+0.65*amp);',
+    '    c = clamp(sh, mn-0.03, mx+0.03);',
+    '  }',
+    '  c = pow(max(c, 0.0), vec3(1.0-uShadows*0.38));',
+    '  c = c*(1.0+uBright);',
+    '  c = (c-0.5)*(1.0+uContrast)+0.5;',
+    '  float l = dot(c, vec3(0.2126,0.7152,0.0722));',
+    '  c = mix(vec3(l), c, 1.0+uSat);',
+    '  gl_FragColor = vec4(clamp(c,0.0,1.0),1.);',
+    '}'
+  ].join('\n');
+
+  function makeRenderer(canvas, preserve){
+    let gl;
+    try { gl = canvas.getContext('webgl', {alpha:false, antialias:false, premultipliedAlpha:false, preserveDrawingBuffer:!!preserve}) || canvas.getContext('experimental-webgl'); } catch(e){}
+    if (!gl) return null;
+    function sh(type, src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+    let prog;
+    try { prog=gl.createProgram(); gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS)); gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS)); gl.linkProgram(prog);
+      if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog)); } catch(e){ console.warn('VE shader:',e); return null; }
+    gl.useProgram(prog);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(prog,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    const tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+    const U={}; ['uTex','uTexSize','uCanvas','uPan','uRect','uZoom','uSharp','uDenoise','uBright','uContrast','uSat','uShadows','uSplit'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+    gl.uniform1i(U.uTex,0);
+    return {
+      gl,
+      upload(vid){ gl.bindTexture(gl.TEXTURE_2D,tex); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,vid); },
+      draw(o){
+        gl.viewport(0,0,canvas.width,canvas.height);
+        gl.uniform2f(U.uTexSize,o.vw,o.vh); gl.uniform2f(U.uCanvas,canvas.width,canvas.height);
+        gl.uniform4f(U.uRect,o.rx,o.ry,o.rw,o.rh); gl.uniform1f(U.uZoom,o.zoom||1); gl.uniform2f(U.uPan,o.panX||0,o.panY||0);
+        const p=o.p; gl.uniform1f(U.uSharp,p.sharp); gl.uniform1f(U.uDenoise,p.denoise); gl.uniform1f(U.uBright,p.bright);
+        gl.uniform1f(U.uContrast,p.contrast); gl.uniform1f(U.uSat,p.sat); gl.uniform1f(U.uShadows,p.shadows);
+        gl.uniform1f(U.uSplit,o.split==null?-1:o.split);
+        gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      }
+    };
+  }
+
+  // ── Ajustes ──
+  const PRESETS = {
+    suave:      { label:'Suave',           nitidez:35, ruido:15, sombras:0,  brillo:0,  contraste:4,  saturacion:5  },
+    equilibrado:{ label:'Equilibrado',     nitidez:60, ruido:25, sombras:10, brillo:0,  contraste:8,  saturacion:10 },
+    maximo:     { label:'Máximo',          nitidez:95, ruido:35, sombras:15, brillo:0,  contraste:14, saturacion:15 },
+    gimnasio:   { label:'Gimnasio oscuro', nitidez:55, ruido:40, sombras:45, brillo:6,  contraste:6,  saturacion:12 }
+  };
+  const SLIDERS = [
+    ['nitidez','Nitidez',0,100], ['ruido','Reducción de ruido',0,100], ['sombras','Aclarar sombras',0,100],
+    ['brillo','Brillo',-50,50], ['contraste','Contraste',-50,50], ['saturacion','Saturación',-50,50]
+  ];
+  const DEF = Object.assign({ on:true, preset:'equilibrado', export:1080, cmp:false }, PRESETS.equilibrado);
+  let cfg = Object.assign({}, DEF);
+  try { const s = localStorage.getItem('spro5_ve'); if (s) cfg = Object.assign(cfg, JSON.parse(s)); } catch(e){}
+  cfg.cmp = false;
+  const save = () => { try { const c=Object.assign({},cfg); delete c.cmp; localStorage.setItem('spro5_ve', JSON.stringify(c)); } catch(e){} };
+  const params = () => ({ sharp:cfg.nitidez/100, denoise:cfg.ruido/100, shadows:cfg.sombras/100,
+    bright:cfg.brillo/100*0.4, contrast:cfg.contraste/100*0.6, sat:cfg.saturacion/100 });
+
+  function fit(vw,vh,cw,ch){ const s=Math.min(cw/vw,ch/vh), w=vw*s, h=vh*s; return [(cw-w)/2,(ch-h)/2,w,h]; }
+
+  // ── Vista en vivo ──
+  const L = { canvas:null, r:null, vid:null, dirty:true, lastT:-1, raf:0, ok:null };
+  function player(){ return document.getElementById('video-player'); }
+  function liveActive(){ return cfg.on && L.r && L.vid && S.videoEl===L.vid; }
+
+  function applyMode(){
+    const p=player(); if(!p) return;
+    const webgl = cfg.on && !!L.r;
+    p.classList.toggle('ve-on', webgl);
+    p.classList.toggle('ve-cmp', webgl && cfg.cmp);
+    if (L.vid) {
+      // Sin WebGL: al menos corrección de color con filtros CSS
+      L.vid.style.filter = (cfg.on && !L.r) ? `brightness(${1+cfg.brillo/100*0.4}) contrast(${1+cfg.contraste/100*0.6}) saturate(${1+cfg.saturacion/100})` : '';
+    }
+    const b=document.getElementById('ve-btn'); if(b) b.classList.toggle('on', !!cfg.on);
+    L.dirty=true;
+  }
+
+  window.veAttach = function(vid){
+    const p=player(); if(!p) return;
+    L.vid=vid;
+    L.canvas=document.createElement('canvas'); L.canvas.className='ve-canvas';
+    p.insertBefore(L.canvas, vid.nextSibling);
+    ['l','r'].forEach(side=>{ const t=document.createElement('div'); t.className='ve-cmp-tag '+side; t.textContent= side==='l'?'Original':'Mejorado'; p.appendChild(t); });
+    L.r = makeRenderer(L.canvas, false);
+    L.canvas.addEventListener('webglcontextlost', e=>{ e.preventDefault(); L.r=null; applyMode(); });
+    if (L.ok===null && !L.r) notify('Tu navegador no permite la mejora completa: solo se aplicará color.');
+    L.ok = !!L.r;
+    vid.addEventListener('loadedmetadata', ()=>{ L.dirty=true; renderInfo(); });
+    vid.addEventListener('seeked', ()=>{ L.dirty=true; });
+    applyMode(); renderInfo();
+    if (!L.raf) loop();
+  };
+  window.veDirty = function(){ L.dirty=true; };
+
+  function sizeCanvas(){
+    const p=player(), c=L.canvas; if(!p||!c) return 1;
+    const dpr=Math.min(window.devicePixelRatio||1, 3);
+    let w=p.clientWidth*dpr, h=p.clientHeight*dpr;
+    const MAX=3.8e6; if (w*h>MAX){ const k=Math.sqrt(MAX/(w*h)); w*=k; h*=k; }
+    w=Math.max(2,Math.round(w)); h=Math.max(2,Math.round(h));
+    if (c.width!==w||c.height!==h){ c.width=w; c.height=h; L.dirty=true; }
+    return w/(p.clientWidth||1);
+  }
+
+  function loop(){
+    L.raf=requestAnimationFrame(loop);
+    if (!liveActive()) return;
+    const v=L.vid; if (v.readyState<2 || !v.videoWidth) return;
+    const k=sizeCanvas();
+    const t=v.currentTime;
+    if (!L.dirty && t===L.lastT && v.paused) return;
+    try {
+      if (t!==L.lastT || !v.paused || L.dirty) L.r.upload(v);
+      const [rx,ry,rw,rh]=fit(v.videoWidth,v.videoHeight,L.canvas.width,L.canvas.height);
+      L.r.draw({ vw:v.videoWidth, vh:v.videoHeight, rx,ry,rw,rh, zoom:VZ.z, panX:VZ.tx*k, panY:VZ.ty*k,
+                 p:params(), split: cfg.cmp ? L.canvas.width/2 : null });
+    } catch(e){ console.warn('VE render:',e); }
+    L.lastT=t; L.dirty=false;
+  }
+  window.addEventListener('resize', ()=>{ L.dirty=true; });
+  document.addEventListener('fullscreenchange', ()=>{ L.dirty=true; });
+
+  // ── Exportación: tamaño, bitrate y dibujo mejorado ──
+  const X = { canvas:null, r:null, tried:false };
+  window.veOutSize = function(vid){
+    const vw=vid.videoWidth||1280, vh=vid.videoHeight||720;
+    if (!cfg.on || !cfg.export || cfg.export==='orig') return [vw,vh];
+    const H=+cfg.export, W=Math.round(H*vw/vh/2)*2;
+    return [W,H];
+  };
+  window.veBitrate = function(w,h){
+    const px=w*h;
+    return Math.round(Math.max(4e6, Math.min(24e6, px*30*0.16))); // ~10 Mbps a 1080p30
+  };
+  window.veDraw = function(ctx, vid, w, h){
+    if (cfg.on && vid.videoWidth){
+      if (!X.tried){ X.tried=true; X.canvas=document.createElement('canvas'); X.r=makeRenderer(X.canvas, true); }
+      if (X.r){
+        try {
+          if (X.canvas.width!==w||X.canvas.height!==h){ X.canvas.width=w; X.canvas.height=h; }
+          X.r.upload(vid);
+          const [rx,ry,rw,rh]=fit(vid.videoWidth,vid.videoHeight,w,h);
+          X.r.draw({ vw:vid.videoWidth, vh:vid.videoHeight, rx,ry,rw,rh, p:params() });
+          ctx.drawImage(X.canvas,0,0,w,h); return;
+        } catch(e){ console.warn('VE export:',e); }
+      }
+    }
+    ctx.drawImage(vid,0,0,w,h);
+  };
+
+  // ── Panel ──
+  function renderInfo(){
+    const el=document.getElementById('ve-info'); if(!el) return;
+    const v=S.videoEl;
+    if (!v || !v.videoWidth){ el.innerHTML='Cargá un video para ver su resolución.'; return; }
+    const [ow,oh]=veOutSize(v);
+    const up = oh>v.videoHeight;
+    el.innerHTML = `Original: <b>${v.videoWidth}×${v.videoHeight}</b><br>`+
+      (cfg.on ? `Los clips exportados salen en <b>${ow}×${oh}</b>${up?' (escalado con nitidez)':''}.` : 'Mejora apagada: se exporta tal cual.');
+  }
+  function buildPanel(){
+    const P=document.getElementById('ve-panel'); if(!P) return;
+    P.innerHTML = `
+      <div class="ve-head"><span class="ve-title">Mejora de imagen</span>
+        <button class="ve-switch" id="ve-on" role="switch" aria-checked="${cfg.on}" aria-label="Activar mejora"></button></div>
+      <div class="ve-presets">${Object.entries(PRESETS).map(([k,p])=>`<button class="ve-chip${cfg.preset===k?' on':''}" data-preset="${k}">${p.label}</button>`).join('')}</div>
+      ${SLIDERS.map(([k,l,mn,mx])=>`<div class="ve-row"><label for="ve-${k}">${l}<output id="ve-o-${k}">${cfg[k]}</output></label>
+        <input type="range" id="ve-${k}" data-k="${k}" min="${mn}" max="${mx}" value="${cfg[k]}"></div>`).join('')}
+      <div class="ve-line"><span>Comparar antes / después</span><button class="ve-switch" id="ve-cmp" role="switch" aria-checked="${cfg.cmp}" aria-label="Comparar"></button></div>
+      <div class="ve-line"><label for="ve-exp">Exportar clips en</label>
+        <select id="ve-exp"><option value="orig">Resolución original</option><option value="720">720p</option><option value="1080">1080p (Full HD)</option><option value="1440">1440p (2K)</option></select></div>
+      <div class="ve-info" id="ve-info"></div>`;
+    P.querySelector('#ve-exp').value=String(cfg.export);
+    P.addEventListener('keydown', e=>e.stopPropagation());
+    P.addEventListener('click', e=>{
+      const t=e.target;
+      if (t.id==='ve-on'){ cfg.on=!cfg.on; t.setAttribute('aria-checked',cfg.on); if(!cfg.on){ cfg.cmp=false; P.querySelector('#ve-cmp').setAttribute('aria-checked','false'); } }
+      else if (t.id==='ve-cmp'){ cfg.cmp=!cfg.cmp; if(cfg.cmp&&!cfg.on){ cfg.on=true; P.querySelector('#ve-on').setAttribute('aria-checked','true'); } t.setAttribute('aria-checked',cfg.cmp); }
+      else if (t.dataset.preset){
+        Object.assign(cfg, PRESETS[t.dataset.preset]); cfg.preset=t.dataset.preset; cfg.on=true;
+        P.querySelector('#ve-on').setAttribute('aria-checked','true');
+        SLIDERS.forEach(([k])=>{ P.querySelector('#ve-'+k).value=cfg[k]; P.querySelector('#ve-o-'+k).textContent=cfg[k]; });
+        P.querySelectorAll('.ve-chip').forEach(c=>c.classList.toggle('on', c===t));
+      } else return;
+      save(); applyMode(); renderInfo();
+    });
+    P.addEventListener('input', e=>{
+      const k=e.target.dataset.k; if(!k) return;
+      cfg[k]=+e.target.value; P.querySelector('#ve-o-'+k).textContent=cfg[k];
+      cfg.preset=null; P.querySelectorAll('.ve-chip').forEach(c=>c.classList.remove('on'));
+      if(!cfg.on){ cfg.on=true; P.querySelector('#ve-on').setAttribute('aria-checked','true'); }
+      save(); applyMode();
+    });
+    P.querySelector('#ve-exp').addEventListener('change', e=>{ cfg.export= e.target.value==='orig'?'orig':+e.target.value; save(); renderInfo(); });
+    renderInfo();
+  }
+  window.veTogglePanel = function(force){
+    const P=document.getElementById('ve-panel'), b=document.getElementById('ve-btn'); if(!P) return;
+    const open = force!=null ? force : !P.classList.contains('open');
+    P.classList.toggle('open', open); if(b) b.setAttribute('aria-expanded', open);
+    if (open) renderInfo();
+  };
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') veTogglePanel(false); });
+  document.addEventListener('pointerdown', e=>{
+    const P=document.getElementById('ve-panel');
+    if (P && P.classList.contains('open') && !P.contains(e.target) && e.target.id!=='ve-btn') veTogglePanel(false);
+  });
+
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', ()=>{ buildPanel(); applyMode(); });
+  else { buildPanel(); applyMode(); }
+})();
+</script>
+<!-- =================== FIN MEJORA DE VIDEO (HD) =================== -->
+
 </body>
 </html>
