@@ -1975,6 +1975,19 @@ async function syncFromDB(){
   try {
     const data = await dbGetEquipos();
     if(data !== null){
+      // La base no guarda los rebotes de EQUIPO ni las stats del rival: los conservamos
+      // de la copia local para no perderlos al sincronizar (si no, los KPIs quedan mal).
+      try{
+        const local=JSON.parse(localStorage.getItem('malvin_equipos')||'[]');
+        const byId={};(local||[]).forEach(e=>(e.partidos||[]).forEach(p=>{byId[p.id]=p;}));
+        data.forEach(e=>(e.partidos||[]).forEach(p=>{
+          const lp=byId[p.id];if(!lp)return;
+          if(lp.teamReb)p.teamReb=lp.teamReb;
+          if(lp.rivalStats)p.rivalStats=lp.rivalStats;
+          if(lp.amistoso!=null&&p.amistoso==null)p.amistoso=lp.amistoso;
+          if(Array.isArray(lp.lineups)&&lp.lineups.length&&(!p.lineups||!p.lineups.length))p.lineups=lp.lineups;
+        }));
+      }catch(_){}
       localStorage.setItem('malvin_equipos', JSON.stringify(data));
       dbSyncOk = true;
       console.log('✅ Sync desde Supabase OK —', data.length, 'equipos');
@@ -2446,7 +2459,7 @@ function buildLuMap(partidos){
       if(!luMap[key]) luMap[key]={players:top5.map(x=>({num:x.num,name:x.name})),poss:0,fg2m:0,fg2a:0,fg3m:0,fg3a:0,ftm:0,fta:0,ast:0,tov:0,ro:0,rd:0,stl:0,pm:0,rivalPoss:0,rivalPts:0,appearances:0};
       const lu=luMap[key]; lu.appearances++;
       top5.forEach(ps=>{lu.fg2m+=(ps.fgm||0)-(ps.fg3m||0);lu.fg2a+=(ps.fga||0)-(ps.fg3a||0);lu.fg3m+=ps.fg3m||0;lu.fg3a+=ps.fg3a||0;lu.ftm+=ps.ftm||0;lu.fta+=ps.fta||0;lu.ast+=ps.ast||0;lu.tov+=ps.tov||0;lu.ro+=ps.ro||0;lu.rd+=ps.rd||0;lu.stl+=ps.stl||0;lu.pm+=ps.pm||0;});
-      lu.poss=lu.fg2a+lu.fg3a+lu.tov;
+      lu.poss=Math.max(0,lu.fg2a+lu.fg3a+lu.tov+0.44*lu.fta-lu.ro);
       // Rival poss estimate from pm (pm = Malvín pts - rival pts while on court)
       const malvinPts = lu.fg2m*2+lu.fg3m*3+lu.ftm;
       lu.rivalPts = Math.max(0, malvinPts - lu.pm);
@@ -2459,10 +2472,14 @@ function buildLuMap(partidos){
         lu.fg2m+=lineup.fg2m||0;lu.fg2a+=lineup.fg2a||0;lu.fg3m+=lineup.fg3m||0;lu.fg3a+=lineup.fg3a||0;
         lu.ftm+=lineup.ftm||0;lu.fta+=lineup.fta||0;lu.ast+=lineup.ast||0;lu.tov+=lineup.tov||0;
         lu.ro+=lineup.ro||0;lu.rd+=lineup.rd||0;lu.stl+=lineup.stl||0;lu.pm+=lineup.pm||0;
-        lu.poss+=lineup.poss||0;
+        // Posesiones SIEMPRE recalculadas: FGA + PÉR + 0.44·TLI − RO (RO incluye rebotes de EQUIPO)
+        lu.poss=Math.max(0,lu.fg2a+lu.fg3a+lu.tov+0.44*lu.fta-lu.ro);
+        lu.rivalRo=(lu.rivalRo||0)+(lineup.rivalRo||0);lu.rivalRd=(lu.rivalRd||0)+(lineup.rivalRd||0);
+        lu.rivalFga=(lu.rivalFga||0)+(lineup.rivalFga||0);lu.rivalFta=(lu.rivalFta||0)+(lineup.rivalFta||0);lu.rivalTov=(lu.rivalTov||0)+(lineup.rivalTov||0);
         const malvinPts=lu.fg2m*2+lu.fg3m*3+lu.ftm;
         lu.rivalPts=Math.max(0,malvinPts-lu.pm);
-        lu.rivalPoss=Math.max(1,lu.poss);
+        const rivPoss=(lu.rivalFga||0)+(lu.rivalTov||0)+0.44*(lu.rivalFta||0)-(lu.rivalRo||0);
+        lu.rivalPoss=Math.max(1,(lu.rivalFga||lu.rivalTov||lu.rivalFta)?rivPoss:lu.poss);
       });
     }
   });
@@ -2918,11 +2935,12 @@ function pushLineup(pids){
   if(lineupLog.length > 0 && !lineupLog[lineupLog.length-1].closed){
     const last = lineupLog[lineupLog.length-1];
     last.statsEnd = stats.map(s=>Object.assign({},s));
+    last.trEnd = {...teamReb}; last.rvEnd = {...rivalStats};
     last.closed = true;
   }
-  // Abrir nueva entrada — snapshot simple como array
+  // Abrir nueva entrada — snapshot simple como array (+ rebotes de EQUIPO y stats del rival)
   const snap = stats.map(s=>Object.assign({},s));
-  lineupLog.push({pids:[...pids], snap, closed:false});
+  lineupLog.push({pids:[...pids], snap, trSnap:{...teamReb}, rvSnap:{...rivalStats}, closed:false});
 }
 
 function buildLineupData(){
@@ -2939,7 +2957,8 @@ function buildLineupData(){
     if(!lineupMap[key]){
       lineupMap[key] = {
         players: pids.map(pid=>({id:pid, num:ROSTER[pid]?.num||'?', name:ROSTER[pid]?.name||'?'})),
-        fg2m:0,fg2a:0,fg3m:0,fg3a:0,ftm:0,fta:0,ast:0,tov:0,ro:0,rd:0,stl:0,pm:0,poss:0,appearances:0
+        fg2m:0,fg2a:0,fg3m:0,fg3a:0,ftm:0,fta:0,ast:0,tov:0,ro:0,rd:0,stl:0,pm:0,poss:0,appearances:0,
+        rivalRo:0,rivalRd:0,rivalFga:0,rivalFta:0,rivalTov:0
       };
     }
     const lu = lineupMap[key];
@@ -2960,7 +2979,20 @@ function buildLineupData(){
       lu.stl  += (e.stl||0)-(s.stl||0);
       if(i===0) lu.pm += (e.pm||0)-(s.pm||0);
     });
-    lu.poss = lu.fg2a + lu.fg3a + lu.tov;
+    // Rebotes de EQUIPO mientras este quinteto estaba en cancha (cuentan como del quinteto)
+    if(entry.trSnap){
+      const tE = entry.closed ? (entry.trEnd||teamReb) : teamReb;
+      lu.ro += (tE.ro||0)-(entry.trSnap.ro||0);
+      lu.rd += (tE.rd||0)-(entry.trSnap.rd||0);
+    }
+    // Stats del rival mientras este quinteto estaba en cancha
+    if(entry.rvSnap){
+      const rE = entry.closed ? (entry.rvEnd||rivalStats) : rivalStats;
+      const d=k=>(rE[k]||0)-(entry.rvSnap[k]||0);
+      lu.rivalRo+=d('ro');lu.rivalRd+=d('rd');lu.rivalFga+=d('fga');lu.rivalFta+=d('fta');lu.rivalTov+=d('tov');
+    }
+    // Posesiones: FGA + PÉR + 0.44·TLI − RO (RO incluye los rebotes de EQUIPO)
+    lu.poss = Math.max(0, lu.fg2a + lu.fg3a + lu.tov + 0.44*lu.fta - lu.ro);
   });
 
   return Object.values(lineupMap).sort((a,b)=>b.poss-a.poss||b.appearances-a.appearances);
@@ -2980,7 +3012,7 @@ function savePartidoToEquipo(){
   const statsSnap=ROSTER.map((p,i)=>({id:i,num:p.num,name:p.name,pos:p.pos,...stats[i]}));
   const lineupSnap = buildLineupData();
   const torneoFinal=(esAmistoso&&!torneo)?'Amistoso':torneo;
-  const partido = {id:partidoId,rival,fecha,torneo:torneoFinal,sH,sA,amistoso:esAmistoso===true,teamReb:{...teamReb},shots:JSON.parse(JSON.stringify(shotData)),playerStats:statsSnap,lineups:lineupSnap};
+  const partido = {id:partidoId,rival,fecha,torneo:torneoFinal,sH,sA,amistoso:esAmistoso===true,teamReb:{...teamReb},rivalStats:{...rivalStats},shots:JSON.parse(JSON.stringify(shotData)),playerStats:statsSnap,lineups:lineupSnap};
   eq.partidos.push(partido);
   saveEquipos(equipos);
   // Guardar en Supabase
@@ -3761,53 +3793,63 @@ function renderKpis(){
   const partidos=eq?.partidos||[];
   if(!partidos.length){ ['kpi-ortg','kpi-drtg','kpi-nrtg','kpi-pace','kpi-ts','kpi-tsa','kpi-orb','kpi-drb'].forEach(id=>set(id,'—','0 partidos')); return; }
 
-  // Acumular stats de todos los partidos
+  // Acumular stats de todos los partidos — SIEMPRE con el TOTAL DEL EQUIPO
+  // (jugadores + rebotes de "EQUIPO"), y el rival desde sus stats guardadas.
   let fgm=0,fga=0,fg3m=0,fg3a=0,ftm=0,fta=0,ro=0,rd=0,ast=0,tov=0;
-  let rivalRo=0,rivalRd=0;
+  let rFga=0,rFta=0,rTov=0,rivalRo=0,rivalRd=0,gpRiv=0,roConRiv=0,rdConRiv=0,ptsRivConRiv=0;
   let totalPts=0, rivalTotalPts=0;
   const gp=partidos.length;
 
   partidos.forEach(p=>{
+    let pRo=0,pRd=0;
     (p.playerStats||[]).forEach(s=>{
       fgm+=s.fgm||0; fga+=s.fga||0;
       fg3m+=s.fg3m||0; fg3a+=s.fg3a||0;
       ftm+=s.ftm||0; fta+=s.fta||0;
-      ro+=s.ro||0; rd+=s.rd||0;
+      pRo+=s.ro||0; pRd+=s.rd||0;
       ast+=s.ast||0; tov+=s.tov||0;
     });
+    // Rebotes de EQUIPO (sin jugador individual)
+    pRo+=(p.teamReb&&p.teamReb.ro)||0; pRd+=(p.teamReb&&p.teamReb.rd)||0;
+    ro+=pRo; rd+=pRd;
     totalPts+=p.sH||0;
     rivalTotalPts+=p.sA||0;
-    // Rebotes rival: aproximamos desde lineups guardados si existen
-    (p.lineups||[]).forEach(lu=>{
-      rivalRo+=(lu.rivalRo||0);
-      rivalRd+=(lu.rivalRd||0);
-    });
+    // Stats del rival (se guardan desde esta versión; partidos viejos no las tienen)
+    const r=p.rivalStats;
+    if(r&&((r.fga||0)+(r.fta||0)+(r.tov||0)+(r.ro||0)+(r.rd||0))>0){
+      gpRiv++; rFga+=r.fga||0; rFta+=r.fta||0; rTov+=r.tov||0;
+      rivalRo+=r.ro||0; rivalRd+=r.rd||0;
+      roConRiv+=pRo; rdConRiv+=pRd; ptsRivConRiv+=p.sA||0;
+    }
   });
 
-  // Posesiones FIBA: FGA + TOV + 0.44*FTA - ORB
-  const poss=Math.max(fga+tov+Math.round(0.44*fta)-ro, 1);
+  // Posesiones FIBA: FGA + TOV + 0.44*FTA - ORB (ORB incluye rebotes de equipo)
+  const poss=Math.max(fga+tov+0.44*fta-ro, 1);
   const possPerGame=(poss/gp).toFixed(1);
+  // Posesiones del rival (solo partidos con stats del rival cargadas)
+  const rivPoss=gpRiv?Math.max(rFga+rTov+0.44*rFta-rivalRo,1):0;
 
-  // Eficiencia ofensiva = pts / poss
+  // Eficiencia ofensiva = pts / poss propias
   const ortg=(totalPts/poss).toFixed(2);
-  // Eficiencia defensiva = pts rival / poss
-  const drtg=(rivalTotalPts/poss).toFixed(2);
+  // Eficiencia defensiva = pts rival / poss DEL RIVAL (si no hay datos del rival, se aproxima con las propias)
+  const drtgVal=gpRiv?(ptsRivConRiv/rivPoss):(rivalTotalPts/poss);
+  const drtg=drtgVal.toFixed(2);
   // Net
-  const nrtgVal=(totalPts/poss - rivalTotalPts/poss);
+  const nrtgVal=(totalPts/poss - drtgVal);
   const nrtg=(nrtgVal>0?'+':'')+nrtgVal.toFixed(2);
   // Ritmo = posesiones por partido
   const pace=possPerGame;
   // TSA = FGA + 0.44*FTA
-  const tsa=(fga+Math.round(0.44*fta));
+  const tsa=(fga+0.44*fta);
   const tsaPG=(tsa/gp).toFixed(1);
   // TS% = PTS / (2 * TSA)
   const tsVal=tsa>0?(totalPts/(2*tsa)*100).toFixed(1)+'%':'—';
-  // % Reb Of = RO / (RO + RDef rival)
-  const orbDen=ro+rivalRd;
-  const orbPct=orbDen>0?(ro/orbDen*100).toFixed(1)+'%':'—';
+  // % Reb Of = RO / (RO + RDef rival) — mismos partidos en numerador y denominador
+  const orbDen=roConRiv+rivalRd;
+  const orbPct=orbDen>0?(roConRiv/orbDen*100).toFixed(1)+'%':'—';
   // % Reb Def = RD / (ROF rival + RD)
-  const drbDen=rivalRo+rd;
-  const drbPct=drbDen>0?(rd/drbDen*100).toFixed(1)+'%':'—';
+  const drbDen=rivalRo+rdConRiv;
+  const drbPct=drbDen>0?(rdConRiv/drbDen*100).toFixed(1)+'%':'—';
 
   const nColor=nrtgVal>=0?'up':'dn';
   set('kpi-ortg', ortg, `${gp} partidos`, 'neu');
@@ -3816,8 +3858,8 @@ function renderKpis(){
   set('kpi-pace', pace, `pos/partido`, 'neu');
   set('kpi-ts', tsVal, `PTS/(2×TSA)`, 'neu');
   set('kpi-tsa', tsaPG, `por partido`, 'neu');
-  set('kpi-orb', orbPct, orbDen>0?`${ro}/(${ro}+${rivalRd})`:'Sin datos reb rival', 'neu');
-  set('kpi-drb', drbPct, drbDen>0?`${rd}/(${rivalRo}+${rd})`:'Sin datos reb rival', 'neu');
+  set('kpi-orb', orbPct, orbDen>0?`${roConRiv}/(${roConRiv}+${rivalRd})`:'Sin datos reb rival', 'neu');
+  set('kpi-drb', drbPct, drbDen>0?`${rdConRiv}/(${rivalRo}+${rdConRiv})`:'Sin datos reb rival', 'neu');
 }
 
 </script>
