@@ -1064,6 +1064,31 @@ function getSB(){if(!sb&&window.supabase)sb=window.supabase.createClient(SB_CFG.
 
 function pkey(p){return (p.num||'')+'|'+String(p.name||'').toLowerCase().replace(/[\s.,]/g,'');}
 function num(x){return +x||0;}
+// ── Corrección de posesiones al cargar quintetos_log ──
+// Siempre con el TOTAL DEL EQUIPO: reb_off ya incluye los rebotes de "Equipo".
+// 'pos' se RECALCULA con la fórmula (FGA − RO + PÉR + 0.44·TLI) desde las columnas.
+// En partidos guardados antes de la corrección, los quintetos "fantasma" de 0 minutos
+// quedaron con pos=1 y pos_riv=1 (mínimo forzado) e inflaban ritmo y eficiencias.
+// pos_riv: el total del partido tiene que ser igual a las posesiones del rival; el excedente
+// son esas filas fantasma, que se ponen en 0 (las de menos minutos y sin puntos en contra).
+function qPos(r){return Math.max(0,num(r.pt2i)+num(r.pt3i)-num(r.reb_off)+num(r.per)+0.44*num(r.tli));}
+function fixPosesiones(rows){
+  rows.forEach(r=>{r.pos=Math.round(qPos(r)*100)/100;});
+  const g={};
+  rows.forEach(r=>{const k=(r.match_id||'?')+'§'+r.equipo;(g[k]=g[k]||[]).push(r);});
+  for(const k of Object.keys(g)){
+    const grp=g[k],r0=grp[0];
+    const opp=g[(r0.match_id||'?')+'§'+r0.rival];
+    if(!opp)continue;
+    const oppPos=opp.reduce((s,r)=>s+num(r.pos),0);
+    const stored=grp.reduce((s,r)=>s+num(r.pos_riv),0);
+    let excess=Math.round(stored-oppPos);
+    if(excess<=0)continue;
+    const cand=grp.filter(r=>num(r.pos_riv)===1&&num(r.pts_contra)===0).sort((a,b)=>num(a.minutos)-num(b.minutos));
+    for(const r of cand){if(excess<=0)break;r.pos_riv=0;excess--;}
+  }
+  return rows;
+}
 
 // Trae TODAS las filas de una tabla paginando de a 1000, porque Supabase corta
 // cada respuesta en 1000 filas por más que pidas .limit() grande. Sin esto, el
@@ -1093,7 +1118,7 @@ async function loadData(){
   try{
     const {data,error}=await fetchAll(c,'quintetos_log');
     if(error && !(data&&data.length))throw error;
-    DATA=(data||[]).map(r=>({...r,jugadores:Array.isArray(r.jugadores)?r.jugadores:(r.jugadores?JSON.parse(r.jugadores):[])}));
+    DATA=fixPosesiones((data||[]).map(r=>({...r,jugadores:Array.isArray(r.jugadores)?r.jugadores:(r.jugadores?JSON.parse(r.jugadores):[])})));
     RAWD=DATA.slice();
     // Box score de jugadores (best-effort: si no existe la tabla, queda vacío)
     try{ const pr=await fetchAll(c,'jugadores_log'); PLAYERS=pr.data||[]; }
