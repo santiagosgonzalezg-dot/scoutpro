@@ -127,6 +127,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 
 /* COMPARAR */
 .cmp-grid{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:var(--sp-4);align-items:start}
+.cmp-sort{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:var(--sp-3)}.cmp-sort-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-right:4px}.cmp-sort-btn{font-family:var(--font-disp);font-weight:700;font-size:13px;letter-spacing:.5px;padding:6px 12px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid var(--border-subtle);color:var(--text-2)}.cmp-sort-btn.on{border-color:var(--offense);color:var(--offense);background:rgba(249,115,22,.10)}.cmp-sort-note{flex-basis:100%;font-size:10px;color:var(--text-3);margin-top:2px}
 @media(max-width:1000px){.cmp-grid{grid-template-columns:1fr}}
 .picker{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);max-height:640px}
 .picker-head{font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:.5px;padding-bottom:var(--sp-2);border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:var(--sp-2)}
@@ -1826,37 +1827,76 @@ function renderMatchHeader(){
 }
 
 // ---- COMPARAR ----
+// Orden de la pestaña Comparar (el mismo para los dos equipos)
+const CMP_SORTS=[
+  {key:'mins', lbl:'Minutos'},
+  {key:'diff', lbl:'+/-'},
+  {key:'net',  lbl:'Ef. neta', rating:true},
+  {key:'efOff',lbl:'Ef. ofensiva', rating:true},
+  {key:'efDefRaw',lbl:'Ef. defensiva', rating:true, lowBetter:true}
+];
+const CMP_MIN_POSS=5; // con menos posesiones las eficiencias no son confiables
+if(!S.cmpSort)S.cmpSort={key:'mins',dir:-1};
+function luKey(r){return r.players.map(p=>p.pid).sort().join('||');}
 function lineupsByTeam(){
   const acc=buildConsolidatedData(S.results);
-  return {1:Object.values(acc[1]).filter(r=>r.players.length===5).sort((a,b)=>b.totalMins-a.totalMins),
-          2:Object.values(acc[2]).filter(r=>r.players.length===5).sort((a,b)=>b.totalMins-a.totalMins)};
+  const opt=CMP_SORTS.find(o=>o.key===S.cmpSort.key)||CMP_SORTS[0];
+  const prep=team=>Object.values(acc[team])
+    .filter(r=>r.players.length===5)
+    .filter(r=>Math.round((r.totalMins||0)*60)>=1)          // fuera los quintetos de 0 minutos
+    .map(r=>{const m=calcMetrics(r);m.net=m.efOff-m.efDefRaw;m.enough=Math.min(m.posProp,m.posRiv)>=CMP_MIN_POSS;r._m=m;return r;})
+    .sort((x,y)=>{
+      const a=x._m,b=y._m;
+      if(opt.rating&&a.enough!==b.enough)return a.enough?-1:1; // pocas posesiones, al final
+      const d=(a[opt.key]-b[opt.key])*S.cmpSort.dir;
+      return d!==0?d:(b.mins-a.mins);
+    });
+  return {1:prep(1),2:prep(2)};
+}
+function setCmpSort(key){
+  const def=CMP_SORTS.find(o=>o.key===key);
+  if(S.cmpSort.key===key)S.cmpSort.dir*=-1;           // tocar de nuevo invierte el orden
+  else S.cmpSort={key,dir:def&&def.lowBetter?1:-1};   // Ef. defensiva: primero la menor (mejor)
+  renderComparar();
 }
 function renderComparar(){
   const lus=lineupsByTeam();
-  if(S.cmpSel[1]===null&&lus[1].length)S.cmpSel[1]=0;
-  if(S.cmpSel[2]===null&&lus[2].length)S.cmpSel[2]=0;
+  // La selección se guarda por quinteto (no por posición), así no cambia al reordenar
+  for(const t of [1,2]){
+    if(!lus[t].some(r=>luKey(r)===S.cmpSel[t]))S.cmpSel[t]=lus[t].length?luKey(lus[t][0]):null;
+  }
+  const opt=CMP_SORTS.find(o=>o.key===S.cmpSort.key)||CMP_SORTS[0];
   const pickerHtml=(team)=>{
     const list=lus[team];
     if(!list.length)return '<div class="empty">Sin quintetos</div>';
     return list.map((r,i)=>{
-      const m=calcMetrics(r);const sel=S.cmpSel[team]===i?('sel-'+team):'';
+      const m=r._m;const sel=S.cmpSel[team]===luKey(r)?('sel-'+team):'';
       const dc=m.diff>0?'var(--positive)':m.diff<0?'var(--negative)':'var(--text-3)';
+      let extra='';
+      if(opt.rating){
+        const v=opt.key==='net'?((m.net>0?'+':'')+(m.net/100).toFixed(2)):(m[opt.key]/100).toFixed(2);
+        extra=' · <b style="color:var(--text)">'+(m.enough?v:'—')+'</b> '+opt.lbl.toLowerCase();
+      }
       return '<div class="lu-opt '+sel+'" onclick="selLineup('+team+','+i+')">'+
-        '<div class="lu-opt-top"><span class="lu-mins">'+fmtMins(m.mins)+' · '+r.count+'x</span>'+
+        '<div class="lu-opt-top"><span class="lu-mins">'+fmtMins(m.mins)+' · '+r.count+'x'+extra+'</span>'+
         '<span class="lu-plusminus" style="color:'+dc+'">'+(m.diff>0?'+':'')+m.diff+'</span></div>'+
         '<div class="lu-players">'+r.players.map(p=>pchip(p,team)).join('')+'</div></div>';
     }).join('');
   };
-  const rA=lus[1][S.cmpSel[1]]||null, rB=lus[2][S.cmpSel[2]]||null;
-  const center=(rA&&rB)?renderCmpCenter(calcMetrics(rA),calcMetrics(rB)):'<div class="empty">Elegí un quinteto de cada equipo para compararlos.</div>';
-  document.getElementById('view-cmp').innerHTML=
+  const rA=lus[1].find(r=>luKey(r)===S.cmpSel[1])||null, rB=lus[2].find(r=>luKey(r)===S.cmpSel[2])||null;
+  const center=(rA&&rB)?renderCmpCenter(rA._m,rB._m):'<div class="empty">Elegí un quinteto de cada equipo para compararlos.</div>';
+  const arrow=S.cmpSort.dir<0?'▼':'▲';
+  const bar='<div class="cmp-sort"><span class="cmp-sort-lbl">Ordenar por</span>'+
+    CMP_SORTS.map(o=>{const on=o.key===S.cmpSort.key;return '<button class="cmp-sort-btn'+(on?' on':'')+'" onclick="setCmpSort(\''+o.key+'\')">'+o.lbl+(on?' '+arrow:'')+'</button>';}).join('')+
+    '<span class="cmp-sort-note">Tocá de nuevo para invertir. Con menos de '+CMP_MIN_POSS+' posesiones la eficiencia se muestra «—» y va al final. No se muestran quintetos de 0 minutos.</span></div>';
+  document.getElementById('view-cmp').innerHTML=bar+
     '<div class="cmp-grid">'+
       '<div class="picker t1"><div class="picker-head">'+S.teams[1].name+'</div><div class="picker-list">'+pickerHtml(1)+'</div></div>'+
       '<div class="cmp-center">'+center+'</div>'+
       '<div class="picker t2"><div class="picker-head">'+S.teams[2].name+'</div><div class="picker-list">'+pickerHtml(2)+'</div></div>'+
     '</div>';
 }
-function selLineup(team,i){S.cmpSel[team]=i;renderComparar();}
+function selLineup(team,i){const lus=lineupsByTeam();const r=lus[team][i];if(r)S.cmpSel[team]=luKey(r);renderComparar();}
 
 function renderCmpCenter(a,b){
   const radar=buildRadar(a,b);
