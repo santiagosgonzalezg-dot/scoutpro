@@ -2930,17 +2930,23 @@ function snapshotStats(pids){
   return snap;
 }
 
+// Segundos de juego transcurridos (según el reloj y el cuarto de la app)
+function gameSec(){
+  const t=(document.getElementById('g-qtr')?.textContent||'').toUpperCase();
+  const q=t.startsWith('OVER')?5:(parseInt(t)||1);
+  return q<=4 ? (q-1)*600+(600-cSec) : 2400+(300-cSec);
+}
 function pushLineup(pids){
   // Cerrar entrada anterior
   if(lineupLog.length > 0 && !lineupLog[lineupLog.length-1].closed){
     const last = lineupLog[lineupLog.length-1];
     last.statsEnd = stats.map(s=>Object.assign({},s));
-    last.trEnd = {...teamReb}; last.rvEnd = {...rivalStats};
+    last.trEnd = {...teamReb}; last.rvEnd = {...rivalStats}; last.tEnd = gameSec();
     last.closed = true;
   }
   // Abrir nueva entrada — snapshot simple como array (+ rebotes de EQUIPO y stats del rival)
   const snap = stats.map(s=>Object.assign({},s));
-  lineupLog.push({pids:[...pids], snap, trSnap:{...teamReb}, rvSnap:{...rivalStats}, closed:false});
+  lineupLog.push({pids:[...pids], snap, trSnap:{...teamReb}, rvSnap:{...rivalStats}, tStart:gameSec(), closed:false});
 }
 
 function buildLineupData(){
@@ -2958,7 +2964,7 @@ function buildLineupData(){
       lineupMap[key] = {
         players: pids.map(pid=>({id:pid, num:ROSTER[pid]?.num||'?', name:ROSTER[pid]?.name||'?'})),
         fg2m:0,fg2a:0,fg3m:0,fg3a:0,ftm:0,fta:0,ast:0,tov:0,ro:0,rd:0,stl:0,pm:0,poss:0,appearances:0,
-        rivalRo:0,rivalRd:0,rivalFga:0,rivalFta:0,rivalTov:0
+        rivalRo:0,rivalRd:0,rivalFga:0,rivalFta:0,rivalTov:0,secs:0
       };
     }
     const lu = lineupMap[key];
@@ -2979,6 +2985,11 @@ function buildLineupData(){
       lu.stl  += (e.stl||0)-(s.stl||0);
       if(i===0) lu.pm += (e.pm||0)-(s.pm||0);
     });
+    // Tiempo en cancha (segundos de reloj de juego)
+    if(entry.tStart!=null){
+      const tE = entry.closed ? (entry.tEnd!=null?entry.tEnd:gameSec()) : gameSec();
+      lu.secs += Math.max(0, tE-entry.tStart);
+    }
     // Rebotes de EQUIPO mientras este quinteto estaba en cancha (cuentan como del quinteto)
     if(entry.trSnap){
       const tE = entry.closed ? (entry.trEnd||teamReb) : teamReb;
@@ -3275,9 +3286,10 @@ function hideGhost(){document.getElementById('drag-ghost').style.display='none';
 function highlightDrop(x,y){document.querySelectorAll('.pcard').forEach(c=>c.classList.remove('drop-target'));const s=slotAt(x,y);if(s!==null)document.getElementById('pc-'+s)?.classList.add('drop-target');}
 function slotAt(x,y){for(let s=0;s<onCourt.length;s++){const el=document.getElementById('pc-'+s);if(!el)continue;const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;if(Math.hypot(x-cx,y-cy)<52)return s;}return null;}
 function doSub(pid,slot){
-  // Record the current lineup BEFORE the sub
-  pushLineup([...onCourt]);
-  const out=onCourt[slot];onCourt[slot]=pid;onBench=onBench.filter(i=>i!==pid);onBench.push(out);const clk=document.getElementById('g-clock').textContent,q=document.getElementById('g-qtr').textContent.split(' ')[0];pbp.unshift({t:clk,q,tm:'M',tx:`🔄 Entra <strong>#${ROSTER[pid].num} ${ROSTER[pid].name}</strong> · Sale <strong>#${ROSTER[out].num} ${ROSTER[out].name}</strong>`,sc:`${sH}-${sA}`});buildCourt();buildBench();toast(`🔄 ${ROSTER[pid].name} entra por ${ROSTER[out].name}`);if(document.getElementById('tab-stats').classList.contains('active'))renderStats();}
+  const out=onCourt[slot];onCourt[slot]=pid;onBench=onBench.filter(i=>i!==pid);onBench.push(out);
+  // Cierra el quinteto que estaba y abre el NUEVO (antes se registraba el viejo y los
+  // números del quinteto que entraba quedaban a nombre del anterior)
+  pushLineup([...onCourt]);const clk=document.getElementById('g-clock').textContent,q=document.getElementById('g-qtr').textContent.split(' ')[0];pbp.unshift({t:clk,q,tm:'M',tx:`🔄 Entra <strong>#${ROSTER[pid].num} ${ROSTER[pid].name}</strong> · Sale <strong>#${ROSTER[out].num} ${ROSTER[out].name}</strong>`,sc:`${sH}-${sA}`});buildCourt();buildBench();toast(`🔄 ${ROSTER[pid].name} entra por ${ROSTER[out].name}`);if(document.getElementById('tab-stats').classList.contains('active'))renderStats();}
 function benchDragStart(e,pid){dragPid=pid;document.getElementById(`bp-${pid}`)?.classList.add('dragging');showGhost(pid,e.clientX,e.clientY);document.getElementById('sub-hint').classList.add('on');const mm=ev=>{moveGhost(ev.clientX,ev.clientY);highlightDrop(ev.clientX,ev.clientY);};const mu=ev=>{hideGhost();document.getElementById('sub-hint').classList.remove('on');document.getElementById(`bp-${pid}`)?.classList.remove('dragging');document.querySelectorAll('.pcard').forEach(c=>c.classList.remove('drop-target'));const s=slotAt(ev.clientX,ev.clientY);if(s!==null)doSub(dragPid,s);dragPid=null;document.removeEventListener('mousemove',mm);document.removeEventListener('mouseup',mu);};document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);e.preventDefault();}
 function benchTouchStart(e,pid){dragPid=pid;document.getElementById(`bp-${pid}`)?.classList.add('dragging');const t0=e.touches[0];showGhost(pid,t0.clientX,t0.clientY);document.getElementById('sub-hint').classList.add('on');const tm=ev=>{const t=ev.touches[0];moveGhost(t.clientX,t.clientY);highlightDrop(t.clientX,t.clientY);ev.preventDefault();};const tu=ev=>{hideGhost();document.getElementById('sub-hint').classList.remove('on');document.getElementById(`bp-${pid}`)?.classList.remove('dragging');document.querySelectorAll('.pcard').forEach(c=>c.classList.remove('drop-target'));const t=ev.changedTouches[0];const s=slotAt(t.clientX,t.clientY);if(s!==null)doSub(dragPid,s);dragPid=null;document.removeEventListener('touchmove',tm);document.removeEventListener('touchend',tu);};document.addEventListener('touchmove',tm,{passive:false});document.addEventListener('touchend',tu);e.preventDefault();}
 
@@ -3440,47 +3452,86 @@ function setStatTab(tab){
   if(tab==='individual') rTable();
 }
 
+// Orden de la pestaña Quintetos (se recuerda mientras la página esté abierta)
+let luSort={key:'mins',dir:-1};
+const LU_SORTS=[
+  {key:'mins', lbl:'Minutos'},
+  {key:'pm',   lbl:'+/-'},
+  {key:'nrtg', lbl:'NRtg', rating:true},
+  {key:'ortg', lbl:'ORtg', rating:true},
+  {key:'drtg', lbl:'DRtg', rating:true, lowBetter:true},
+  {key:'efg',  lbl:'eFG%', rating:true},
+  {key:'poss', lbl:'Posesiones'},
+  {key:'pts',  lbl:'Puntos'}
+];
+function setLuSort(key){
+  const def=LU_SORTS.find(o=>o.key===key);
+  if(luSort.key===key) luSort.dir*=-1;               // tocar de nuevo invierte el orden
+  else luSort={key,dir:def&&def.lowBetter?1:-1};      // DRtg: primero el menor (mejor)
+  rQuintetos();
+}
+function fmtLuMins(secs){const m=Math.floor(secs/60),s=Math.round(secs%60);return m+':'+String(s).padStart(2,'0');}
 function rQuintetos(){
   const el=document.getElementById('lu-panel-full');
   if(!el)return;
   const lineups=buildLineupData();
-  // DEBUG temporal
   if(!lineups.length){
-    el.innerHTML=`<div style="font-size:11px;color:var(--gray2);padding:14px;text-align:center">
-      Sin datos.<br>
-      <span style="font-size:10px;color:#888">lineupLog: ${lineupLog.length} entradas · onCourt: [${onCourt.join(',')}] · stats[0].fga: ${stats[0]?.fga??'?'}</span>
-    </div>`;
+    el.innerHTML=`<div style="font-size:11px;color:var(--gray2);padding:14px;text-align:center">Sin datos de quintetos aún.</div>`;
     return;
   }
-  el.innerHTML=lineups.map(l=>{
+  const MIN_POSS=5; // con menos posesiones las eficiencias no son confiables
+  const rows=lineups.map(l=>{
     const pts=(l.fg2m*2)+(l.fg3m*3)+l.ftm;
     const rivalPts=Math.max(0,pts-l.pm);
-    const poss=Math.max(l.fg2a+l.fg3a+l.tov+Math.round(0.44*l.fta)-l.ro,1);
-    const enoughPoss=poss>=5;
-    const ortgVal=(pts/poss).toFixed(2);
-    const drtgVal=(rivalPts/poss).toFixed(2);
-    const nrtgVal=(pts/poss - rivalPts/poss).toFixed(2);
-    const ortg=enoughPoss?ortgVal:'—';
-    const drtg=enoughPoss?drtgVal:'—';
-    const nrtg=enoughPoss?(nrtgVal>0?'+':'')+nrtgVal:'—';
-    const nrtgColor=!enoughPoss?'var(--gray2)':nrtgVal>=0?'var(--green)':'var(--red)';
+    // Posesiones propias: FGA + PÉR + 0.44·TLI − RO (RO incluye rebotes de EQUIPO)
+    const poss=Math.max(0,l.fg2a+l.fg3a+l.tov+0.44*l.fta-l.ro);
+    // Posesiones del rival con sus stats cargadas; si no hay, se aproxima con las propias
+    const hasRiv=(l.rivalFga||0)+(l.rivalTov||0)+(l.rivalFta||0)>0;
+    const rivPoss=hasRiv?Math.max(0,(l.rivalFga||0)+(l.rivalTov||0)+0.44*(l.rivalFta||0)-(l.rivalRo||0)):poss;
+    const ortg=poss>0?pts/poss:0, drtg=rivPoss>0?rivalPts/rivPoss:0;
+    const fga=l.fg2a+l.fg3a;
+    const efg=fga>0?(l.fg2m+l.fg3m+0.5*l.fg3m)/fga*100:0;
+    const enough=poss>=MIN_POSS;
+    return {l,pts,rivalPts,poss,rivPoss,ortg,drtg,nrtg:ortg-drtg,efg,enough,mins:(l.secs||0)/60,pm:l.pm};
+  });
+  const opt=LU_SORTS.find(o=>o.key===luSort.key)||LU_SORTS[0];
+  rows.sort((a,b)=>{
+    // En las eficiencias, los quintetos con pocas posesiones van al final
+    if(opt.rating&&a.enough!==b.enough) return a.enough?-1:1;
+    const d=(a[opt.key]-b[opt.key])*luSort.dir;
+    return d!==0?d:(b.mins-a.mins);
+  });
+  const arrow=luSort.dir<0?'▼':'▲';
+  const bar=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;color:var(--gray2);margin-right:2px">ORDENAR POR</span>
+      ${LU_SORTS.map(o=>{const on=o.key===luSort.key;return `<button onclick="setLuSort('${o.key}')" style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;border:1px solid ${on?'var(--blue2)':'var(--border)'};background:${on?'rgba(59,130,246,.18)':'rgba(255,255,255,.04)'};color:${on?'var(--white)':'var(--gray2)'}">${o.lbl}${on?' '+arrow:''}</button>`;}).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--gray2);margin:-4px 0 12px">Tocá de nuevo para invertir el orden. Eficiencias = puntos por posesión; con menos de ${MIN_POSS} posesiones se muestran «—» y van al final al ordenar por eficiencia.</div>`;
+  el.innerHTML=bar+rows.map((r,idx)=>{
+    const l=r.l;
+    const pmColor=l.pm>0?'var(--green)':l.pm<0?'var(--red)':'var(--gray2)';
+    const ortg=r.enough?r.ortg.toFixed(2):'—';
+    const drtg=r.enough?r.drtg.toFixed(2):'—';
+    const nrtg=r.enough?(r.nrtg>0?'+':'')+r.nrtg.toFixed(2):'—';
+    const nrtgColor=!r.enough?'var(--gray2)':r.nrtg>=0?'var(--green)':'var(--red)';
     const names=l.players.map(p=>p.name.split(' ')[0]).join(' · ');
     const pct2=l.fg2a>0?Math.round(l.fg2m/l.fg2a*100):0;
     const pct3=l.fg3a>0?Math.round(l.fg3m/l.fg3a*100):0;
-    const efg=((l.fg2a+l.fg3a)>0?((l.fg2m+l.fg3m+0.5*l.fg3m)/(l.fg2a+l.fg3a)*100):0).toFixed(1);
+    const hl=k=>k===luSort.key?'outline:1px solid var(--blue2);':'';
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px">
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${pmColor};background:${l.pm>0?'rgba(16,185,129,.12)':l.pm<0?'rgba(239,68,68,.12)':'rgba(100,116,139,.12)'};padding:3px 9px;border-radius:7px">${l.pm>0?'+':''}${l.pm}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gray2)">${idx+1}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${pmColor};background:${l.pm>0?'rgba(16,185,129,.12)':l.pm<0?'rgba(239,68,68,.12)':'rgba(100,116,139,.12)'};padding:3px 9px;border-radius:7px;${hl('pm')}">${l.pm>0?'+':''}${l.pm}</span>
           <span style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;color:var(--white)">${names}</span>
         </div>
-        <span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--gray2)">${l.poss} pos · ${l.appearances} apar.</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:11px;color:var(--gray2);white-space:nowrap"><b style="color:var(--white);${hl('mins')}">${fmtLuMins(l.secs||0)} min</b> · <span style="${hl('poss')}">${Math.round(r.poss)} pos</span> · <span style="${hl('pts')}">${r.pts} pts</span></span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;text-align:center;margin-bottom:6px">
-        <div style="background:rgba(249,115,22,.1);border-radius:8px;padding:7px 4px"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--blue2)">${ortg}</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">ORtg</div></div>
-        <div style="background:rgba(239,68,68,.1);border-radius:8px;padding:7px 4px"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--red)">${drtg}</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">DRtg</div></div>
-        <div style="background:rgba(${nrtgVal>=0?'16,185,129':'239,68,68'},.1);border-radius:8px;padding:7px 4px"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${nrtgColor}">${nrtg}</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">NRtg</div></div>
-        <div style="background:rgba(167,139,250,.1);border-radius:8px;padding:7px 4px"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--gold)">${efg}%</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">eFG%</div></div>
+        <div style="background:rgba(249,115,22,.1);border-radius:8px;padding:7px 4px;${hl('ortg')}"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--blue2)">${ortg}</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">ORtg</div></div>
+        <div style="background:rgba(239,68,68,.1);border-radius:8px;padding:7px 4px;${hl('drtg')}"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--red)">${drtg}</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">DRtg</div></div>
+        <div style="background:rgba(${r.nrtg>=0?'16,185,129':'239,68,68'},.1);border-radius:8px;padding:7px 4px;${hl('nrtg')}"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${nrtgColor}">${nrtg}</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">NRtg</div></div>
+        <div style="background:rgba(167,139,250,.1);border-radius:8px;padding:7px 4px;${hl('efg')}"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--gold)">${r.efg.toFixed(1)}%</div><div style="font-size:9px;color:var(--gray2);margin-top:2px">eFG%</div></div>
         <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:7px 4px"><div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--white)">${l.fg2m}/${l.fg2a} <span style="font-size:10px;color:var(--gray2)">${pct2}%</span></div><div style="font-size:9px;color:var(--gray2);margin-top:2px">2PT</div></div>
         <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:7px 4px"><div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--white)">${l.fg3m}/${l.fg3a} <span style="font-size:10px;color:var(--gray2)">${pct3}%</span></div><div style="font-size:9px;color:var(--gray2);margin-top:2px">3PT</div></div>
       </div>
@@ -3612,8 +3663,10 @@ function rLineups(){
   function calcStats(l){
     const pts=(l.fg2m*2)+(l.fg3m*3)+l.ftm;
     const rivalPts=Math.max(0,pts-l.pm);
-    const poss=Math.max(l.fg2a+l.fg3a+l.tov+Math.round(0.44*l.fta)-l.ro,1);
-    return {ortg:pts/poss, drtg:rivalPts/poss, pts, rivalPts, poss};
+    const poss=Math.max(l.fg2a+l.fg3a+l.tov+0.44*l.fta-l.ro,1);
+    const hasRiv=(l.rivalFga||0)+(l.rivalTov||0)+(l.rivalFta||0)>0;
+    const rivPoss=hasRiv?Math.max((l.rivalFga||0)+(l.rivalTov||0)+0.44*(l.rivalFta||0)-(l.rivalRo||0),1):poss;
+    return {ortg:pts/poss, drtg:rivalPts/rivPoss, pts, rivalPts, poss:Math.round(poss)};
   }
 
   function card(l, label, labelColor){
