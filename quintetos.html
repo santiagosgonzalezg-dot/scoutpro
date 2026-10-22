@@ -1830,6 +1830,7 @@ function renderMatchHeader(){
 // Orden de la pestaña Comparar (el mismo para los dos equipos)
 const CMP_SORTS=[
   {key:'mins', lbl:'Minutos'},
+  {key:'poss', lbl:'Posesiones'},
   {key:'diff', lbl:'+/-'},
   {key:'net',  lbl:'Ef. neta', rating:true},
   {key:'efOff',lbl:'Ef. ofensiva', rating:true},
@@ -1844,7 +1845,7 @@ function lineupsByTeam(){
   const prep=team=>Object.values(acc[team])
     .filter(r=>r.players.length===5)
     .filter(r=>Math.round((r.totalMins||0)*60)>=1)          // fuera los quintetos de 0 minutos
-    .map(r=>{const m=calcMetrics(r);m.net=m.efOff-m.efDefRaw;m.enough=Math.min(m.posProp,m.posRiv)>=CMP_MIN_POSS;r._m=m;return r;})
+    .map(r=>{const m=calcMetrics(r);m.net=m.efOff-m.efDefRaw;m.poss=m.posProp;m.enough=Math.min(m.posProp,m.posRiv)>=CMP_MIN_POSS;r._m=m;return r;})
     .sort((x,y)=>{
       const a=x._m,b=y._m;
       if(opt.rating&&a.enough!==b.enough)return a.enough?-1:1; // pocas posesiones, al final
@@ -1878,7 +1879,7 @@ function renderComparar(){
         extra=' · <b style="color:var(--text)">'+(m.enough?v:'—')+'</b> '+opt.lbl.toLowerCase();
       }
       return '<div class="lu-opt '+sel+'" onclick="selLineup('+team+','+i+')">'+
-        '<div class="lu-opt-top"><span class="lu-mins">'+fmtMins(m.mins)+' · '+r.count+'x'+extra+'</span>'+
+        '<div class="lu-opt-top"><span class="lu-mins">'+fmtMins(m.mins)+' · <b style="color:var(--text)">'+Math.round(m.posProp)+' pos</b> · '+r.count+'x'+extra+'</span>'+
         '<span class="lu-plusminus" style="color:'+dc+'">'+(m.diff>0?'+':'')+m.diff+'</span></div>'+
         '<div class="lu-players">'+r.players.map(p=>pchip(p,team)).join('')+'</div></div>';
     }).join('');
@@ -1888,7 +1889,7 @@ function renderComparar(){
   const arrow=S.cmpSort.dir<0?'▼':'▲';
   const bar='<div class="cmp-sort"><span class="cmp-sort-lbl">Ordenar por</span>'+
     CMP_SORTS.map(o=>{const on=o.key===S.cmpSort.key;return '<button class="cmp-sort-btn'+(on?' on':'')+'" onclick="setCmpSort(\''+o.key+'\')">'+o.lbl+(on?' '+arrow:'')+'</button>';}).join('')+
-    '<span class="cmp-sort-note">Tocá de nuevo para invertir. Con menos de '+CMP_MIN_POSS+' posesiones la eficiencia se muestra «—» y va al final. No se muestran quintetos de 0 minutos.</span></div>';
+    '<span class="cmp-sort-note">Tocá de nuevo para invertir. Con menos de '+CMP_MIN_POSS+' posesiones la eficiencia se muestra «—» y va al final. No se muestran quintetos de 0 minutos. «pos» = posesiones de ataque que jugó ese quinteto.</span></div>';
   document.getElementById('view-cmp').innerHTML=bar+
     '<div class="cmp-grid">'+
       '<div class="picker t1"><div class="picker-head">'+S.teams[1].name+'</div><div class="picker-list">'+pickerHtml(1)+'</div></div>'+
