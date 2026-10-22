@@ -1332,12 +1332,18 @@ async function saveMatch(){
       if(pbrows.length){
         let {error:pe}=await client.from('pbp_log').insert(pbrows);
         if(pe){
-          // Si la base todavía no tiene la columna 'tramo', reintentamos sin ella
-          // para no romper el guardado (el clutch sigue funcionando igual).
-          const noTramo=pbrows.map(r=>{const {tramo,...rest}=r;return rest;});
-          const r2=await client.from('pbp_log').insert(noTramo);
-          if(r2.error)throw pe;
-          pbmsg=' · '+pbrows.length+' jugadas (sin momento: falta columna tramo)';
+          // Si la base todavía no tiene las columnas nuevas (ast_num, origen), reintentamos sin
+          // ellas; y si tampoco tiene 'tramo', sin esa. Así nunca se rompe el guardado.
+          const noNew=pbrows.map(r=>{const {ast_num,origen,...rest}=r;return rest;});
+          const r1=await client.from('pbp_log').insert(noNew);
+          if(!r1.error){
+            pbmsg=' · '+pbrows.length+' jugadas (sin asistencias/origen: faltan columnas ast_num y origen en pbp_log)';
+          }else{
+            const noTramo=noNew.map(r=>{const {tramo,...rest}=r;return rest;});
+            const r2=await client.from('pbp_log').insert(noTramo);
+            if(r2.error)throw pe;
+            pbmsg=' · '+pbrows.length+' jugadas (sin momento ni asistencias: faltan columnas en pbp_log)';
+          }
         }else{
           const conT=pbrows.filter(r=>r.tramo!=null).length;
           pbmsg=' · '+pbrows.length+' jugadas ('+conT+' con momento)';
@@ -1425,10 +1431,16 @@ function buildPbpRows(matchId,fecha,fase,jornada){
   const perLen=p=>p<=4?600:300;
   const nameOf=t=>S.teams[t]?S.teams[t].name:'';
   const score={1:0,2:0};
+  // Asistencias: FIBA las registra como una jugada aparte ('assist'). Se unen a la canasta por
+  // el número de jugada vinculada (previousAction) o, si no viene, por cercanía (mismo equipo,
+  // mismo reloj, pegada a la canasta).
+  const astByAction={};
+  for(const e of pbp){if(String(e.actionType||'').toLowerCase()==='assist'&&e.previousAction!=null&&e.previousAction!==''){astByAction[String(e.previousAction)]=String(e.shirtNumber||'').trim();}}
+  const qualOf=e=>{const q=e.qualifier||e.qualifiers||[];return (Array.isArray(q)?q:String(q).split(/[,\s]+/)).map(x=>String(x).toLowerCase());};
   for(const p of Object.keys(byPer).map(Number).sort((a,b)=>a-b)){
     const evs=byPer[p].slice().reverse(); // cronológico
     const lastGain={1:perLen(p),2:perLen(p)}; // reloj (seg restantes) cuando el equipo ganó la posesión
-    for(const e of evs){
+    for(let ei=0;ei<evs.length;ei++){const e=evs[ei];
       const t=String(e.tno);if(t!=='1'&&t!=='2')continue;
       const tn=+t,opp=tn===1?2:1;
       const at=String(e.actionType||'').toLowerCase();const made=(e.success===1||e.success===true);
@@ -1448,10 +1460,19 @@ function buildPbpRows(matchId,fecha,fase,jornada){
       let pts=0;if(at==='2pt'&&made)pts=2;else if(at==='3pt'&&made)pts=3;else if(at==='freethrow'&&made)pts=1;
       if(!pts)continue;
       score[tn]+=pts;
+      // quién asistió ('' = sin asistencia; solo canastas de campo)
+      let ast_num=null;
+      if(at==='2pt'||at==='3pt'){
+        ast_num=(e.actionNumber!=null&&astByAction[String(e.actionNumber)])||'';
+        if(!ast_num){for(const j of [ei+1,ei+2,ei-1]){const x=evs[j];if(x&&String(x.actionType||'').toLowerCase()==='assist'&&String(x.tno)===t&&x.gt===e.gt){ast_num=String(x.shirtNumber||'').trim();break;}}}
+      }
+      // origen del punto: contraataque y 2ª oportunidad tienen prioridad; el resto, libres o ataque estacionado
+      const q=qualOf(e);
+      const origen=q.includes('fastbreak')?'Contraataque':q.includes('2ndchance')?'2ª oportunidad':at==='freethrow'?'Libres':'Ataque estacionado';
       rows.push({match_id:matchId,fecha,fase,jornada,
         equipo:nameOf(tn),rival:nameOf(opp),es_local:tn===1,
         period:p,seg:sec,pts,s_fav:score[tn],s_riv:score[opp],
-        num:String(e.shirtNumber||'').trim(),tramo});
+        num:String(e.shirtNumber||'').trim(),tramo,ast_num,origen});
     }
   }
   return rows;
