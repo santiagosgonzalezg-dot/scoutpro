@@ -1422,14 +1422,26 @@ function clubColorsFrom(px,w,h){
   return [toHex(base),toHex(a2)];
 }
 async function poolMap(items,n,fn){const out=new Array(items.length);let i=0;await Promise.all(new Array(Math.min(n,items.length)).fill(0).map(async()=>{while(i<items.length){const k=i++;out[k]=await fn(items[k],k);}}));return out;}
+// Trae imágenes de FIBA a través de la función 'fibaimg' de Supabase (el servidor de FIBA no deja leerlas desde el navegador)
+async function fetchImgsViaFn(client,urls){
+  const out={};const list=[...new Set(urls.filter(u=>/^https:\/\//.test(u||'')))];
+  for(let i=0;i<list.length;i+=40){
+    try{const {data,error}=await client.functions.invoke('fibaimg',{body:{urls:list.slice(i,i+40)}});if(!error&&data&&data.images)Object.assign(out,data.images);}catch(e){}
+  }
+  return out;
+}
 async function saveClubAssets(client){
   const res={clubes:0,fotos:0,fotosData:0,cors:null};
+  // juntar todos los links (escudos + fotos) y traerlos de una vez por la función
+  const allUrls=[];for(const t of [1,2]){const tm=S.data.tm[String(t)]||{};allUrls.push((tm.logoS&&tm.logoS.url)||(tm.logoT&&tm.logoT.url)||'');Object.values(tm.pl||{}).forEach(p=>allUrls.push(p.photoS||p.photoT||''));}
+  const viaFn=await fetchImgsViaFn(client,allUrls);
+  const load=u=>imgLoad(viaFn[u]||u);
   for(const t of [1,2]){
     const tm=S.data.tm[String(t)]||{};const equipo=S.teams[t].name;if(!equipo)continue;
     const url=(tm.logoS&&tm.logoS.url)||(tm.logoT&&tm.logoT.url)||(typeof tm.logo==='string'&&/^https?:/.test(tm.logo)?tm.logo:'');
     const row={equipo,updated_at:new Date().toISOString()};
     if(url)row.logo_url=url;
-    const rd=imgRead(await imgLoad(url),200,'image/png');
+    const rd=imgRead(await load(url),200,'image/png');
     if(url)res.cors=res.cors===null?!!rd:(res.cors||!!rd);
     let prev=null;try{const q=await client.from('clubes').select('color_manual').eq('equipo',equipo).maybeSingle();prev=q&&q.data;}catch(e){}
     if(rd){row.logo_data=rd.data;
@@ -1442,7 +1454,7 @@ async function saveClubAssets(client){
     const rows=await poolMap(pl,6,async p=>{
       const furl=p.photoS||p.photoT||'';if(!furl)return null;
       const r={equipo,num:String(p.shirtNumber).trim(),nombre:p.name||p.scoreboardName||'',foto_url:furl,updated_at:new Date().toISOString()};
-      const fd=imgRead(await imgLoad(furl),160,'image/jpeg',0.82);if(fd){r.foto_data=fd.data;res.fotosData++;}
+      const fd=imgRead(await load(furl),160,'image/jpeg',0.82);if(fd){r.foto_data=fd.data;res.fotosData++;}
       return r;});
     const ok=rows.filter(Boolean);
     if(ok.length){const {error:fe}=await client.from('fotos_jugadores').upsert(ok,{onConflict:'equipo,num,nombre'});if(!fe)res.fotos+=ok.length;}
