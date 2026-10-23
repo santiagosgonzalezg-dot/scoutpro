@@ -1350,8 +1350,15 @@ async function saveMatch(){
         }
       }
     }catch(pe){ pbmsg=' · ⚠ jugadas NO ('+(pe.message||pe)+')'; fails.push('jugadas'); }
+    // ── Escudos, colores y fotos de jugadores -> clubes / fotos_jugadores ──
+    let amsg='';
+    try{
+      saveStatusMsg('load','Guardando escudos y fotos…');
+      const ar=await saveClubAssets(client);
+      amsg=' · '+ar.clubes+' escudos · '+ar.fotos+' fotos'+(ar.cors===false?' (solo links: el servidor de FIBA no deja copiar las imágenes)':'');
+    }catch(ae){ amsg=' · ⚠ escudos/fotos NO ('+(ae.message||ae)+')'; fails.push('escudos/fotos'); }
     // ── Cartel HONESTO: verde solo si guardó TODO; ámbar si algo faltó ──
-    const detalle=rows.length+' quintetos'+pmsg+smsg+cmsg+pbmsg+'.';
+    const detalle=rows.length+' quintetos'+pmsg+smsg+cmsg+pbmsg+amsg+'.';
     if(fails.length){
       saveStatusMsg('warn','⚠ Guardado PARCIAL — faltó: '+fails.join(', ')+'.  '+detalle);
     }else{
@@ -1363,6 +1370,85 @@ async function saveMatch(){
   }finally{ btn.disabled=false; }
 }
 
+// ════════ ESCUDOS, COLORES Y FOTOS (se guardan en cada partido) ════════
+// FIBA LiveStats manda el escudo de cada equipo y la foto de cada jugador. Se guardan en las
+// tablas 'clubes' y 'fotos_jugadores'. Si el servidor de imágenes deja leerlas, además se guarda
+// una copia chica (para usarla en PNG/PDF) y se calculan los colores del club desde el escudo.
+function imgLoad(url){return new Promise(res=>{if(!url){res(null);return;}const im=new Image();im.crossOrigin='anonymous';
+  const t=setTimeout(()=>res(null),8000);im.onload=()=>{clearTimeout(t);res(im);};im.onerror=()=>{clearTimeout(t);res(null);};im.src=url;});}
+// Devuelve {data, px} si se puede leer (CORS ok); si no, null
+function imgRead(im,max,type,q){
+  if(!im)return null;
+  try{const r=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));const w=Math.max(1,Math.round(im.naturalWidth*r)),h=Math.max(1,Math.round(im.naturalHeight*r));
+    const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+    if(type==='image/jpeg'){x.fillStyle='#fff';x.fillRect(0,0,w,h);}
+    x.drawImage(im,0,0,w,h);const px=x.getImageData(0,0,w,h);return {data:c.toDataURL(type||'image/png',q||0.85),px,w,h};
+  }catch(e){return null;}
+}
+function hex2(n){return ('0'+Math.max(0,Math.min(255,Math.round(n))).toString(16)).slice(-2);}
+function toHex(c){return '#'+hex2(c[0])+hex2(c[1])+hex2(c[2]);}
+function lumC(c){return (0.299*c[0]+0.587*c[1]+0.114*c[2])/255;}
+function satC(c){const mx=Math.max(...c),mn=Math.min(...c);return mx?((mx-mn)/mx):0;}
+// Colores del club: los dos colores con más presencia en el escudo (sin el fondo de la imagen).
+// Devuelve [fondo oscuro, acento] listos para placas e informes.
+function clubColorsFrom(px,w,h){
+  const d=px.data,B={};
+  const at=(x,y)=>{const i=(y*w+x)*4;return [d[i],d[i+1],d[i+2],d[i+3]];};
+  const corners=[at(0,0),at(w-1,0),at(0,h-1),at(w-1,h-1)].filter(c=>c[3]>200);
+  const near=(a,b,t)=>Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2])<t;
+  for(let i=0;i<d.length;i+=4){if(d[i+3]<200)continue;const c=[d[i],d[i+1],d[i+2]];if(corners.some(k=>near(c,k,60)))continue;
+    const k=(c[0]>>4)+','+(c[1]>>4)+','+(c[2]>>4);const b=B[k]||(B[k]={n:0,r:0,g:0,b:0});b.n++;b.r+=c[0];b.g+=c[1];b.b+=c[2];}
+  const arr=Object.values(B).map(b=>({n:b.n,c:[b.r/b.n,b.g/b.n,b.b/b.n]})).sort((a,b)=>b.n-a.n);
+  if(!arr.length)return null;
+  // fusionar parecidos
+  const pal=[];arr.forEach(x=>{const m=pal.find(p=>near(p.c,x.c,45));if(m)m.n+=x.n;else pal.push({n:x.n,c:x.c});});
+  pal.sort((a,b)=>b.n-a.n);
+  const tot=pal.reduce((s,p)=>s+p.n,0);pal.forEach(p=>p.sh=p.n/tot);
+  const hue=c=>{const [r,g,b]=c.map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),dd=mx-mn;if(!dd)return 0;let h=mx===r?((g-b)/dd)%6:mx===g?(b-r)/dd+2:(r-g)/dd+4;return (h*60+360)%360;};
+  const hd=(a,b)=>{const x=Math.abs(hue(a)-hue(b));return Math.min(x,360-x);};
+  // acento: el color más vivo del escudo (pesa más la saturación que el tamaño)
+  const rgb2hsl=c=>{const [r,g,b]=c.map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,dd=mx-mn;const sat=dd?dd/(1-Math.abs(2*l-1)):0;return [hue(c),sat,l];};
+  const hsl2rgb=(h,sa,l)=>{const C=(1-Math.abs(2*l-1))*sa,X=C*(1-Math.abs((h/60)%2-1)),m=l-C/2;const [r,g,b]=h<60?[C,X,0]:h<120?[X,C,0]:h<180?[0,C,X]:h<240?[0,X,C]:h<300?[X,0,C]:[C,0,X];return [(r+m)*255,(g+m)*255,(b+m)*255];};
+  // acento: el color más vivo del escudo (pesa más la saturación que el tamaño); se lleva a un tono vivo y legible
+  const chrom=pal.filter(p=>satC(p.c)>0.35&&lumC(p.c)>0.05&&lumC(p.c)<0.92&&p.sh>=0.01).sort((x,y)=>y.sh*satC(y.c)**3-x.sh*satC(x.c)**3);
+  let a2;
+  if(chrom.length){const [h,sa,l]=rgb2hsl(chrom[0].c);a2=hsl2rgb(h,Math.max(sa,0.72),Math.min(0.6,Math.max(0.45,l)));}
+  else a2=[208,212,218];                       // escudo sin color: gris claro
+  // fondo: otro color importante del escudo (oscuro o de otro tono); si no hay, gris oscuro neutro
+  const sig=pal.filter(p=>p.sh>=0.03&&satC(p.c)>0.3);
+  const bc=sig.find(p=>hd(p.c,a2)>40||lumC(p.c)<0.2);
+  let base=[18,22,32];
+  if(bc){const [h,sa]=rgb2hsl(bc.c);base=hsl2rgb(h,Math.min(0.65,Math.max(0.35,sa)),0.15);}
+  return [toHex(base),toHex(a2)];
+}
+async function poolMap(items,n,fn){const out=new Array(items.length);let i=0;await Promise.all(new Array(Math.min(n,items.length)).fill(0).map(async()=>{while(i<items.length){const k=i++;out[k]=await fn(items[k],k);}}));return out;}
+async function saveClubAssets(client){
+  const res={clubes:0,fotos:0,fotosData:0,cors:null};
+  for(const t of [1,2]){
+    const tm=S.data.tm[String(t)]||{};const equipo=S.teams[t].name;if(!equipo)continue;
+    const url=(tm.logoS&&tm.logoS.url)||(tm.logoT&&tm.logoT.url)||(typeof tm.logo==='string'&&/^https?:/.test(tm.logo)?tm.logo:'');
+    const row={equipo,updated_at:new Date().toISOString()};
+    if(url)row.logo_url=url;
+    const rd=imgRead(await imgLoad(url),200,'image/png');
+    if(url)res.cors=res.cors===null?!!rd:(res.cors||!!rd);
+    let prev=null;try{const q=await client.from('clubes').select('color_manual').eq('equipo',equipo).maybeSingle();prev=q&&q.data;}catch(e){}
+    if(rd){row.logo_data=rd.data;
+      if(!(prev&&prev.color_manual)){const cc=clubColorsFrom(rd.px,rd.w,rd.h);if(cc){row.color1=cc[0];row.color2=cc[1];}}}
+    if(!url&&!rd)continue;
+    const {error}=await client.from('clubes').upsert(row,{onConflict:'equipo'});
+    if(!error){res.clubes++;S.clubColors=S.clubColors||{};if(row.color1)S.clubColors[equipo]=[row.color1,row.color2];S.clubLogos=S.clubLogos||{};S.clubLogos[equipo]=row.logo_data||url;}
+    // fotos de los jugadores
+    const pl=Object.values(tm.pl||{}).filter(p=>String(p.shirtNumber||'').trim());
+    const rows=await poolMap(pl,6,async p=>{
+      const furl=p.photoS||p.photoT||'';if(!furl)return null;
+      const r={equipo,num:String(p.shirtNumber).trim(),nombre:p.name||p.scoreboardName||'',foto_url:furl,updated_at:new Date().toISOString()};
+      const fd=imgRead(await imgLoad(furl),160,'image/jpeg',0.82);if(fd){r.foto_data=fd.data;res.fotosData++;}
+      return r;});
+    const ok=rows.filter(Boolean);
+    if(ok.length){const {error:fe}=await client.from('fotos_jugadores').upsert(ok,{onConflict:'equipo,num,nombre'});if(!fe)res.fotos+=ok.length;}
+  }
+  return res;
+}
 function parseMinStr(m){
   if(m==null)return 0;
   if(typeof m==='number')return m;
@@ -1639,7 +1725,15 @@ async function postGameReport(){
   try{
   const fno=+(document.getElementById('pgTeam').value||1),ono=fno===1?2:1;
   const focus=S.teams[fno].name,opp=S.teams[ono].name;
-  const col='#b5322e';
+  // Color y escudos de los clubes (tabla 'clubes'; si no hay, los del dato de FIBA)
+  let cdb={};
+  try{const sb0=getSB();if(sb0){const {data}=await sb0.from('clubes').select('equipo,logo_url,logo_data,color1,color2').in('equipo',[focus,opp]);(data||[]).forEach(r=>cdb[r.equipo]=r);}}catch(e){}
+  const tmL=t=>{const tm=S.data.tm[String(t)]||{};return (tm.logoS&&tm.logoS.url)||(tm.logoT&&tm.logoT.url)||'';};
+  const lgF=(cdb[focus]&&(cdb[focus].logo_data||cdb[focus].logo_url))||tmL(fno),lgO=(cdb[opp]&&(cdb[opp].logo_data||cdb[opp].logo_url))||tmL(ono);
+  const cc=(cdb[focus]&&cdb[focus].color2)?[cdb[focus].color1,cdb[focus].color2]:((S.clubColors||{})[focus]||null);
+  const lumH=h=>{const n=parseInt(String(h).slice(1),16);return (0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;};
+  // para hoja blanca: el acento si es oscuro o medio; si es muy claro (amarillo, blanco), el color de fondo del club
+  const col=cc?(lumH(cc[1])<0.62?cc[1]:cc[0]):'#b5322e';
   const fecha=document.getElementById('mFecha').value||new Date().toISOString().slice(0,10);
   const jornada=document.getElementById('mJornada').value||'';
   const liga=(document.getElementById('mFase').value||'LIGA DE ASCENSO');
@@ -1752,7 +1846,7 @@ async function postGameReport(){
     '*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1b1f27;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
     '.page{width:210mm;height:297mm;padding:11mm 12mm;margin:0 auto;display:flex;flex-direction:column;page-break-after:always;overflow:hidden}.page:last-child{page-break-after:auto}'+
     '.hd{display:flex;align-items:center;gap:14px;border-bottom:3px solid '+col+';padding-bottom:10px;margin-bottom:11px}.hd .lg{font-family:Arial Black,Arial;font-weight:900;font-size:19px;letter-spacing:1px;color:'+col+'}.hd .lg small{display:block;font-size:8px;letter-spacing:3px;color:#9aa0ac;font-weight:400}.hd .meta{margin-left:auto;text-align:right;font-size:10px;color:#5a626f;line-height:1.5}.hd .meta b{color:#1b1f27}'+
-    '.score{display:flex;align-items:center;justify-content:center;gap:18px;background:#f7f8fa;border-radius:10px;padding:12px;margin-bottom:11px}.score .tm{flex:1;text-align:center}.score .tm .nm{font-weight:800;font-size:16px}.score .tm.win .nm{color:'+col+'}.score .sc{font-family:Arial Black;font-weight:900;font-size:38px;letter-spacing:2px}.score .sc small{font-size:10px;color:#9aa0ac;display:block;text-align:center;letter-spacing:2px;font-weight:400}'+
+    '.score{display:flex;align-items:center;justify-content:center;gap:18px;background:#f7f8fa;border-radius:10px;padding:12px;margin-bottom:11px}.score .tm{flex:1;text-align:center}.score .tm img.lg{width:54px;height:54px;object-fit:contain;display:block;margin:0 auto 6px}.score .tm .nm{font-weight:800;font-size:16px}.score .tm.win .nm{color:'+col+'}.score .sc{font-family:Arial Black;font-weight:900;font-size:38px;letter-spacing:2px}.score .sc small{font-size:10px;color:#9aa0ac;display:block;text-align:center;letter-spacing:2px;font-weight:400}'+
     '.sec{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:'+col+';font-weight:800;margin:0 0 7px;display:flex;align-items:center;gap:7px}.sec:before{content:"";width:3px;height:13px;background:'+col+';border-radius:2px}'+
     '.grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:0}'+
     '.card{border:1px solid #e2e5ea;border-radius:8px;padding:10px 12px}.card.tight{padding:8px 10px}.cap{font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#9aa0ac;margin-bottom:4px;font-weight:700}'+
@@ -1763,7 +1857,7 @@ async function postGameReport(){
     '.gloss{font-size:9.5px;color:#3d4450;line-height:1.5;columns:2;column-gap:20px}.gloss p{margin:0 0 6px;break-inside:avoid;-webkit-column-break-inside:avoid}.gloss b{color:#1b1f27}.ft{margin-top:auto;text-align:center;color:#b5bbc5;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding-top:8px;border-top:1px solid #f0f2f5}@page{size:A4;margin:0}'+
     '</style></head><body>'+
     '<div class="page"><div class="hd"><div class="lg">SCOUTPRO<small>INFORME POST-PARTIDO</small></div><div class="meta"><b>'+liga+'</b>'+(jornada?' · '+jornada:'')+'<br>'+fecha+'</div></div>'+
-    '<div class="score"><div class="tm '+(scF>scO?'win':'')+'"><div class="nm">'+focus+'</div></div><div class="sc">'+scF+' – '+scO+'<small>FINAL</small></div><div class="tm '+(scO>scF?'win':'')+'"><div class="nm">'+opp+'</div></div></div>'+
+    '<div class="score"><div class="tm '+(scF>scO?'win':'')+'">'+(lgF?'<img class="lg" crossorigin="anonymous" src="'+lgF+'" alt="">':'')+'<div class="nm">'+focus+'</div></div><div class="sc">'+scF+' – '+scO+'<small>FINAL</small></div><div class="tm '+(scO>scF?'win':'')+'">'+(lgO?'<img class="lg" crossorigin="anonymous" src="'+lgO+'" alt="">':'')+'<div class="nm">'+opp+'</div></div></div>'+
     '<div class="sec">Evolución del partido</div><div class="grid2"><div class="card"><div class="cap">Margen '+focus+' a lo largo del partido</div>'+pgEvoSVG(margArr,col)+'</div>'+
     '<div class="card tight"><div class="cap">Parciales por cuarto</div><table><thead><tr><th>Equipo</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>TOT</th></tr></thead><tbody>'+parcRow(focus,qOf,scF)+parcRow(opp,qOpp,scO)+'</tbody></table><div class="cap" style="margin-top:8px">Rachas clave</div><table><tbody>'+rachaRows+'</tbody></table></div></div>'+
     '<div class="sec">Comparativa de equipos · avanzadas del partido</div><div class="card" style="margin-bottom:11px"><table><thead><tr><th>Métrica</th><th>'+focus+'</th><th>'+opp+'</th></tr></thead><tbody>'+
