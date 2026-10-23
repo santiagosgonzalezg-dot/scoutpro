@@ -1203,7 +1203,8 @@ async function loadMatch(){
   if(!m){setStatus('err','Pegá un número de partido válido (o el link que lo contenga).');return;}
   if(!proxy){setStatus('err','Falta la dirección del proxy.');return;}
   const id=m[1];
-  const url=proxy+(proxy.includes('?')?'&':'?')+'matchId='+id;
+  const code=(raw.match(/\/u\/([A-Za-z0-9_-]+)\//)||[])[1]||'';
+  const url=proxy+(proxy.includes('?')?'&':'?')+'matchId='+id+(code?'&code='+encodeURIComponent(code):'');
   const btn=document.getElementById('goBtn');btn.disabled=true;
   setStatus('load','Buscando el partido '+id+'…');
   try{
@@ -1229,7 +1230,12 @@ function renderAll(){
   document.getElementById('tabs').classList.add('show');
   document.getElementById('homeBtn').classList.add('show');
   document.getElementById('savebar').classList.add('show');
-  const f=document.getElementById('mFecha'); if(!f.value)f.value=new Date().toISOString().slice(0,10);
+  const f=document.getElementById('mFecha');
+  // Fecha del partido: la del salto inicial que da FIBA (convertida a hora local); si no viene, hoy
+  // (se usa tal como lo muestra la página de FIBA: fecha y hora del lugar del partido)
+  const mt=(S.data&&S.data._meta)||{};
+  if(mt.date&&/^\d{4}-\d{2}-\d{2}$/.test(mt.date)){f.value=mt.date;S.kickoff={date:mt.date,time:mt.time||''};}
+  else{S.kickoff=null;if(!f.value){const d=new Date();f.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}}
   document.getElementById('saveStatus').textContent='';
   renderMatchHeader();
   renderComparar();
@@ -1741,15 +1747,21 @@ async function postGameReport(){
   let cdb={};
   try{const sb0=getSB();if(sb0){const {data}=await sb0.from('clubes').select('equipo,logo_url,logo_data,color1,color2').in('equipo',[focus,opp]);(data||[]).forEach(r=>cdb[r.equipo]=r);}}catch(e){}
   const tmL=t=>{const tm=S.data.tm[String(t)]||{};return (tm.logoS&&tm.logoS.url)||(tm.logoT&&tm.logoT.url)||'';};
-  const lgF=(cdb[focus]&&(cdb[focus].logo_data||cdb[focus].logo_url))||tmL(fno),lgO=(cdb[opp]&&(cdb[opp].logo_data||cdb[opp].logo_url))||tmL(ono);
+  let lgF=(cdb[focus]&&cdb[focus].logo_data)||'',lgO=(cdb[opp]&&cdb[opp].logo_data)||'';
+  {const need=[!lgF?((cdb[focus]&&cdb[focus].logo_url)||tmL(fno)):'',!lgO?((cdb[opp]&&cdb[opp].logo_url)||tmL(ono)):''];
+   if(need.some(Boolean)){let got={};try{const sb1=getSB();if(sb1)got=await fetchImgsViaFn(sb1,need);}catch(e){}
+     if(!lgF)lgF=got[need[0]]||need[0];if(!lgO)lgO=got[need[1]]||need[1];}}
   const cc=(cdb[focus]&&cdb[focus].color2)?[cdb[focus].color1,cdb[focus].color2]:((S.clubColors||{})[focus]||null);
   const lumH=h=>{const n=parseInt(String(h).slice(1),16);return (0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;};
   // para hoja blanca: el acento si es oscuro o medio; si es muy claro (amarillo, blanco), el color de fondo del club
   const col=cc?(lumH(cc[1])<0.62?cc[1]:cc[0]):'#b5322e';
-  const fecha=document.getElementById('mFecha').value||new Date().toISOString().slice(0,10);
+  const fechaISO=document.getElementById('mFecha').value||new Date().toISOString().slice(0,10);
+  const fdp=fechaISO.split('-');const fecha=fdp.length===3?(fdp[2]+'/'+fdp[1]+'/'+fdp[0]):fechaISO;
+  const hora=(S.kickoff&&S.kickoff.date===fechaISO)?S.kickoff.time:'';
+  const fechaLarga=fecha+(hora?' · '+hora+' h':'');
   const jornada=document.getElementById('mJornada').value||'';
-  const liga=(document.getElementById('mFase').value||'LIGA DE ASCENSO');
-  const prows=buildPlayerRows('',fecha,liga,jornada);
+  const liga=(document.getElementById('mFase').value||(S.data._meta&&S.data._meta.competition)||'LIGA DE ASCENSO');
+  const prows=buildPlayerRows('',fechaISO,liga,jornada);
   const byTeam={};prows.forEach(r=>{(byTeam[r.equipo]=byTeam[r.equipo]||[]).push(r);});
   const agg=rs=>{const a={pts:0,fgm:0,fga:0,tpm:0,tpa:0,ftm:0,fta:0,ast:0,rob:0,tap:0,per:0,ro:0,rd:0,reb:0};(rs||[]).forEach(r=>{for(const k in a)a[k]+=(+r[k]||0);});return a;};
   // Avanzadas del equipo: SIEMPRE con el TOTAL DEL EQUIPO (incluye rebotes y pérdidas de
@@ -1868,7 +1880,7 @@ async function postGameReport(){
     '.legend{font-size:8px;color:#9aa0ac;margin-top:3px;text-align:center}.prem{border:1px solid #e2e5ea;border-radius:8px;padding:8px 10px;text-align:center}.prem .pt{font-size:8px;letter-spacing:.8px;text-transform:uppercase;color:#9aa0ac;font-weight:700}.prem .pn{font-weight:800;font-size:13px;color:'+col+';margin:3px 0}.prem .pd{font-size:9px;color:#5a626f}'+
     '.gloss{font-size:9.5px;color:#3d4450;line-height:1.5;columns:2;column-gap:20px}.gloss p{margin:0 0 6px;break-inside:avoid;-webkit-column-break-inside:avoid}.gloss b{color:#1b1f27}.ft{margin-top:auto;text-align:center;color:#b5bbc5;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding-top:8px;border-top:1px solid #f0f2f5}@page{size:A4;margin:0}'+
     '</style></head><body>'+
-    '<div class="page"><div class="hd"><div class="lg">SCOUTPRO<small>INFORME POST-PARTIDO</small></div><div class="meta"><b>'+liga+'</b>'+(jornada?' · '+jornada:'')+'<br>'+fecha+'</div></div>'+
+    '<div class="page"><div class="hd"><div class="lg">SCOUTPRO<small>INFORME POST-PARTIDO</small></div><div class="meta"><b>'+liga+'</b>'+(jornada?' · '+jornada:'')+'<br>'+fechaLarga+(S.data._meta&&S.data._meta.venue?' · '+S.data._meta.venue:'')+'</div></div>'+
     '<div class="score"><div class="tm '+(scF>scO?'win':'')+'">'+(lgF?'<img class="lg" crossorigin="anonymous" src="'+lgF+'" alt="">':'')+'<div class="nm">'+focus+'</div></div><div class="sc">'+scF+' – '+scO+'<small>FINAL</small></div><div class="tm '+(scO>scF?'win':'')+'">'+(lgO?'<img class="lg" crossorigin="anonymous" src="'+lgO+'" alt="">':'')+'<div class="nm">'+opp+'</div></div></div>'+
     '<div class="sec">Evolución del partido</div><div class="grid2"><div class="card"><div class="cap">Margen '+focus+' a lo largo del partido</div>'+pgEvoSVG(margArr,col)+'</div>'+
     '<div class="card tight"><div class="cap">Parciales por cuarto</div><table><thead><tr><th>Equipo</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>TOT</th></tr></thead><tbody>'+parcRow(focus,qOf,scF)+parcRow(opp,qOpp,scO)+'</tbody></table><div class="cap" style="margin-top:8px">Rachas clave</div><table><tbody>'+rachaRows+'</tbody></table></div></div>'+
@@ -1887,7 +1899,7 @@ async function postGameReport(){
     '<div class="ft">ScoutPRO · Informe post-partido · '+focus+' vs '+opp+' · '+fecha+' · Página 2/2</div></div>'+
     '</body></html>';
   const safe=s=>String(s||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
-  const fname='Informe_'+safe(focus)+'_vs_'+safe(opp)+'_'+safe(fecha)+'.pdf';
+  const fname='Informe_'+safe(focus)+'_vs_'+safe(opp)+'_'+safe(fechaISO)+'.pdf';
   // Cargar librerías de PDF (una sola vez)
   await pgLoadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   await pgLoadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
