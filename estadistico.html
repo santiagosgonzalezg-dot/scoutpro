@@ -886,6 +886,7 @@ body.v-placas #controls{display:none!important}
 .coach-in{background:var(--bg-panel);border:1px solid var(--border-subtle);border-radius:30px;color:var(--text-2);font-family:var(--font-mono);font-size:10px;letter-spacing:.5px;padding:7px 14px;cursor:pointer;transition:all var(--t-fast)}
 .coach-in:hover{border-color:var(--offense);color:var(--offense)}
 .club-badge-lg{width:64px;height:64px;font-size:26px;border-radius:16px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
+.team-cell{display:inline-flex;align-items:center;gap:9px;white-space:nowrap}.club-badge.sm{width:26px;height:26px;font-size:10.5px}
 .club-badge.has-logo{background:#fff;padding:3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
 .club-badge.has-logo img{width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block}
 .rv-item{font-size:13.5px;color:#cfd5e3;line-height:1.5;padding:5px 0}
@@ -1270,7 +1271,7 @@ function renderDashboard(){
   if(!teams.length){el.innerHTML='<div class="empty">Sin datos para mostrar.</div>';return;}
   const cols=[
     {key:'rank',label:'#',left:true,cell:(r,i)=>'<span class="rank">'+String(i+1).padStart(2,'0')+'</span>'},
-    {key:'team',label:'Equipo',left:true,cell:r=>'<b>'+r.team+'</b>'},
+    {key:'team',label:'Equipo',left:true,cell:r=>teamCell(r.team)},
     {key:'pj',label:'PJ',sortable:true,val:r=>r.a.pj,cell:r=>r.a.pj},
     {key:'pace',label:'POS/PJ',sortable:true,val:r=>r.a.pace,cell:r=>r.a.pace},
     {key:'efo',label:'EF.OF',sortable:true,val:r=>r.a.efOff,cell:r=>pp(r.a.efOff)},
@@ -1294,7 +1295,7 @@ function renderDashboard(){
   const luTable=(title,list)=>{
     const body=list.map((l,i)=>'<tr>'+
       '<td class="l"><span class="rank">'+String(i+1).padStart(2,'0')+'</span></td>'+
-      '<td class="l"><b>'+l.team+'</b></td>'+
+      '<td class="l">'+teamCell(l.team)+'</td>'+
       '<td class="l">'+chips(l.players)+'</td>'+
       '<td>'+Math.round(l.a.min)+'</td>'+
       '<td style="color:'+dc(l.a.diff)+'">'+sgn(l.a.diff)+'</td>'+
@@ -4424,6 +4425,7 @@ async function saveClubColorsDB(team,cols,manual){
 }
 function clubLogo(team){return clubLogoAny(team);}
 function clubLogoLegacy(team){const k=normTeamKey(team);if(CLUB_LOGOS[k])return CLUB_LOGOS[k];for(const key in CLUB_LOGOS){if(k&&(k.indexOf(key)===0||key.indexOf(k)===0))return CLUB_LOGOS[key];}return null;}
+function teamCell(team){return '<span class="team-cell">'+clubBadge(team,'sm')+'<b>'+team+'</b></span>';}
 function clubBadge(team,extra){const lg=clubLogo(team);const cls='club-badge '+(extra||'');if(lg)return '<span class="'+cls+' has-logo"><img src="'+lg+'" alt=""></span>';return '<span class="'+cls+'" style="background:'+clubColor(team)+'">'+clubInitials(team)+'</span>';}
 
 function clubInitials(club){const w=String(club||'').trim().split(/\s+/).filter(Boolean);if(!w.length)return '?';if(w.length===1)return w[0].slice(0,2).toUpperCase();return (w[0][0]+w[1][0]).toUpperCase();}
