@@ -768,6 +768,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 .court-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3)}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;margin-top:12px}.pl-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:10px;display:grid;gap:8px;align-content:start}.pl-card canvas{width:100%;height:auto;aspect-ratio:16/9;border-radius:8px;display:block}.pl-card.off canvas{opacity:.35;filter:grayscale(.8)}.pl-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.pl-inc{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px;cursor:pointer}.pl-ed summary{cursor:pointer;color:var(--text-2);font-size:12px;padding:4px 0}.pl-f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:6px 0}.pl-ed label{display:grid;gap:3px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}.pl-t{margin-bottom:6px}.pl-ed input{font:500 13px var(--font-ui);padding:7px 9px;border:1px solid var(--border-light);border-radius:7px;background:var(--bg-panel);color:var(--text);width:100%;box-sizing:border-box}.pl-mods{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:8px 14px;margin-top:10px}.pl-mods summary{cursor:pointer;font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pl-tg{font:600 12px var(--font-ui);border:1px solid var(--border-light);background:transparent;color:var(--text-2);border-radius:999px;padding:7px 12px;cursor:pointer}.pl-tg.on{background:var(--pl-acc,var(--offense));border-color:var(--pl-acc,var(--offense));color:var(--pl-acc-fg,#fff)}#view-placas .sim-btn:hover{border-color:var(--pl-acc,var(--offense))}#view-placas #plPdfBtn{border-color:var(--pl-acc,var(--offense));color:var(--pl-acc,var(--offense));background:var(--pl-acc-soft,transparent)}#view-placas .pl-inc input{accent-color:var(--pl-acc,var(--offense))}#view-placas .pl-mods summary::marker{color:var(--pl-acc,var(--offense))}.pl-col{width:44px;height:32px;padding:2px;border:1px solid var(--border-light);border-radius:7px;background:transparent;cursor:pointer}
 .fh-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:top;border:3px solid var(--offense);margin-right:12px;background:var(--bg-panel);flex:0 0 auto}
+body.v-placas #controls{display:none!important}
 .esc-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}.esc-tab{font-family:var(--font-disp);font-weight:700;font-size:13px;padding:6px 12px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid var(--border-light);color:var(--text-2)}.esc-tab.on{border-color:var(--offense);color:var(--offense);background:var(--offense-bg)}
 .court-svg{width:100%;height:auto;display:block}
 .court-line{fill:none;stroke:rgba(255,255,255,.18);stroke-width:1}
@@ -3059,12 +3060,13 @@ function plPkey(team,p){return teamKey(team)+'|'+String(p.num);}
 function plPlayers(team){
   return playersAgg().filter(p=>sameTeam(p.equipo,team)&&p.g>0).map(p=>({...p,mpg:p.min/p.g})).sort((a,b)=>b.mpg-a.mpg);
 }
-function plTeams(){const _tk={};playersAgg().forEach(p=>{const k=teamKey(p.equipo);if(!_tk[k]||String(p.equipo).length>String(_tk[k]).length)_tk[k]=p.equipo;});return Object.values(_tk).sort();}
+function plTeams(){const _tk={};(RAWP&&RAWP.length?RAWP:playersAgg()).forEach(p=>{const k=teamKey(p.equipo);if(!_tk[k]||String(p.equipo).length>String(_tk[k]).length)_tk[k]=p.equipo;});return Object.values(_tk).sort();}
 function renderPlacas(){
   const el=document.getElementById('view-placas');if(!el)return;
   const teams=plTeams();
   if(!teams.length){el.innerHTML='<div class="empty">Todavía no hay planillas de jugadores (jugadores_log).</div>';return;}
-  if(!plTeam||!teams.some(t=>sameTeam(t,plTeam)))plTeam=(typeof rivalTeam!=='undefined'&&rivalTeam&&teams.find(t=>sameTeam(t,rivalTeam)))||teams[0];
+  if(!plTeam||!teams.some(t=>sameTeam(t,plTeam))){const inLiga=teams.filter(t=>PLAYERS.some(p=>sameTeam(p.equipo,t)));plTeam=(typeof rivalTeam!=='undefined'&&rivalTeam&&inLiga.find(t=>sameTeam(t,rivalTeam)))||inLiga[0]||teams[0];}
+  {const lg=plLigaOf(plTeam);if(lg&&LIGA_SEL&&lg!==LIGA_SEL){LIGA_SEL=lg;const sl=document.getElementById('selLiga');if(sl)sl.value=lg;applyLigaFiltro();return;}}
   const [c1,c2]=plColors(plTeam);
   // el panel toma el color del equipo elegido (texto blanco u oscuro según qué se lea mejor)
   el.style.setProperty('--pl-acc',c2);el.style.setProperty('--pl-acc-fg',plLum(c2)>0.6?'#111':'#fff');el.style.setProperty('--pl-acc-soft',plHex(c2,0.14));
@@ -3096,7 +3098,12 @@ function renderPlacas(){
     '<div class="pl-grid">'+cards+'</div>';
   plDrawAll();
 }
-function plSetTeam(v){plTeam=v;plVs='';renderPlacas();}
+function plLigaOf(team){const r=RAWD.find(x=>sameTeam(x.equipo,team)&&x.liga);return r?String(r.liga).toLowerCase():'';}
+function plSetTeam(v){plTeam=v;plVs='';
+  // percentiles, rankings y rivales se calculan dentro de la liga del equipo elegido
+  const lg=plLigaOf(v);
+  if(lg&&lg!==LIGA_SEL){LIGA_SEL=lg;const sl=document.getElementById('selLiga');if(sl)sl.value=lg;applyLigaFiltro();return;}
+  renderPlacas();}
 function plToggle(k){PLS.mods[k]=!plOn(k);plSave();renderPlacas();}
 function plPreset(w){PL_MODS.forEach(m=>{PLS.mods[m[0]]=w==='all'?true:PL_ESSENTIAL.includes(m[0]);});plSave();renderPlacas();}
 function plColor(i,v){const c=plColors(plTeam).slice();c[i]=v;
@@ -4114,7 +4121,13 @@ function renderQxP(){
   html+=help('¿Cómo leo esta sección?','Elegí un <b>equipo</b>, la <b>condición</b> (Local, Visitante o ambas) y un <b>partido</b> (o «Todos los partidos»). Ves <b>cada cinco que ese equipo puso en cancha</b> en ese partido con: <b>Min</b> jugados por ese cinco, <b>+/-</b> (puntos a favor menos en contra mientras estuvo), <b>EF.OF/EF.DEF</b> (puntos por posesión, propios y del rival), tiros de <b>2P</b> y <b>3P</b>, <b>eFG%</b>, asistencias y pérdidas. Los <b>Cuartos</b> te dicen en qué períodos apareció ese cinco. Tocá los títulos con flecha para reordenar (por defecto, de más a menos minutos).');
   el.innerHTML=html;
 }
+let _plPrevFase=null;
 function switchView(v){
+  // Placas tiene sus propios controles: los filtros de arriba se ocultan y no la afectan
+  document.body.classList.toggle('v-placas',v==='placas');
+  const sf=document.getElementById('selFase');
+  if(v==='placas'&&sf&&sf.value){_plPrevFase=sf.value;sf.value='';try{renderAll();}catch(e){}}
+  else if(v!=='placas'&&_plPrevFase!=null&&sf){sf.value=_plPrevFase;_plPrevFase=null;try{renderAll();}catch(e){}}
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
