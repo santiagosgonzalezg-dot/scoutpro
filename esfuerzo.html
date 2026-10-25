@@ -1368,13 +1368,17 @@ function rankingHtml(D){
   if(!R.best.length)return '';
   const card=(p,i,good)=>'<div class="rk-card '+(good?'good':'bad')+'"><div class="rk-top">'+avatar(evTeam,p.p,52)+'<span class="rk-pos">'+(good?['🥇','🥈','🥉'][i]:(i+1)+'°')+'</span></div><div class="rk-name">'+esc(plName(p.p))+'</div>'+
     '<div class="rk-val">'+f1(p.avg)+'<small> acciones por partido</small></div><div class="rk-det">'+breakdown(p.met,D.inds,true)+'</div><div class="rk-sub">'+p.pj+' partido'+(p.pj===1?'':'s')+'</div></div>';
-  return '<div class="sec">Ranking de esfuerzo</div><div class="rk-grid"><div><div class="rk-h good">▲ Los 3 mejores</div><div class="rk-row">'+R.best.map((p,i)=>card(p,i,true)).join('')+'</div></div>'+
-    '<div><div class="rk-h bad">▼ Los 3 que menos aportan</div><div class="rk-row">'+(R.worst.length?R.worst.map((p,i)=>card(p,i,false)).join(''):'<div class="zone-sub">Pocos jugadores para armar este grupo.</div>')+'</div></div></div>'+
+  return '<div class="sec">Los 3 mejores de la temporada</div><div class="rk-grid"><div><div class="rk-row">'+R.best.map((p,i)=>card(p,i,true)).join('')+'</div></div></div>'+
     '<div class="zone-sub" style="margin:6px 0 14px">Ordenado por acciones de esfuerzo por partido (la suma de '+actList()+(COV()?'; el close out malo resta 1':'')+'). Entran los que jugaron al menos '+R.minPj+' de los '+D.matches.length+' partidos cargados.</div>';
 }
 // Líder de cada acción (el que más hizo en la temporada)
 function leadersOf(players,inds){
   return inds.map(m=>{let best=null,bv=0;players.forEach(po=>{const c=po.met[m.k];if(!c)return;const v=m.pm?c.p:(c.p-c.m);if(v>bv||(v===bv&&best&&po.pj<best.pj)){bv=v;best=po;}});return {m,po:best,v:bv};}).filter(x=>x.po&&x.v>0);
+}
+function rachasHtml(D){
+  const ST=esfStreaks(D,3);if(D.matches.length<2)return '';
+  return '<div class="sec">Rachas y menciones</div><div class="board" style="padding:10px 14px;margin-bottom:14px;line-height:1.7;font-size:13px">'+
+    (ST.streaks.map(x=>'<div>🔥 <b>'+esc(plName(x.po.p))+'</b> — '+esc(streakTxt(x))+'</div>').concat(ST.times.map(x=>'<div>⭐ <b>'+esc(plName(x.po.p))+'</b> — top 3 en acciones del partido '+x.n+' de '+ST.nM+' partidos</div>')).join('')||'<div class="zone-sub">Todavía nadie se sostuvo 3 partidos seguidos en el top 3.</div>')+'</div>';
 }
 function leadersHtml(D){
   const L=leadersOf(D.players,D.inds);if(!L.length)return '';
@@ -1403,7 +1407,12 @@ async function esfPdf(html,fname,orient,btnId){
     const ifr=document.createElement('iframe');ifr.style.cssText='position:fixed;left:-10000px;top:0;width:'+W+'mm;height:'+(H*3)+'mm;border:0;background:#fff';
     document.body.appendChild(ifr);ifr.srcdoc=html;
     await new Promise(r=>{ifr.onload=r;setTimeout(r,1200);});await new Promise(r=>setTimeout(r,300));
-    const doc=ifr.contentDocument||ifr.contentWindow.document;const pages=doc.querySelectorAll('.page');
+    const doc=ifr.contentDocument||ifr.contentWindow.document;
+    // hojas "spill": si la anterior no entra, se le pasan los bloques .mv; si entra, se descarta
+    doc.querySelectorAll('.page.spill').forEach(sp=>{const prev=sp.previousElementSibling;if(!prev)return;
+      if(prev.scrollHeight<=prev.clientHeight+2){sp.remove();return;}
+      const ft=sp.querySelector('.ft');prev.querySelectorAll('.mv').forEach(e=>sp.insertBefore(e,ft));});
+    const pages=doc.querySelectorAll('.page');
     const jsPDF=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;const pdf=new jsPDF(L?'l':'p','mm','a4');
     for(let i=0;i<pages.length;i++){const cv=await html2canvas(pages[i],{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});if(i>0)pdf.addPage();pdf.addImage(cv.toDataURL('image/jpeg',0.93),'JPEG',0,0,W,H);}
     pdf.save(fname);try{document.body.removeChild(ifr);}catch(_){}
@@ -1418,15 +1427,46 @@ function repCss(col,L){return '*{box-sizing:border-box;margin:0;padding:0}body{f
   '.sec{font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:'+col+';font-weight:800;margin:0 0 6px;display:flex;align-items:center;gap:7px}.sec:before{content:"";width:3px;height:13px;background:'+col+';border-radius:2px}'+
   '.kp{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}.kp div{border:1px solid #e2e5ea;border-radius:8px;padding:7px;text-align:center}.kp b{display:block;font-family:Arial Black;font-size:18px;color:'+col+'}.kp span{font-size:8px;letter-spacing:.8px;text-transform:uppercase;color:#7a818c}'+
   'table{width:100%;border-collapse:collapse;font-size:'+(L?'9.5':'10')+'px}th,td{padding:3px 4px;border-bottom:1px solid #eef0f3;text-align:center}th{font-size:7.5px;letter-spacing:.3px;text-transform:uppercase;color:#7a818c;font-weight:700;background:#f7f8fa}th.sub{font-size:7px;color:#9aa0ac}td.l,th.l{text-align:left}td.nm{font-weight:600;white-space:nowrap}.pos{color:#16a34a;font-weight:700}.neg{color:#d1495b;font-weight:700}.z{color:#b5bbc5}.u{color:'+col+';font-weight:800}td.sm{font-size:8px;color:#7a818c}'+
-  '.card{border:1px solid #e2e5ea;border-radius:8px;padding:8px 10px;margin-bottom:10px}.rk{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.rk .box{border-radius:8px;padding:8px 10px}.rk .g{background:#eefaf2;border:1px solid #bfe8cd}.rk .b{background:#fdf0f1;border:1px solid #f3c8ce}.rk h4{font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}.rk .g h4{color:#16a34a}.rk .b h4{color:#d1495b}.rk .it{display:flex;align-items:center;gap:8px;font-size:11px;padding:4px 0;border-bottom:1px dashed rgba(0,0,0,.08)}.rk .it:last-child{border-bottom:none}.rk .it b{font-weight:700}.itb{flex:1;min-width:0}.itn{display:flex;justify-content:space-between;gap:6px}.itd{font-size:8.5px;color:#5a626f;margin-top:1px}img.av,span.av{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:top;flex:0 0 auto;background:#eef0f3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#7a818c}.ldp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.ldi{display:flex;align-items:center;gap:8px;border:1px solid #e2e5ea;border-left:3px solid '+col+';border-radius:8px;padding:6px 8px}.ldi .av{width:34px;height:34px}.ldw{font-size:7.5px;letter-spacing:.6px;text-transform:uppercase;color:#7a818c}.ldn{font-size:11px;font-weight:700}.ldv{font-family:Arial Black;font-size:15px;color:'+col+'}.ldv small{font-family:Arial;font-size:8px;color:#7a818c;font-weight:400}.kp b small{font-family:Arial}'+
+  '.card{border:1px solid #e2e5ea;border-radius:8px;padding:8px 10px;margin-bottom:10px}.rk{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.rk .box{border-radius:8px;padding:8px 10px}.rk .g{background:#eefaf2;border:1px solid #bfe8cd}.rk .b{background:#fdf0f1;border:1px solid #f3c8ce}.rk h4{font-size:9px;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}.rk .g h4{color:#16a34a}.rk .b h4{color:#d1495b}.rk .it{display:flex;align-items:center;gap:8px;font-size:11px;padding:4px 0;border-bottom:1px dashed rgba(0,0,0,.08)}.rk .it:last-child{border-bottom:none}.rk .it b{font-weight:700}.itb{flex:1;min-width:0}.itn{display:flex;justify-content:space-between;gap:6px}.itd{font-size:8.5px;color:#5a626f;margin-top:1px}img.av,span.av{width:28px;height:28px;border-radius:50%;object-fit:cover;object-position:top;flex:0 0 auto;background:#eef0f3;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#7a818c}.ldp{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.ldi{display:flex;align-items:center;gap:8px;border:1px solid #e2e5ea;border-left:3px solid '+col+';border-radius:8px;padding:6px 8px}.ldi .av{width:34px;height:34px}.ldw{font-size:7.5px;letter-spacing:.6px;text-transform:uppercase;color:#7a818c}.ldn{font-size:11px;font-weight:700}.ldv{font-family:Arial Black;font-size:15px;color:'+col+'}.ldv small{font-family:Arial;font-size:8px;color:#7a818c;font-weight:400}.kp b small{font-family:Arial}.kc{display:block;font-style:normal;font-size:7.5px;color:#7a818c;margin-top:3px;line-height:1.3}.kc em{font-style:normal;font-weight:700}.vsl{font-weight:700;white-space:nowrap}.mn{font-size:10px;line-height:1.55}.mn div{padding:2px 0;border-bottom:1px dashed #e8eaee}.mn div:last-child{border-bottom:none}.mn b{color:#1b1f27}'+
   '.note{font-size:8.5px;color:#7a818c;line-height:1.45;margin-top:4px}.gl{font-size:8.5px;color:#4a515c;line-height:1.5;columns:2;column-gap:16px}.gl b{color:#1b1f27}.ft{margin-top:auto;text-align:center;color:#b5bbc5;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding-top:6px;border-top:1px solid #f0f2f5}@page{size:A4 '+(L?'landscape':'portrait')+';margin:0}';}
 function repHead(sub,meta,col){return '<div class="hd"><div class="lg">SCOUTPRO<small>'+sub+'</small></div><div class="meta">'+meta+'</div></div>';}
 function glosario(D){return '<div class="sec" style="margin-top:4px">Qué mide cada cosa</div><div class="card"><div class="gl">'+D.inds.map(m=>'<div><b>'+esc(fullL(m))+'</b>'+(String(m.l).toLowerCase()!==fullL(m).toLowerCase()?' — '+esc(m.l):'')+(m.pm?' — se cuentan buenos ✓ y malos ✗':'')+'.</div>').join('')+
   '<div><b>Kills</b> — 3 defensas seguidas sin que el rival anote.</div><div><b>Kills cortados</b> — veces que el rival anotó y nos cortó la cadena de defensas antes de llegar al kill.</div><div><b>Acciones</b> — la suma de lo que hizo cada jugador'+(COV()?' (el close out malo resta 1)':'')+'.</div></div></div>';}
+// esfData del equipo sin un partido (para comparar contra el promedio de los demás)
+function esfDataExcl(team,key){const sv=ESF;ESF=ESF.filter(r=>!(r.equipo===team&&r.match_id===key));try{return esfData(team);}finally{ESF=sv;}}
+// "▲ 40% arriba" / "▼ 25% abajo" / "= en su promedio"
+function vsAvg(v,avg,inv){
+  if(avg==null)return {t:'sin promedio previo',c:'#7a818c',k:0};
+  if(avg<=0)return v>0?{t:'▲ por encima (promedio 0)',c:inv?'#d1495b':'#16a34a',k:1}:{t:'= en su promedio',c:'#7a818c',k:0};
+  const pc=Math.round((v-avg)/avg*100);
+  if(Math.abs(pc)<5)return {t:'= en su promedio',c:'#7a818c',k:0,pc};
+  const up=pc>0;return {t:(up?'▲ ':'▼ ')+Math.abs(pc)+'% '+(up?'arriba':'abajo'),c:(up!==!!inv)?'#16a34a':'#d1495b',k:up?1:-1,pc};
+}
+// Rachas: top 3 del partido (en acciones o en cada acción) varios partidos seguidos
+function esfStreaks(D,minRun){
+  minRun=minRun||3;const cats=[{k:'_u',l:'acciones totales'}].concat(D.inds.map(m=>({k:m.k,l:fullL(m).toLowerCase(),m})));
+  const val=(mo,k,c)=>{if(c==='_u')return D.inds.reduce((s2,m)=>s2+(mo.cells[k]&&mo.cells[k][m.k]?mo.cells[k][m.k].p-mo.cells[k][m.k].m:0),0);const cv=mo.cells[k]&&mo.cells[k][c.k];if(!cv)return 0;return c.m&&c.m.pm?cv.p:cv.p-cv.m;};
+  const top=D.matches.map(mo=>{const o={};cats.forEach(c=>{const ks=Object.keys(mo.players).concat(Object.keys(mo.cells));const vs=[...new Set(ks)].map(k=>({k,v:val(mo,k,c.k==='_u'?'_u':c)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+    const th=vs.length?vs[Math.min(2,vs.length-1)].v:Infinity;o[c.k]=new Set(vs.filter(x=>x.v>=th).map(x=>x.k));});return o;});
+  const pmap={};D.players.forEach(po=>pmap[po.k]=po);const out=[];const nM=D.matches.length;
+  Object.keys(pmap).forEach(k=>cats.forEach(c=>{let run=0,best=0,bEnd=-1;top.forEach((t,i)=>{if(t[c.k].has(k)){run++;if(run>best){best=run;bEnd=i;}}else run=0;});
+    if(best>=minRun)out.push({po:pmap[k],cat:c,len:best,from:D.matches[bEnd-best+1].fecha,to:D.matches[bEnd].fecha,live:bEnd===nM-1});}));
+  out.sort((a,b)=>b.len-a.len||(b.live?1:0)-(a.live?1:0)||(a.cat.k==='_u'?-1:0)-(b.cat.k==='_u'?-1:0));out.splice(12);
+  const times=D.players.map(po=>({po,n:top.filter(t=>t._u.has(po.k)).length})).filter(x=>x.n>=Math.max(2,Math.ceil(nM/3))).sort((a,b)=>b.n-a.n).slice(0,5);
+  return {streaks:out,times,nM};
+}
+function mencionesPdf(ST){
+  const a=ST.streaks.map(x=>'<div>🔥 <b>'+esc(plName(x.po.p))+'</b> — '+esc(streakTxt(x))+'</div>');
+  const b=ST.times.map(x=>'<div>⭐ <b>'+esc(plName(x.po.p))+'</b> — top 3 en acciones del partido '+x.n+' de '+ST.nM+' partidos</div>');
+  return (a.concat(b).join(''))||'<div>Todavía nadie se sostuvo 3 partidos seguidos en el top 3. Con más partidos cargados aparecen las rachas.</div>';
+}
+function streakTxt(x){return 'Top 3 en '+x.cat.l+' '+x.len+' partidos seguidos ('+fmtD(x.from)+' al '+fmtD(x.to)+')'+(x.live?' · sigue en racha':'');}
 function rankBoxes(list,label,good,valFn,team,detFn){return '<div class="box '+(good?'g':'b')+'"><h4>'+label+'</h4>'+(list.length?list.map((p,i)=>{const ph=photo(team,p.p.num,true);
   return '<div class="it">'+(ph?'<img class="av" src="'+esc(ph)+'">':'<span class="av ini">'+esc(p.p.num!=null?p.p.num:'·')+'</span>')+'<div class="itb"><div class="itn"><span>'+(good?['🥇','🥈','🥉'][i]:(i+1)+'°')+' '+esc(plName(p.p))+'</span><b>'+valFn(p)+'</b></div><div class="itd">'+esc(detFn(p))+'</div></div></div>';}).join(''):'<div class="it"><span>—</span></div>')+'</div>';}
-function kpiPdf(tots,inds,kills,cort,def,extra){return '<div class="kp" style="grid-template-columns:repeat('+(inds.length+3+(extra?1:0))+',1fr)">'+(extra||'')+inds.map(m=>{const t=tots(m.k);return '<div><b>'+(m.pm?t.p+'<small style="font-size:10px;color:#16a34a">✓</small> '+t.m+'<small style="font-size:10px;color:#d1495b">✗</small>':(t.p-t.m))+'</b><span>'+esc(fullL(m))+'</span></div>';}).join('')+
-  '<div><b>'+kills+'</b><span>Kills</span></div><div><b style="color:#d1495b">'+cort+'</b><span>Kills cortados</span></div><div><b>'+def+'</b><span>Defensas logradas</span></div></div>';}
+function kpiPdf(tots,inds,kills,cort,def,extra,avg){
+  const cm=(v,a,inv)=>{if(!avg)return '';if(a==null)return '<i class="kc">sin promedio previo</i>';const r=vsAvg(v,a,inv);return '<i class="kc">prom. '+f1(a)+'<br><em style="color:'+r.c+'">'+r.t+'</em></i>';};
+  return '<div class="kp" style="grid-template-columns:repeat('+(inds.length+3+(extra?1:0))+',1fr)">'+(extra||'')+inds.map(m=>{const t=tots(m.k);const v=m.pm?t.p:t.p-t.m;return '<div><b>'+(m.pm?t.p+'<small style="font-size:10px;color:#16a34a">✓</small> '+t.m+'<small style="font-size:10px;color:#d1495b">✗</small>':(t.p-t.m))+'</b><span>'+esc(fullL(m))+'</span>'+cm(v,avg?avg[m.k]:null)+'</div>';}).join('')+
+  '<div><b>'+kills+'</b><span>Kills</span>'+cm(kills,avg?avg.kills:null)+'</div><div><b style="color:#d1495b">'+cort+'</b><span>Kills cortados</span>'+cm(cort,avg?avg.cort:null,true)+'</div><div><b>'+def+'</b><span>Defensas logradas</span>'+cm(def,avg?avg.def:null)+'</div></div>';}
 function leadersPdf(list,team,per){if(!list.length)return '';return '<div class="ldp">'+list.map(x=>{const ph=photo(team,x.po.p.num,true);
   return '<div class="ldi">'+(ph?'<img class="av" src="'+esc(ph)+'">':'<span class="av ini">'+esc(x.po.p.num!=null?x.po.p.num:'·')+'</span>')+'<div><div class="ldw">Más '+esc(fullL(x.m).toLowerCase())+'</div><div class="ldn">'+esc(plName(x.po.p))+'</div><div class="ldv">'+x.v+(per?' <small>('+f1(x.v/(x.po.pj||1))+' por partido)</small>':'')+'</div></div></div>';}).join('')+'</div>';}
 function reportMatch(btnId){
@@ -1434,19 +1474,31 @@ function reportMatch(btnId){
   const col=printColor(team),qm=mo.mid?(MATCHES[team]||[]).find(x=>x.mid===mo.mid):null;
   const rows=Object.entries(mo.players).map(([k,p])=>{const c=mo.cells[k]||{};let u=0;D.inds.forEach(m=>{if(c[m.k])u+=c[m.k].p-c[m.k].m;});return {k,p,c,u};}).sort((a,b)=>b.u-a.u||n(a.p.num)-n(b.p.num));
   const best=rows.slice(0,3).filter(r=>r.u>0||rows.length<=3);
+  // promedio de los demás partidos (equipo y jugador)
+  const DX=esfDataExcl(team,mo.key),nX=DX.matches.length,pX={};DX.players.forEach(po=>pX[po.k]=po);
+  const tAvg=nX?(()=>{const a={kills:DX.matches.reduce((s2,m)=>s2+m.kills,0)/nX,cort:DX.matches.reduce((s2,m)=>s2+m.def_rotas,0)/nX,def:DX.matches.reduce((s2,m)=>s2+m.def_tot,0)/nX};
+    D.inds.forEach(m=>{let t=0;DX.matches.forEach(mm=>Object.values(mm.cells).forEach(c=>{const cv=c[m.k];if(cv)t+=m.pm?cv.p:cv.p-cv.m;}));a[m.k]=t/nX;});return a;})():{};
+  const pAvg=k=>{const po=pX[k];return po&&po.pj?po.avg:null;};
+  rows.forEach(r=>{r.avg=pAvg(r.k);r.vs=vsAvg(r.u,r.avg);});
+  const hot=rows.filter(r=>r.avg!=null&&r.avg>0&&r.vs.k>0).sort((a,b)=>b.vs.pc-a.vs.pc).slice(0,2),cold=rows.filter(r=>r.avg!=null&&r.avg>=1&&r.vs.k<0).sort((a,b)=>a.vs.pc-b.vs.pc).slice(0,2);
   const indNet=rows.reduce((s,r)=>s+r.u,0);
   const mLead=leadersOf(rows.map(r=>({p:r.p,pj:1,met:r.c})),D.inds);
   const lgA=clubLogo(team),lgB=clubLogo(mo.rival);
-  const tbl='<table><thead><tr><th class="l">Jugador</th>'+D.inds.map(m=>'<th>'+esc(fullL(m))+'</th>').join('')+'<th>Acciones</th></tr></thead><tbody>'+
-    rows.map(r=>{const ph=photo(team,r.p.num,true);return '<tr><td class="l nm"><span style="display:inline-flex;align-items:center;gap:6px">'+(ph?'<img class="av" style="width:20px;height:20px" src="'+esc(ph)+'">':'')+esc(plName(r.p))+'</span></td>'+D.inds.map(m=>{const cv=r.c[m.k];if(!cv)return '<td class="z">·</td>';const nt=cv.p-cv.m;return '<td class="'+(nt>0?'pos':nt<0?'neg':'')+'">'+fmtNet(nt)+(m.pm?' <span class="z">(+'+cv.p+' −'+cv.m+')</span>':'')+'</td>';}).join('')+'<td class="u">'+fmtNet(r.u)+'</td></tr>';}).join('')+'</tbody></table>';
+  const tbl='<table><thead><tr><th class="l">Jugador</th>'+D.inds.map(m=>'<th>'+esc(fullL(m))+'</th>').join('')+'<th>Acciones</th><th>Su prom.</th><th>vs prom.</th></tr></thead><tbody>'+
+    rows.map(r=>{const ph=photo(team,r.p.num,true);return '<tr><td class="l nm"><span style="display:inline-flex;align-items:center;gap:6px">'+(ph?'<img class="av" style="width:20px;height:20px" src="'+esc(ph)+'">':'')+esc(plName(r.p))+'</span></td>'+D.inds.map(m=>{const cv=r.c[m.k];if(!cv)return '<td class="z">·</td>';const nt=cv.p-cv.m;return '<td class="'+(nt>0?'pos':nt<0?'neg':'')+'">'+fmtNet(nt)+(m.pm?' <span class="z">(+'+cv.p+' −'+cv.m+')</span>':'')+'</td>';}).join('')+'<td class="u">'+fmtNet(r.u)+'</td><td class="z">'+(r.avg!=null?f1(r.avg):'—')+'</td><td class="vsl" style="color:'+r.vs.c+'">'+(r.avg!=null?r.vs.t:'—')+'</td></tr>';}).join('')+'</tbody></table>';
   const html='<!doctype html><html><head><meta charset="utf-8"><style>'+repCss(col,false)+'</style></head><body><div class="page">'+
     repHead('INFORME DE ESFUERZO · PARTIDO','<b>'+esc(team)+(mo.local===false?' @ ':' vs ')+esc(mo.rival)+'</b><br>'+esc(fmtD(mo.fecha)),col)+
     '<div class="vs"><div class="tm">'+(lgA?'<img src="'+esc(lgA)+'">':'')+esc(team)+'</div><div class="sc">'+(qm?qm.pf+' – '+qm.pc:'vs')+'<small>'+(qm?'FINAL':'')+'</small></div><div class="tm">'+(lgB?'<img src="'+esc(lgB)+'">':'')+esc(mo.rival)+'</div></div>'+
-    kpiPdf(mk=>{let p2=0,m2=0;Object.values(mo.cells).forEach(c=>{if(c[mk]){p2+=c[mk].p;m2+=c[mk].m;}});return {p:p2,m:m2};},D.inds,mo.kills,mo.def_rotas,mo.def_tot)+
-    '<div class="sec">Los 3 mejores del partido</div><div class="rk" style="grid-template-columns:1fr">'+rankBoxes(best,'▲ Los 3 que más aportaron',true,p=>fmtNet(p.u)+' acciones',team,p=>breakdown(p.c,D.inds,false))+'</div>'+
+    kpiPdf(mk=>{let p2=0,m2=0;Object.values(mo.cells).forEach(c=>{if(c[mk]){p2+=c[mk].p;m2+=c[mk].m;}});return {p:p2,m:m2};},D.inds,mo.kills,mo.def_rotas,mo.def_tot,'',nX?tAvg:null)+
+    (nX?'<div class="note" style="margin:-6px 0 8px">Promedio = promedio por partido de los otros '+nX+' partido'+(nX===1?'':'s')+' cargados.</div>':'')+
+    '<div class="sec">Los 3 mejores del partido</div><div class="rk" style="grid-template-columns:1fr">'+rankBoxes(best,'▲ Los 3 que más aportaron',true,p=>fmtNet(p.u)+' acciones',team,p=>breakdown(p.c,D.inds,false)+(p.avg!=null?' · su promedio: '+f1(p.avg)+' por partido → '+p.vs.t:''))+'</div>'+
+    ((hot.length||cold.length)?'<div class="sec">Frente a su promedio</div><div class="card mn">'+
+      hot.map(r=>'<div>▲ <b>'+esc(plName(r.p))+'</b> hizo '+fmtNet(r.u)+' acciones, su promedio es '+f1(r.avg)+' → <b style="color:#16a34a">'+r.vs.pc+'% por arriba</b></div>').join('')+
+      cold.map(r=>'<div>▼ <b>'+esc(plName(r.p))+'</b> hizo '+fmtNet(r.u)+' acciones, su promedio es '+f1(r.avg)+' → <b style="color:#d1495b">'+Math.abs(r.vs.pc)+'% por debajo</b></div>').join('')+'</div>':'')+
     (mLead.length?'<div class="sec">Líderes del partido</div>'+leadersPdf(mLead,team,false):'')+
-    '<div class="sec">Detalle por jugador</div><div class="card">'+tbl+'<div class="note">Neto por métrica: buenos − malos. Entre paréntesis, el detalle en las métricas con buenos y malos. Aparecen todos los que jugaron el partido'+(mo.mid?'':' (este partido no está vinculado a Quintetos: solo los que tuvieron acciones)')+'.</div></div>'+
-    glosario(D)+'<div class="ft">ScoutPRO · Esfuerzo · '+esc(team)+' vs '+esc(mo.rival)+' · '+esc(fmtD(mo.fecha))+'</div></div></body></html>';
+    '<div class="mv"><div class="sec">Detalle por jugador</div><div class="card">'+tbl+'<div class="note">Neto por métrica: buenos − malos. Entre paréntesis, el detalle en las métricas con buenos y malos. Aparecen todos los que jugaron el partido'+(mo.mid?'':' (este partido no está vinculado a Quintetos: solo los que tuvieron acciones)')+'.</div></div></div>'+
+    '<div class="mv">'+glosario(D)+'</div><div class="ft">ScoutPRO · Esfuerzo · '+esc(team)+' vs '+esc(mo.rival)+' · '+esc(fmtD(mo.fecha))+'</div></div>'+
+    '<div class="page spill">'+repHead('INFORME DE ESFUERZO · PARTIDO','<b>'+esc(team)+(mo.local===false?' @ ':' vs ')+esc(mo.rival)+'</b><br>'+esc(fmtD(mo.fecha)),col)+'<div class="ft">ScoutPRO · Esfuerzo · '+esc(team)+' vs '+esc(mo.rival)+' · '+esc(fmtD(mo.fecha))+'</div></div></body></html>';
   const safe=s=>String(s||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
   esfPdf(html,'Esfuerzo_'+safe(team)+'_vs_'+safe(mo.rival)+'_'+safe(mo.fecha)+'.pdf','p',btnId||'btnRepM');
 }
@@ -1455,7 +1507,7 @@ function reportSeason(){
   const col=printColor(team),R=esfRanking(D.players,D.matches.length),nm=D.matches.length;
   const pls=D.players.slice().sort((a,b)=>b.avg-a.avg||b.units-a.units);
   const tK=D.matches.reduce((s,m)=>s+m.kills,0),tD=D.matches.reduce((s,m)=>s+m.def_tot,0),tR=D.matches.reduce((s,m)=>s+m.def_rotas,0);
-  const sLead=leadersOf(D.players,D.inds);
+  const sLead=leadersOf(D.players,D.inds),ST=esfStreaks(D,3);
   const head='<tr><th class="l" rowspan="2">Jugador</th><th rowspan="2">PJ</th>'+D.inds.map(m=>'<th colspan="2">'+esc(fullL(m))+'</th>').join('')+'<th colspan="2">Acciones</th></tr><tr>'+D.inds.map(()=>'<th class="sub">Total</th><th class="sub">Prom.</th>').join('')+'<th class="sub">Total</th><th class="sub">Prom.</th></tr>';
   const rowH=po=>{const ph=photo(team,po.p.num,true);return '<tr><td class="l nm"><span style="display:inline-flex;align-items:center;gap:6px">'+(ph?'<img class="av" style="width:18px;height:18px" src="'+esc(ph)+'">':'')+esc(plName(po.p))+'</span></td><td>'+po.pj+'</td>'+D.inds.map(m=>{const c=po.met[m.k];const nt=c?c.p-c.m:0;return '<td class="'+(c?(nt>0?'pos':nt<0?'neg':''):'z')+'">'+(c?fmtNet(nt):'·')+'</td><td class="sm">'+(po.pj?f1(nt/po.pj):'—')+'</td>';}).join('')+'<td class="u">'+fmtNet(po.units)+'</td><td class="u">'+f1(po.avg)+'</td></tr>';};
   const perPage=16,chunks=[];for(let i=0;i<pls.length;i+=perPage)chunks.push(pls.slice(i,i+perPage));if(!chunks.length)chunks.push([]);
@@ -1466,12 +1518,15 @@ function reportSeason(){
   const pages=chunks.map((ch,pi)=>'<div class="page">'+repHead('ESFUERZO · ACUMULADO DE LA TEMPORADA',meta,col)+
     (pi===0?('<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">'+(lg?'<img src="'+esc(lg)+'" style="width:52px;height:52px;object-fit:contain">':'')+
       '<div style="flex:1">'+kpiPdf(mk=>{let p2=0,m2=0;D.players.forEach(po=>{const c=po.met[mk];if(c){p2+=c.p;m2+=c.m;}});return {p:p2,m:m2};},D.inds,tK,tR,tD,'<div><b>'+nm+'</b><span>Partidos</span></div>').replace('margin-bottom:10px','margin:0')+'</div></div>'+
-      '<div class="sec">Ranking de la temporada (acciones por partido)</div><div class="rk">'+rankBoxes(R.best,'▲ Los 3 mejores',true,p=>f1(p.avg)+' por partido',team,p=>breakdown(p.met,D.inds,false)+' · '+p.pj+' PJ')+rankBoxes(R.worst,'▼ Los 3 que menos aportan',false,p=>f1(p.avg)+' por partido',team,p=>breakdown(p.met,D.inds,false)+' · '+p.pj+' PJ')+'</div>'+
+      '<div class="sec">Los 3 mejores de la temporada (acciones por partido)</div><div class="rk" style="grid-template-columns:1fr">'+rankBoxes(R.best,'▲ Los 3 que más aportan',true,p=>f1(p.avg)+' por partido',team,p=>breakdown(p.met,D.inds,false)+' · '+p.pj+' PJ')+'</div>'+
       (sLead.length?'<div class="sec">Líderes de la temporada</div>'+leadersPdf(sLead,team,true):'')):'')+
     '<div class="sec">Por jugador · total y promedio por partido'+(chunks.length>1?' ('+(pi+1)+'/'+chunks.length+')':'')+'</div><div class="card"><table><thead>'+head+'</thead><tbody>'+ch.map(rowH).join('')+'</tbody></table>'+
     '<div class="note">Total = suma de la temporada. Prom. = total ÷ partidos jugados.'+(COV()?' En close out, buenos − malos.':'')+' Acciones = suma de todo lo que hizo el jugador. Ranking: entran los que jugaron al menos '+R.minPj+' de '+nm+' partidos.</div></div>'+
-    (pi===chunks.length-1?('<div class="sec">Partido a partido</div><div class="card">'+byGame+'</div>'+glosario(D)):'')+
-    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+(chunks.length>1?' · Página '+(pi+1)+'/'+chunks.length:'')+'</div></div>').join('');
+    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+' · Página '+(pi+1)+'/'+(chunks.length+1)+'</div></div>').join('')+
+    '<div class="page">'+repHead('ESFUERZO · ACUMULADO DE LA TEMPORADA',meta,col)+
+    '<div class="sec">Rachas y menciones</div><div class="card mn">'+mencionesPdf(ST)+'</div>'+
+    '<div class="sec">Partido a partido</div><div class="card">'+byGame+'</div>'+glosario(D)+
+    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+' · Página '+(chunks.length+1)+'/'+(chunks.length+1)+'</div></div>';
   const html='<!doctype html><html><head><meta charset="utf-8"><style>'+repCss(col,true)+'</style></head><body>'+pages+'</body></html>';
   const safe=s=>String(s||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
   esfPdf(html,'Esfuerzo_acumulado_'+safe(team)+'.pdf','l','btnRepA');
@@ -1615,7 +1670,7 @@ function renderEvaluar(){
   const D=esfData(evTeam);
   el.innerHTML=ctl+reportControlsHtml(D)+kpis+
     '<div class="zone-sub" style="margin-bottom:8px">Kills = 3 defensas seguidas. Kills cortados = veces que el rival anotó y nos cortó la cadena antes de llegar al kill. Acciones = la suma de lo que hizo cada jugador ('+actList()+(COV()?'; el close out malo resta 1':'')+').</div>'+
-    rankingHtml(D)+leadersHtml(D)+acumTableHtml(D)+tendGral+tablaRiv+tablaM;
+    rankingHtml(D)+leadersHtml(D)+rachasHtml(D)+acumTableHtml(D)+tendGral+tablaRiv+tablaM;
 }
 function spark(vals,w,h,color){
   if(!vals||!vals.length)return '';
