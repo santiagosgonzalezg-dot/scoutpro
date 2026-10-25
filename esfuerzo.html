@@ -824,7 +824,10 @@ const METRICS=[
 ];
 let CUSTOM=[];           // métricas personalizadas: {k,l,tipo,side,pm,custom:true}
 let METRICAS_OK=true;
-function AM(){return METRICS.concat(CUSTOM);}
+let HIDDEN=new Set();    // métricas base ocultas (se guardan en esfuerzo_metricas con side='hidden')
+function AM(){return METRICS.filter(m=>!HIDDEN.has(m.k)).concat(CUSTOM);}
+function COV(){return !HIDDEN.has('closeout');}  // ¿se usa close out?
+function actList(){const a=indMetrics().map(m=>fullL(m).toLowerCase());return a.length>1?a.slice(0,-1).join(', ')+' y '+a[a.length-1]:(a[0]||'');}
 function indMetrics(side){return AM().filter(m=>m.tipo==='ind'&&(!side||m.side===side));}
 function metByK(k){return AM().find(m=>m.k===k);}
 function slug(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,24)||'stat';}
@@ -939,7 +942,9 @@ async function loadAll(){
   try{
     const mr=await c.from('esfuerzo_metricas').select('*').order('created_at',{ascending:true});
     if(mr.error){METRICAS_OK=false;CUSTOM=[];}
-    else{METRICAS_OK=true;CUSTOM=(mr.data||[]).map(m=>{
+    else{METRICAS_OK=true;const all=mr.data||[];
+      HIDDEN=new Set(all.filter(m=>m.side==='hidden').map(m=>String(m.k).replace(/^hide_/,'')));
+      CUSTOM=all.filter(m=>m.side!=='hidden').map(m=>{
       const side=m.side;
       let tipo='ind',sd='of';
       if(side==='col')tipo='col';
@@ -1161,7 +1166,7 @@ function renderCargar(){
   if(!TABLE_OK)setup=tableSetup();
 
   el.innerHTML=meta+kpis+
-    '<div class="zone-sub" style="margin:2px 0 10px">Tocá el botón de una acción individual y elegí a qué jugador pertenece. Todas las acciones suman +1; la única que puede restar es el <b>Close out malo (−1)</b>. Si te equivocás, usá ↩ Deshacer.</div>'+
+    '<div class="zone-sub" style="margin:2px 0 10px">Tocá el botón de una acción individual y elegí a qué jugador pertenece. Todas las acciones suman +1'+(COV()?'; la única que puede restar es el <b>Close out malo (−1)</b>':'')+'. Si te equivocás, usá ↩ Deshacer.</div>'+
     blockOf+blockDf+blockCol+save+customPanel()+setup;
   updateTotals();
 }
@@ -1177,7 +1182,11 @@ function customPanel(){
     : '<div class="zone-sub" style="padding:2px 0 6px">Todavía no creaste ninguna. Agregá la primera abajo 👇</div>';
   return '<details class="board" style="margin-top:18px"><summary style="cursor:pointer;list-style:none;padding:11px 15px;font-family:var(--font-disp);font-weight:700;font-size:15px;color:var(--insight)">➕ Mis métricas de esfuerzo (crear / borrar) ▾</summary>'+
     '<div style="padding:6px 15px 16px">'+
-    '<div class="zone-sub" style="margin-bottom:10px">Creá tus propias métricas. Las individuales se asignan a un jugador al marcarlas y cada acción suma +1.</div>'+
+    '<div class="zone-sub" style="margin-bottom:6px"><b>Métricas base</b> — sacá las que no te interesan. Lo ya cargado no se borra: si la volvés a activar, reaparece.</div>'+
+    METRICS.filter(m=>m.tipo==='ind').map(m=>{const off=HIDDEN.has(m.k),cls=m.side;
+      return '<div class="cust-row"'+(off?' style="opacity:.5"':'')+'><span class="cust-side '+cls+'">'+(m.side==='of'?'OF':'DEF')+'</span><span class="cust-name">'+esc(fullL(m))+(off?' <span style="color:var(--text-3)">(no se usa)</span>':'')+'</span>'+
+      '<button class="btn-ghost" style="padding:4px 10px;font-size:11px" onclick="toggleBase(\''+m.k+'\')">'+(off?'Volver a usar':'Sacar')+'</button></div>';}).join('')+
+    '<div class="zone-sub" style="margin:14px 0 10px"><b>Mis métricas</b> — creá las tuyas. Las individuales se asignan a un jugador al marcarlas y cada acción suma +1.</div>'+
     list+
     '<div class="cust-form">'+
       '<input id="ncName" type="text" placeholder="Nombre (ej: Sprint de vuelta en defensa)" maxlength="48">'+
@@ -1210,6 +1219,15 @@ async function addCustom(){
   }
   const tipo=tv==='col'?'col':'ind';
   CUSTOM.push({k,l:name,tipo,side:tv==='col'?'of':tv,pm:false,custom:true});
+  renderCargar();renderEvaluar();
+}
+async function toggleBase(k){
+  const m=METRICS.find(x=>x.k===k);if(!m)return;const c=getSB();const hk='hide_'+k;
+  if(HIDDEN.has(k)){const r=await c.from('esfuerzo_metricas').delete().eq('k',hk);if(r.error){alert(r.error.message);return;}HIDDEN.delete(k);}
+  else{if(!confirm('¿Sacar «'+fullL(m)+'»? Deja de aparecer en la planilla, el ranking y los informes. Lo ya cargado no se borra.'))return;
+    const r=await c.from('esfuerzo_metricas').insert([{k:hk,label:fullL(m),side:'hidden',cat:'',peso:0}]);
+    if(r.error&&!/duplicate/i.test(r.error.message)){if(/relation .* does not exist/.test(r.error.message)){METRICAS_OK=false;renderCargar();return;}alert(r.error.message);return;}
+    HIDDEN.add(k);}
   renderCargar();renderEvaluar();
 }
 async function delCustom(k){
@@ -1337,7 +1355,7 @@ function acumTableHtml(D){
       return '<td style="color:'+col+';font-weight:600">'+(c?fmtNet(nt)+(m.pm?' <span style="color:var(--text-3);font-size:9px">(+'+c.p+' −'+c.m+')</span>':''):'·')+'</td><td style="color:var(--text-2)">'+(po.pj?f1(nt/po.pj):'—')+'</td>';}).join('')+
     '<td style="color:var(--offense);font-weight:700">'+fmtNet(po.units)+'</td><td style="color:var(--offense);font-weight:700">'+f1(po.avg)+'</td></tr>').join('');
   return '<div class="board"><div class="board-title">Acumulado de la temporada · total y promedio por partido</div><div class="tblwrap"><table class="t acum"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>'+
-    '<div class="zone-sub" style="margin:-6px 0 12px">Total = suma de todos los partidos. Prom. = total ÷ partidos jugados (PJ). En Close out el número es buenos − malos; entre paréntesis, el detalle. Acciones = suma de todo lo que hizo el jugador. Ordenado por acciones por partido.</div>';
+    '<div class="zone-sub" style="margin:-6px 0 12px">Total = suma de todos los partidos. Prom. = total ÷ partidos jugados (PJ).'+(COV()?' En Close out el número es buenos − malos; entre paréntesis, el detalle.':'')+' Acciones = suma de todo lo que hizo el jugador. Ordenado por acciones por partido.</div>';
 }
 // Lo que logró un jugador, en palabras: "3 Screen assists · 1 Hockey pass · Close outs 2✓ 1✗"
 function breakdown(met,inds,html){
@@ -1352,7 +1370,7 @@ function rankingHtml(D){
     '<div class="rk-val">'+f1(p.avg)+'<small> acciones por partido</small></div><div class="rk-det">'+breakdown(p.met,D.inds,true)+'</div><div class="rk-sub">'+p.pj+' partido'+(p.pj===1?'':'s')+'</div></div>';
   return '<div class="sec">Ranking de esfuerzo</div><div class="rk-grid"><div><div class="rk-h good">▲ Los 3 mejores</div><div class="rk-row">'+R.best.map((p,i)=>card(p,i,true)).join('')+'</div></div>'+
     '<div><div class="rk-h bad">▼ Los 3 que menos aportan</div><div class="rk-row">'+(R.worst.length?R.worst.map((p,i)=>card(p,i,false)).join(''):'<div class="zone-sub">Pocos jugadores para armar este grupo.</div>')+'</div></div></div>'+
-    '<div class="zone-sub" style="margin:6px 0 14px">Ordenado por acciones de esfuerzo por partido (la suma de screens, hockey pass, desvíos y close outs; el close out malo resta 1). Entran los que jugaron al menos '+R.minPj+' de los '+D.matches.length+' partidos cargados.</div>';
+    '<div class="zone-sub" style="margin:6px 0 14px">Ordenado por acciones de esfuerzo por partido (la suma de '+actList()+(COV()?'; el close out malo resta 1':'')+'). Entran los que jugaron al menos '+R.minPj+' de los '+D.matches.length+' partidos cargados.</div>';
 }
 // Líder de cada acción (el que más hizo en la temporada)
 function leadersOf(players,inds){
@@ -1404,7 +1422,7 @@ function repCss(col,L){return '*{box-sizing:border-box;margin:0;padding:0}body{f
   '.note{font-size:8.5px;color:#7a818c;line-height:1.45;margin-top:4px}.gl{font-size:8.5px;color:#4a515c;line-height:1.5;columns:2;column-gap:16px}.gl b{color:#1b1f27}.ft{margin-top:auto;text-align:center;color:#b5bbc5;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding-top:6px;border-top:1px solid #f0f2f5}@page{size:A4 '+(L?'landscape':'portrait')+';margin:0}';}
 function repHead(sub,meta,col){return '<div class="hd"><div class="lg">SCOUTPRO<small>'+sub+'</small></div><div class="meta">'+meta+'</div></div>';}
 function glosario(D){return '<div class="sec" style="margin-top:4px">Qué mide cada cosa</div><div class="card"><div class="gl">'+D.inds.map(m=>'<div><b>'+esc(fullL(m))+'</b>'+(String(m.l).toLowerCase()!==fullL(m).toLowerCase()?' — '+esc(m.l):'')+(m.pm?' — se cuentan buenos ✓ y malos ✗':'')+'.</div>').join('')+
-  '<div><b>Kills</b> — 3 defensas seguidas sin que el rival anote.</div><div><b>Kills cortados</b> — veces que el rival anotó y nos cortó la cadena de defensas antes de llegar al kill.</div><div><b>Acciones</b> — la suma de lo que hizo cada jugador (el close out malo resta 1).</div></div></div>';}
+  '<div><b>Kills</b> — 3 defensas seguidas sin que el rival anote.</div><div><b>Kills cortados</b> — veces que el rival anotó y nos cortó la cadena de defensas antes de llegar al kill.</div><div><b>Acciones</b> — la suma de lo que hizo cada jugador'+(COV()?' (el close out malo resta 1)':'')+'.</div></div></div>';}
 function rankBoxes(list,label,good,valFn,team,detFn){return '<div class="box '+(good?'g':'b')+'"><h4>'+label+'</h4>'+(list.length?list.map((p,i)=>{const ph=photo(team,p.p.num,true);
   return '<div class="it">'+(ph?'<img class="av" src="'+esc(ph)+'">':'<span class="av ini">'+esc(p.p.num!=null?p.p.num:'·')+'</span>')+'<div class="itb"><div class="itn"><span>'+(good?['🥇','🥈','🥉'][i]:(i+1)+'°')+' '+esc(plName(p.p))+'</span><b>'+valFn(p)+'</b></div><div class="itd">'+esc(detFn(p))+'</div></div></div>';}).join(''):'<div class="it"><span>—</span></div>')+'</div>';}
 function kpiPdf(tots,inds,kills,cort,def,extra){return '<div class="kp" style="grid-template-columns:repeat('+(inds.length+3+(extra?1:0))+',1fr)">'+(extra||'')+inds.map(m=>{const t=tots(m.k);return '<div><b>'+(m.pm?t.p+'<small style="font-size:10px;color:#16a34a">✓</small> '+t.m+'<small style="font-size:10px;color:#d1495b">✗</small>':(t.p-t.m))+'</b><span>'+esc(fullL(m))+'</span></div>';}).join('')+
@@ -1415,7 +1433,7 @@ function reportMatch(btnId){
   const team=evTeam,D=esfData(team),mo=D.matches.find(m=>m.key===evMatchKey);if(!mo){alert('Elegí un partido.');return;}
   const col=printColor(team),qm=mo.mid?(MATCHES[team]||[]).find(x=>x.mid===mo.mid):null;
   const rows=Object.entries(mo.players).map(([k,p])=>{const c=mo.cells[k]||{};let u=0;D.inds.forEach(m=>{if(c[m.k])u+=c[m.k].p-c[m.k].m;});return {k,p,c,u};}).sort((a,b)=>b.u-a.u||n(a.p.num)-n(b.p.num));
-  const best=rows.slice(0,3).filter(r=>r.u>0||rows.length<=3),worst=rows.slice().reverse().filter(r=>!best.includes(r)).slice(0,3);
+  const best=rows.slice(0,3).filter(r=>r.u>0||rows.length<=3);
   const indNet=rows.reduce((s,r)=>s+r.u,0);
   const mLead=leadersOf(rows.map(r=>({p:r.p,pj:1,met:r.c})),D.inds);
   const lgA=clubLogo(team),lgB=clubLogo(mo.rival);
@@ -1425,7 +1443,7 @@ function reportMatch(btnId){
     repHead('INFORME DE ESFUERZO · PARTIDO','<b>'+esc(team)+(mo.local===false?' @ ':' vs ')+esc(mo.rival)+'</b><br>'+esc(fmtD(mo.fecha)),col)+
     '<div class="vs"><div class="tm">'+(lgA?'<img src="'+esc(lgA)+'">':'')+esc(team)+'</div><div class="sc">'+(qm?qm.pf+' – '+qm.pc:'vs')+'<small>'+(qm?'FINAL':'')+'</small></div><div class="tm">'+(lgB?'<img src="'+esc(lgB)+'">':'')+esc(mo.rival)+'</div></div>'+
     kpiPdf(mk=>{let p2=0,m2=0;Object.values(mo.cells).forEach(c=>{if(c[mk]){p2+=c[mk].p;m2+=c[mk].m;}});return {p:p2,m:m2};},D.inds,mo.kills,mo.def_rotas,mo.def_tot)+
-    '<div class="sec">Ranking del partido</div><div class="rk">'+rankBoxes(best,'▲ Los 3 mejores',true,p=>fmtNet(p.u)+' acciones',team,p=>breakdown(p.c,D.inds,false))+rankBoxes(worst,'▼ Los 3 que menos aportaron',false,p=>fmtNet(p.u)+' acciones',team,p=>breakdown(p.c,D.inds,false))+'</div>'+
+    '<div class="sec">Los 3 mejores del partido</div><div class="rk" style="grid-template-columns:1fr">'+rankBoxes(best,'▲ Los 3 que más aportaron',true,p=>fmtNet(p.u)+' acciones',team,p=>breakdown(p.c,D.inds,false))+'</div>'+
     (mLead.length?'<div class="sec">Líderes del partido</div>'+leadersPdf(mLead,team,false):'')+
     '<div class="sec">Detalle por jugador</div><div class="card">'+tbl+'<div class="note">Neto por métrica: buenos − malos. Entre paréntesis, el detalle en las métricas con buenos y malos. Aparecen todos los que jugaron el partido'+(mo.mid?'':' (este partido no está vinculado a Quintetos: solo los que tuvieron acciones)')+'.</div></div>'+
     glosario(D)+'<div class="ft">ScoutPRO · Esfuerzo · '+esc(team)+' vs '+esc(mo.rival)+' · '+esc(fmtD(mo.fecha))+'</div></div></body></html>';
@@ -1451,7 +1469,7 @@ function reportSeason(){
       '<div class="sec">Ranking de la temporada (acciones por partido)</div><div class="rk">'+rankBoxes(R.best,'▲ Los 3 mejores',true,p=>f1(p.avg)+' por partido',team,p=>breakdown(p.met,D.inds,false)+' · '+p.pj+' PJ')+rankBoxes(R.worst,'▼ Los 3 que menos aportan',false,p=>f1(p.avg)+' por partido',team,p=>breakdown(p.met,D.inds,false)+' · '+p.pj+' PJ')+'</div>'+
       (sLead.length?'<div class="sec">Líderes de la temporada</div>'+leadersPdf(sLead,team,true):'')):'')+
     '<div class="sec">Por jugador · total y promedio por partido'+(chunks.length>1?' ('+(pi+1)+'/'+chunks.length+')':'')+'</div><div class="card"><table><thead>'+head+'</thead><tbody>'+ch.map(rowH).join('')+'</tbody></table>'+
-    '<div class="note">Total = suma de la temporada. Prom. = total ÷ partidos jugados. En close out, buenos − malos. Acciones = suma de todo lo que hizo el jugador. Ranking: entran los que jugaron al menos '+R.minPj+' de '+nm+' partidos.</div></div>'+
+    '<div class="note">Total = suma de la temporada. Prom. = total ÷ partidos jugados.'+(COV()?' En close out, buenos − malos.':'')+' Acciones = suma de todo lo que hizo el jugador. Ranking: entran los que jugaron al menos '+R.minPj+' de '+nm+' partidos.</div></div>'+
     (pi===chunks.length-1?('<div class="sec">Partido a partido</div><div class="card">'+byGame+'</div>'+glosario(D)):'')+
     '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+(chunks.length>1?' · Página '+(pi+1)+'/'+chunks.length:'')+'</div></div>').join('');
   const html='<!doctype html><html><head><meta charset="utf-8"><style>'+repCss(col,true)+'</style></head><body>'+pages+'</body></html>';
@@ -1544,7 +1562,7 @@ function renderEvaluar(){
         '<span class="bar-wrap"><span class="bar" style="width:'+Math.round(Math.abs(po.tot)/maxT*100)+'%;background:'+(po.tot<0?'var(--negative)':'var(--offense)')+'"></span></span></td></tr>';
       }).join('')+
       '</tbody></table></div></div>'+
-      '<div class="zone-sub" style="margin:-6px 0 12px">En las métricas con buenos y malos (ej. Close out), el número es el neto: buenos − malos. Entre paréntesis, el detalle.</div>'
+      (COV()?'<div class="zone-sub" style="margin:-6px 0 12px">En las métricas con buenos y malos (ej. Close out), el número es el neto: buenos − malos. Entre paréntesis, el detalle.</div>':'')
     : '<div class="empty" style="padding:30px">Todavía no hay acciones individuales asignadas a jugadores.</div>';
 
   // ── HISTÓRICO VS RIVALES + TENDENCIAS ──
@@ -1596,7 +1614,7 @@ function renderEvaluar(){
 
   const D=esfData(evTeam);
   el.innerHTML=ctl+reportControlsHtml(D)+kpis+
-    '<div class="zone-sub" style="margin-bottom:8px">Kills = 3 defensas seguidas. Kills cortados = veces que el rival anotó y nos cortó la cadena antes de llegar al kill. Acciones = la suma de lo que hizo cada jugador (screens, hockey pass, desvíos, close outs; el close out malo resta 1).</div>'+
+    '<div class="zone-sub" style="margin-bottom:8px">Kills = 3 defensas seguidas. Kills cortados = veces que el rival anotó y nos cortó la cadena antes de llegar al kill. Acciones = la suma de lo que hizo cada jugador ('+actList()+(COV()?'; el close out malo resta 1':'')+').</div>'+
     rankingHtml(D)+leadersHtml(D)+acumTableHtml(D)+tendGral+tablaRiv+tablaM;
 }
 function spark(vals,w,h,color){
