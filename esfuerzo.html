@@ -1152,6 +1152,7 @@ function renderCargar(){
 
   const save='<div class="savebar">'+
     '<button class="btn-primary" onclick="saveEsf()">💾 Guardar partido</button>'+
+    '<button class="btn-ghost" id="btnRepLive" onclick="reportLive()">📄 Descargar informe (sin guardar)</button>'+
     '<button class="btn-ghost" onclick="loadEsfMatch()">↘ Cargar lo ya guardado de este partido</button>'+
     '<button class="btn-ghost" onclick="clearCap()">Limpiar planilla</button>'+
     '<span class="savemsg" id="saveMsg"></span></div>';
@@ -1266,6 +1267,19 @@ async function saveEsf(){
   }
   msgSave('✓ Partido guardado.',false);
   await loadAll();
+}
+
+// Informe del partido con lo que está en la planilla ahora, sin guardarlo
+function reportLive(){
+  if(!String(capTeam||'').trim()){msgSave('Poné el nombre del equipo para sacar el informe.',true);return;}
+  if(!capRival.trim()){msgSave('Poné el nombre del rival para sacar el informe.',true);return;}
+  if(!sheetHasData()){msgSave('La planilla está vacía: no hay nada para el informe.',true);return;}
+  const mid=matchId(),cp=JSON.parse(JSON.stringify({col:sheet.col,ind:sheet.ind,players:sheet.players}));
+  const tmp={equipo:capTeam,rival:capRival.trim(),es_local:capLocal,fecha:capFecha,match_id:mid,jugador:TEAM_JUG,_ex:{...cp,fiba_mid:capMid||null}};
+  const svE=ESF,svT=evTeam,svK=evMatchKey;
+  ESF=ESF.filter(r=>!(r.equipo===capTeam&&r.match_id===mid)).concat([tmp]);evTeam=capTeam;evMatchKey=mid;
+  try{reportMatch('btnRepLive');}finally{ESF=svE;evTeam=svT;evMatchKey=svK;}
+  msgSave('Informe generado con la planilla actual (no se guardó).',false);
 }
 
 /* ════════ ACUMULADO, RANKING E INFORMES ════════ */
@@ -1397,7 +1411,7 @@ function kpiPdf(tots,inds,kills,cort,def,extra){return '<div class="kp" style="g
   '<div><b>'+kills+'</b><span>Kills</span></div><div><b style="color:#d1495b">'+cort+'</b><span>Kills cortados</span></div><div><b>'+def+'</b><span>Defensas logradas</span></div></div>';}
 function leadersPdf(list,team,per){if(!list.length)return '';return '<div class="ldp">'+list.map(x=>{const ph=photo(team,x.po.p.num,true);
   return '<div class="ldi">'+(ph?'<img class="av" src="'+esc(ph)+'">':'<span class="av ini">'+esc(x.po.p.num!=null?x.po.p.num:'·')+'</span>')+'<div><div class="ldw">Más '+esc(fullL(x.m).toLowerCase())+'</div><div class="ldn">'+esc(plName(x.po.p))+'</div><div class="ldv">'+x.v+(per?' <small>('+f1(x.v/(x.po.pj||1))+' por partido)</small>':'')+'</div></div></div>';}).join('')+'</div>';}
-function reportMatch(){
+function reportMatch(btnId){
   const team=evTeam,D=esfData(team),mo=D.matches.find(m=>m.key===evMatchKey);if(!mo){alert('Elegí un partido.');return;}
   const col=printColor(team),qm=mo.mid?(MATCHES[team]||[]).find(x=>x.mid===mo.mid):null;
   const rows=Object.entries(mo.players).map(([k,p])=>{const c=mo.cells[k]||{};let u=0;D.inds.forEach(m=>{if(c[m.k])u+=c[m.k].p-c[m.k].m;});return {k,p,c,u};}).sort((a,b)=>b.u-a.u||n(a.p.num)-n(b.p.num));
@@ -1416,7 +1430,7 @@ function reportMatch(){
     '<div class="sec">Detalle por jugador</div><div class="card">'+tbl+'<div class="note">Neto por métrica: buenos − malos. Entre paréntesis, el detalle en las métricas con buenos y malos. Aparecen todos los que jugaron el partido'+(mo.mid?'':' (este partido no está vinculado a Quintetos: solo los que tuvieron acciones)')+'.</div></div>'+
     glosario(D)+'<div class="ft">ScoutPRO · Esfuerzo · '+esc(team)+' vs '+esc(mo.rival)+' · '+esc(fmtD(mo.fecha))+'</div></div></body></html>';
   const safe=s=>String(s||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
-  esfPdf(html,'Esfuerzo_'+safe(team)+'_vs_'+safe(mo.rival)+'_'+safe(mo.fecha)+'.pdf','p','btnRepM');
+  esfPdf(html,'Esfuerzo_'+safe(team)+'_vs_'+safe(mo.rival)+'_'+safe(mo.fecha)+'.pdf','p',btnId||'btnRepM');
 }
 function reportSeason(){
   const team=evTeam,D=esfData(team);if(!D.matches.length){alert('No hay partidos cargados.');return;}
