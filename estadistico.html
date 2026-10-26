@@ -1137,6 +1137,8 @@ async function loadData(){
     catch(_){ QUARTERS=[]; }
     try{ const cl=await fetchAll(c,'clubes'); const fo=await fetchAll(c,'fotos_jugadores'); setClubAssets(cl.data||[],fo.data||[]); setTimeout(()=>{backfillClubAssets();},1500); }
     catch(_){ setClubAssets([],[]); }
+    try{ const sy=await fetchAll(c,'synergy_stats'); SYNDB=sy.data||[]; }
+    catch(_){ SYNDB=[]; }
     try{ const dr=await fetchAll(c,'defensa_log'); DEF=dr.data||[]; }
     catch(_){ DEF=[]; }
     try{ const pr=await fetchAll(c,'pbp_log'); PBP=pr.data||[]; }
@@ -3053,7 +3055,7 @@ function plSave(){try{localStorage.setItem(PL_KEY,JSON.stringify(PLS));}catch(_)
 let plTeam='',plVs='',plTok=0;
 const PL_MODS=[
   ['foto','Foto del jugador',1],['fisico','Altura / peso / posición',1],['prom','Promedios (PTS, REB, AST, MIN)',1],['tiro','Tiro (eFG%, triples, libres)',1],
-  ['uso','Uso y rol',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
+  ['uso','Uso y rol',1],['syn','Synergy (PPP y percentiles)',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
 ];
 const PL_ESSENTIAL=['foto','fisico','prom','carta','tend'];
 function plOn(k){return PLS.mods[k]!=null?!!PLS.mods[k]:!!(PL_MODS.find(m=>m[0]===k)||[0,0,0])[2];}
@@ -3095,11 +3097,17 @@ function renderPlacas(){
     '<span class="zone-lbl">Fondo</span><input type="color" value="'+c1+'" oninput="plColor(0,this.value)" class="pl-col"><span class="zone-lbl">Acento</span><input type="color" value="'+c2+'" oninput="plColor(1,this.value)" class="pl-col">'+
     '<button class="sim-btn" onclick="plResetColors()">Colores por defecto</button>'+
     '<button class="sim-btn" id="plPdfBtn" style="margin-left:auto" onclick="plPdf()">📄 Descargar todas en PDF</button></div>'+
+    '<div class="tiros-ctl" style="flex-wrap:wrap;gap:8px;margin-top:-4px"><span class="zone-lbl">Synergy</span>'+
+      '<label class="sim-btn" style="cursor:pointer">📥 Cargar CSV de Synergy<input type="file" accept=".csv" multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
+      '<span id="synMsg" class="zone-sub" style="margin:0">'+synStatus()+'</span></div>'+
     '<details class="pl-mods" open><summary>Qué mostrar en las placas</summary><div class="pl-tgs">'+modBtns+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="sim-btn" onclick="plPreset(\'all\')">Todo</button><button class="sim-btn" onclick="plPreset(\'ess\')">Lo fundamental</button></div></details>'+
     '<div class="pl-grid">'+cards+'</div>';
   plDrawAll();
 }
+function synStatus(){if(!SYNDB.length)return 'Exportá desde Synergy → Leaderboards (jugadores o equipos, en CSV) y subilo acá. Se guardan solo los equipos de la Liga Uruguaya.';
+  const L=synLatest(SYNDB),sits=[...new Set(L.map(r=>synSitL(r.situacion)+(r.tipo==='team'?' (equipos)':'')+(r.lado==='def'?' def.':'')))];
+  return 'Cargado '+(L[0]?L[0].temporada:'')+': '+sits.join(', ')+'. Para actualizar, volvé a subir el CSV.';}
 function plLigaOf(team){const r=RAWD.find(x=>sameTeam(x.equipo,team)&&x.liga);return r?String(r.liga).toLowerCase():'';}
 function plSetTeam(v){plTeam=v;plVs='';
   // percentiles, rankings y rivales se calculan dentro de la liga del equipo elegido
@@ -3166,6 +3174,61 @@ function plCourt(ctx,shots,X,Y,W,H,txt,acc){
     ctx.font='600 '+Math.round(r*0.34)+'px '+PL_FB;ctx.fillText(m+'/'+n,cx,cy+r*0.55);ctx.textAlign='left';});
   ctx.restore();
 }
+// ════════ SYNERGY (CSV exportados de Leaderboards → tabla synergy_stats) ════════
+let SYNDB=[];
+// equipos de Synergy → nombre en ScoutPro (Liga Uruguaya)
+const SYN_TEAMS={'CLUB SOCIAL LARRANAGA':'LARRAÑAGA','NACIONAL DE FUTBOL MONTEVIDEO':'NACIONAL','CLUB ATLETICO AGUADA':'AGUADA','CLUB ATLETICO ATENAS (URUGUAY)':'ATENAS','CLUB BIGUA DE VILLA BIARRITZ':'BIGUA',
+  'DEFENSOR SPORTING':'D SPORTING','CLUB ATLETICO GOES':'GOES','HEBRAICA Y MACABI':'HEBRAICA Y MACABI','MALVIN MONTEVIDEO':'MALVIN','CLUB ATLETICO PENAROL MONTEVIDEO':'PEÑAROL','UNION ATLETICA':'UNION ATLETICA',
+  'URUNDAY UNIVERSITARIO':'URUNDAY UNIVERSITARIO','OLIMPIA KINGS MONTEVIDEO':'OLIMPIA KINGS'};
+const SYN_SIT={'Overall':'General','P&R Ball Handler':'P&R manejador','Pick & Roll Ball Handler':'P&R manejador','P&R Roll Man':'P&R continuación','Pick & Roll Roll Man':'P&R continuación','Spot Up':'Spot up','Isolation':'Aislamiento',
+  'Transition':'Transición','Post-Up':'Poste','Post Up':'Poste','Cut':'Cortes','Handoff':'Hand-off','Off Screen':'Salida de bloqueo','Putbacks':'Rebote ofensivo','Offensive Rebounds (put backs)':'Rebote ofensivo','Miscellaneous':'Varios'};
+function synSitL(s){return SYN_SIT[s]||s;}
+function synCsv(txt){const out=[];let row=[],f='',q=false;for(let i=0;i<txt.length;i++){const ch=txt[i];
+    if(q){if(ch==='"'){if(txt[i+1]==='"'){f+='"';i++;}else q=false;}else f+=ch;}
+    else if(ch==='"')q=true;else if(ch===','){row.push(f);f='';}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(f);f='';if(row.length>1||row[0]!=='')out.push(row);row=[];}else f+=ch;}
+  if(f!==''||row.length){row.push(f);out.push(row);}return out;}
+function synMeta(fname){const name=String(fname||'').replace(/\.csv$/i,'').replace(/_/g,' ');const parts=name.split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);const last=parts[parts.length-1]||'';
+  return {tipo:/team/i.test(last)?'team':'player',lado:/defens/i.test(last)?'def':'off',situacion:parts.length>=3?parts[parts.length-2]:'Overall',temporada:(name.match(/\d{4}-\d{4}/)||['s/d'])[0]};}
+function synParse(txt,fname){
+  let rows=synCsv(String(txt).replace(/^\uFEFF/,''));if(rows.length&&/^sep=/i.test(rows[0][0]))rows=rows.slice(1);if(rows.length<2)return {meta:synMeta(fname),recs:[],skipped:0};
+  const H=rows[0].map(h=>h.trim()),ix=h=>H.indexOf(h),num=v=>{if(v==null)return null;const x=String(v).replace('%','').trim();if(x==='')return null;const n=+x;return isFinite(n)?n:null;};
+  const meta=synMeta(fname);if(ix('Player')<0)meta.tipo='team';
+  const recs=[];let skipped=0;
+  rows.slice(1).forEach(r=>{const g=h=>{const i=ix(h);return i<0?null:r[i];};const tsyn=String(g('Team')||'').trim();if(!tsyn)return;
+    const eq=SYN_TEAMS[teamKey(tsyn)];if(!eq){skipped++;return;}
+    const raw={};H.forEach((h,i)=>{if(h)raw[h]=r[i];});
+    recs.push({temporada:meta.temporada,situacion:meta.situacion,lado:meta.lado,tipo:meta.tipo,team_syn:tsyn,nombre:meta.tipo==='team'?tsyn:String(g('Player')||'').trim(),equipo:eq,num:g('Jersey #')!=null?String(g('Jersey #')).trim():null,
+      gp:num(g('GP')),poss:num(g('Poss')),pct_time:num(g('%Time')),pts:num(g('Pts')),ppp:num(g('PPP')),fg_pct:num(g('FG%')),efg:num(g('eFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('Score%')),
+      fg3_pct:num(g('3 FG%')!=null?g('3 FG%'):g('3FG%')),fg3_rate:num(g('3PA/FGA')),raw});});
+  return {meta,recs,skipped};
+}
+async function synImport(files){
+  const msg=document.getElementById('synMsg');const say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
+  const c=getSB();let tot=0,sk=0,done=[];
+  try{for(const f of files){const {meta,recs,skipped}=synParse(await f.text(),f.name);sk+=skipped;
+      if(!recs.length){done.push(f.name+': sin jugadores de la Liga Uruguaya');continue;}
+      say('Cargando '+f.name+'…');
+      const del=await c.from('synergy_stats').delete().eq('temporada',meta.temporada).eq('situacion',meta.situacion).eq('lado',meta.lado).eq('tipo',meta.tipo);
+      if(del.error)throw new Error(del.error.message);
+      for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
+      SYNDB=SYNDB.filter(r=>!(r.temporada===meta.temporada&&r.situacion===meta.situacion&&r.lado===meta.lado&&r.tipo===meta.tipo)).concat(recs);
+      tot+=recs.length;done.push(synSitL(meta.situacion)+' · '+(meta.tipo==='team'?'equipos':'jugadores')+' · '+(meta.lado==='def'?'defensa':'ataque')+': '+recs.length);}
+    say('✓ '+done.join('  |  '));plDrawAll();
+  }catch(e){say('No se pudo cargar: '+(e.message||e),true);}
+}
+function synLatest(rows){let t='';rows.forEach(r=>{if(String(r.temporada)>t)t=String(r.temporada);});return rows.filter(r=>String(r.temporada)===t);}
+function synNorm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();}
+// fila de Synergy del jugador (por número + apellido, o inicial + apellido)
+function synFor(team,p,sit,lado){
+  const rows=synLatest(SYNDB.filter(r=>r.tipo==='player'&&sameTeam(r.equipo,team)&&r.situacion===(sit||'Overall')&&r.lado===(lado||'off')));if(!rows.length)return null;
+  const nm=synNorm(p.nombre),m=nm.match(/^([a-z])\s+(.+)$/),ini=m?m[1]:'',last=(m?m[2]:nm).replace(/ /g,'');
+  const hasLast=r=>last&&synNorm(r.nombre).replace(/ /g,'').includes(last);
+  return rows.find(r=>String(r.num)===String(p.num)&&hasLast(r))||rows.find(r=>hasLast(r)&&(!ini||synNorm(r.nombre)[0]===ini))||(rows.filter(r=>String(r.num)===String(p.num)).length===1?rows.find(r=>String(r.num)===String(p.num)):null);
+}
+// percentil dentro de la Liga Uruguaya (jugadores con al menos 15 posesiones en total)
+function synPct(row,f,inv){const pool=SYNDB.filter(r=>r.tipo===row.tipo&&r.temporada===row.temporada&&r.situacion===row.situacion&&r.lado===row.lado&&(row.tipo==='team'||(+r.poss||0)*(+r.gp||0)>=15)&&r[f]!=null).map(r=>+r[f]);
+  if(row[f]==null||!pool.length)return null;const p=pctRank(pool,+row[f]);return inv?100-p:p;}
+function synPlayTypes(team,p){const out=[];Object.keys(SYN_SIT).forEach(s=>{if(s==='Overall')return;const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0&&!out.some(o=>o.sit===synSitL(s)))out.push({sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
 function plStatsFor(team,p,pool,A){
   const g=p.g||1,pg=(q,k)=>q[k]/(q.g||1);
   const pct=[pctRank(A.anot,pg(p,'pts')),pctRank(A.gen,pg(p,'ast')),pctRank(A.tiro,pg(p,'tpm')),pctRank(A.reb,pg(p,'reb')),pctRank(A.def,pg(p,'rob')+pg(p,'tap'))];
@@ -3206,6 +3269,25 @@ function plDraw(cv,k){
       ctx.fillStyle=sub;ctx.font='700 22px '+PL_FD;ctx.textAlign='center';ctx.fillText(t[0],x+tw/2,y+34);ctx.fillStyle=txt;ctx.font='800 56px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+(t[2]?86:94));
       if(t[2]){ctx.fillStyle=sub;ctx.font='600 20px '+PL_FB;ctx.fillText(t[2],x+tw/2,y+110);}ctx.textAlign='left';});
     ty+=Math.ceil(tiles.length/per)*(th+16)+8;}
+  let usedSyn=false;
+  const sy=plOn('syn')?synFor(plTeam,p,'Overall','off'):null;
+  if(sy&&bottom-ty>=130){
+    let it=[['Puntos por posesión',sy.ppp!=null?(+sy.ppp).toFixed(2):'—',synPct(sy,'ppp')],['Posesiones por partido',sy.poss!=null?(+sy.poss).toFixed(1):'—',synPct(sy,'poss')],
+      ['eFG%',sy.efg!=null?Math.round(sy.efg)+'%':'—',synPct(sy,'efg')],['Pérdidas (TO%)',sy.to_pct!=null?(+sy.to_pct).toFixed(1)+'%':'—',synPct(sy,'to_pct',true)],
+      ['Anota en la posesión',sy.score_pct!=null?Math.round(sy.score_pct)+'%':'—',synPct(sy,'score_pct')],['Termina en libres',sy.ft_rate!=null?(+sy.ft_rate).toFixed(1)+'%':'—',synPct(sy,'ft_rate')]];
+    const pt=synPlayTypes(plTeam,p).slice(0,3);
+    let rh=Math.min(36,Math.floor((bottom-ty-44-(pt.length?40:0))/it.length));
+    if(rh<24){it=it.slice(0,4);rh=Math.min(36,Math.floor((bottom-ty-44-(pt.length?40:0))/it.length));}
+    if(rh>=24){usedSyn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SYNERGY · ATAQUE (PERCENTIL EN LA LIGA)',70,ty+22);ty+=36;
+      it.forEach((t,i)=>{const y=ty+i*rh,bx=400,bw=colW-(bx-70)-70;ctx.fillStyle=txt;ctx.font='600 22px '+PL_FB;ctx.fillText(t[0],70,y+19);
+        ctx.font='800 26px '+PL_FD;ctx.textAlign='right';ctx.fillText(t[1],bx-16,y+21);ctx.textAlign='left';
+        plRR(ctx,bx,y+4,bw,16,8);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
+        if(t[2]!=null){plRR(ctx,bx,y+4,Math.max(16,bw*t[2]/100),16,8);ctx.fillStyle=pctColor(t[2]);ctx.fill();}
+        ctx.fillStyle=txt;ctx.font='800 24px '+PL_FD;ctx.textAlign='right';ctx.fillText(t[2]!=null?String(t[2]):'—',70+colW,y+21);ctx.textAlign='left';});
+      ty+=it.length*rh+6;
+      if(pt.length){ctx.font='600 22px '+PL_FB;ctx.fillStyle=sub;let tx='Jugadas: '+pt.map(x=>x.sit+' '+Math.round(x.r.pct_time)+'% ('+(+x.r.ppp).toFixed(2)+' PPP)').join('  ·  ');
+        while(ctx.measureText(tx).width>colW&&tx.length>10)tx=tx.slice(0,-1);ctx.fillText(tx,70,ty+24);ty+=40;}
+      ty+=8;}}
   if(plOn('perfil')&&bottom-ty>=120){const L=['Anotación','Generación','Tiro ext.','Rebote','Defensa'];const rh=Math.min(36,Math.floor((bottom-ty-40)/5));
     ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PERFIL VS LA LIGA (PERCENTIL)',70,ty+22);ty+=36;
     L.forEach((l,i)=>{const y=ty+i*rh,bw=colW-330;ctx.fillStyle=txt;ctx.font='600 22px '+PL_FB;ctx.fillText(l,70,y+19);plRR(ctx,270,y+4,bw,16,8);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
@@ -3218,7 +3300,7 @@ function plDraw(cv,k){
     ctx.font='800 26px '+PL_FD;ctx.fillStyle=acc;ctx.fillText('TENDENCIAS',x+30,y+40);ctx.font='600 32px '+PL_FB;
     tend.slice(0,3).forEach((t,i)=>{const yy=y+84+i*42;ctx.fillStyle=acc;ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();ctx.fillStyle=txt;
       let tt=t;while(ctx.measureText(tt).width>w-110&&tt.length>4)tt=tt.slice(0,-1);ctx.fillText(tt===t?t:tt+'…',x+64,yy);});}
-  plFooter(ctx,txt,acc,'Scouting · '+plTeam,(plVs?'vs '+plVs+'  ·  ':'')+'Datos: planillas FIBA LiveStats');
+  plFooter(ctx,txt,acc,'Scouting · '+plTeam,(plVs?'vs '+plVs+'  ·  ':'')+'Datos: planillas FIBA LiveStats'+(usedSyn?' + Synergy':''));
 }
 function plDrawCover(ctx,base,acc,txt,sub){
   const team=plTeam;plLogo(ctx,team,1560,120,280);
@@ -3235,6 +3317,10 @@ function plDrawCover(ctx,base,acc,txt,sub){
       ctx.textAlign='center';ctx.fillStyle=sub;ctx.font='700 26px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+46);ctx.fillStyle=txt;ctx.font='800 70px '+PL_FD;ctx.fillText(v==null?'—':v.toFixed(m[2])+m[4],x+tw/2,y+125);
       ctx.fillStyle=acc;ctx.font='700 26px '+PL_FB;ctx.fillText(rk?rk+'° de '+nT:'',x+tw/2,y+168);ctx.textAlign='left';});
   }
+  const st=plOn('syn')?synLatest(SYNDB.filter(r=>r.tipo==='team'&&r.situacion==='Overall'&&sameTeam(r.equipo,team))):[];
+  const so=st.find(r=>r.lado==='off'),sd=st.find(r=>r.lado==='def');
+  if(so||sd){const rk=r=>{const pool=SYNDB.filter(x=>x.tipo==='team'&&x.temporada===r.temporada&&x.situacion==='Overall'&&x.lado===r.lado&&x.ppp!=null).map(x=>+x.ppp).sort((a,b)=>r.lado==='off'?b-a:a-b);return (pool.indexOf(+r.ppp)+1)+'° de '+pool.length;};
+    ctx.font='600 30px '+PL_FB;ctx.fillStyle=acc;ctx.fillText('Synergy: '+[so?(+so.ppp).toFixed(2)+' PPP en ataque ('+rk(so)+')':null,sd?(+sd.ppp).toFixed(2)+' PPP en defensa ('+rk(sd)+')':null].filter(Boolean).join('   ·   '),80,plVs?598:560);}
   const top=plPlayers(team).slice().sort((a,b)=>b.pts/b.g-a.pts/a.g).slice(0,4);
   ctx.font='700 28px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('GOLEADORES',80,905);
   ctx.font='600 34px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(top.map(p=>'#'+p.num+' '+p.nombre+' '+(p.pts/p.g).toFixed(1)).join('     '),80,955);
