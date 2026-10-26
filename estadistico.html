@@ -3210,7 +3210,7 @@ const SYN_SITS=[
   ['Cut','Cortes','pt',['cut']],
   ['Transition','Transición','pt',['transition']],
   ['Offensive Rebounds','Rebote ofensivo','pt',['offensive rebounds','put backs','putbacks']],
-  ['Jump Shots off the Dribble','Tiro tras bote','tiro',['off the dribble']],
+  ['Jump Shots off the Dribble','Tiro tras bote','tiro',['off the dribble','off dribble']],
   ['Catch and Shoot Unguarded','Catch & shoot solo','tiro',['unguarded']],
   ['Catch and Shoot Guarded','Catch & shoot marcado','tiro',['guarded']],
   ['Catch and Shoot','Catch & shoot','tiro',['catch and shoot','catch & shoot']],
@@ -3250,6 +3250,37 @@ function synParse(txt,fname){
       fg3_pct:num(g('3 FG%')!=null?g('3 FG%'):g('3FG%')),fg3_rate:num(g('3PA/FGA')),raw});});
   return {meta,recs,skipped,ok:H.some(h=>/^ppp$/i.test(h))};
 }
+// ── Capturas hechas con el botón "ScoutPro: capturar" (pantalla Team/Player de Synergy, con nombres) ──
+function synCapSit(label){const raw=String(label||'').toLowerCase().replace(/\s+/g,' ').trim(),t=' '+raw+' ';
+  if(/including passes|defense commits|traps|hard double/.test(raw))return '';
+  for(const x of SYN_SITS){if(x[0]==='Overall')continue;if(x[3].some(a=>a==='cut'?/\bcuts?\b/.test(t):t.includes(a)))return x[0];}
+  return '';}
+function synParseCap(txt,fname){
+  const L=String(txt).split(/\r?\n/),get=k=>{const l=L.find(x=>x.startsWith(k+'\t'));return l?l.slice(k.length+1).trim():'';};
+  const url=get('#URL'),head=get('#HEAD'),end=L.findIndex(x=>x.startsWith('#ROWS'));
+  const kind=/shottypes|shot-types/i.test(url)?'Shot types':/playtypes|play-types/i.test(url)?'Play types':'Tabla';
+  const eq=SYN_TEAMS[teamKey(head)]||'';const meta={tipo:'player',lado:/defens/i.test(url)?'def':'off',situacion:'__cap',temporada:'2026-2027',kind};
+  const hi=L.findIndex((x,i)=>i<end&&/^STAT\tPOSS\t/.test(x));if(hi<0)return {meta,recs:[],skipped:0,ok:false,cap:true,team_syn:head,equipo:eq};
+  const H=L[hi].split('\t').map(h=>h.trim().toLowerCase()),ix=h=>H.indexOf(h.toLowerCase());
+  const num=v=>{if(v==null)return null;const x=String(v).replace('%','').replace(',','.').trim();if(x===''||x==='-')return null;const n=+x;return isFinite(n)?n:null;};
+  const recs=[],sits=new Set();let cur='',curRaw='',unk=new Set();
+  for(let i=hi+1;i<(end<0?L.length:end);i++){const r=L[i].split('\t');const first=(r[0]||'').trim();
+    if(!first||/^STAT$/i.test(first)||first.startsWith('#ROWS'))break;
+    const g=h=>{const j=ix(h);return j<0?null:r[j];};
+    const pm=first.match(/^#(\d+)\s*(.+)$/);
+    if(!pm){curRaw=first;cur=synCapSit(first);if(!cur)unk.add(first);else sits.add(cur);continue;}
+    if(!cur)continue;
+    recs.push({team_syn:head,nombre:pm[2].trim(),equipo:eq,num:pm[1],situacion:cur,gp:1,poss:num(g('POSS')),pct_time:num(g('%TIME')),pts:num(g('PTS')),ppp:num(g('PPP')),
+      fg_pct:num(g('FG%')),efg:num(g('EFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('SCORE%')),fg3_pct:num(g('3 FG%')),fg3_rate:num(g('3PA/FGA')),fuente:'cap'});}
+  meta.sits=[...sits];meta.unk=[...unk];
+  // En esta pantalla %TIME es la parte del EQUIPO en esa jugada; para la placa interesa cuánto de SU juego es cada jugada
+  const tot={};recs.forEach(r=>{const isPt=SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous';if(isPt)tot[r.nombre]=(tot[r.nombre]||0)+(+r.poss||0);});
+  recs.forEach(r=>{r.raw={team_pct_time:r.pct_time};
+    if(SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous'){const t=tot[r.nombre];r.pct_time=t?Math.round((+r.poss||0)/t*1000)/10:null;}
+    else{const ov=SYNDB.find(x=>x.situacion==='Overall'&&x.lado==='off'&&x.tipo==='player'&&x.team_syn===r.team_syn&&synNorm(x.nombre)===synNorm(r.nombre));
+      const t=ov?(+ov.poss||0)*(+ov.gp||0):0;r.pct_time=t?Math.round((+r.poss||0)/t*1000)/10:null;}});
+  return {meta,recs,skipped:0,ok:recs.length>0,cap:true,team_syn:head,equipo:eq};
+}
 // lee CSV o Excel (Synergy exporta los dos)
 async function synReadFile(f){
   if(/\.xlsx?$/i.test(f.name)){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
@@ -3262,18 +3293,23 @@ async function synImport(files){
   const box=document.getElementById('synPrev');SYN_PEND=[];
   files=[...files].filter(f=>/\.(csv|xlsx?|txt)$/i.test(f.name)&&!/^\./.test(f.name)).sort((a,b)=>(a.lastModified||0)-(b.lastModified||0));
   if(!files.length){const ok=document.getElementById('synOk');if(ok){ok.style.color='var(--negative)';ok.textContent='No encontré archivos CSV o Excel en lo que elegiste.';}return;}
-  for(const f of files){try{const P=synParse(await synReadFile(f),f.name);SYN_PEND.push({name:f.name,...P});}catch(e){SYN_PEND.push({name:f.name,meta:synMeta(f.name),recs:[],skipped:0,ok:false,err:e.message||String(e)});}}
+  for(const f of files){try{const tx=await synReadFile(f);const P=/^#SCOUTPRO-SYNERGY/.test(tx)?synParseCap(tx,f.name):synParse(tx,f.name);SYN_PEND.push({name:f.name,...P});}catch(e){SYN_PEND.push({name:f.name,meta:synMeta(f.name),recs:[],skipped:0,ok:false,err:e.message||String(e)});}}
   synMarkDup();synPrevRender();if(box)box.scrollIntoView({block:'nearest'});
 }
 // si hay dos archivos de la misma jugada, se usa el más nuevo
-function synMarkDup(){const seen={};for(let i=SYN_PEND.length-1;i>=0;i--){const P=SYN_PEND[i],m=P.meta;P.dup=false;if(!m.situacion||m.situacion==='__skip')continue;const k=m.tipo+'|'+m.lado+'|'+m.situacion;if(seen[k])P.dup=true;else seen[k]=1;}}
+function synMarkDup(){const seen={};for(let i=SYN_PEND.length-1;i>=0;i--){const P=SYN_PEND[i],m=P.meta;P.dup=false;if(!m.situacion||m.situacion==='__skip')continue;const k=m.tipo+'|'+m.lado+'|'+m.situacion+(P.cap?'|'+P.team_syn+'|'+m.kind:'');if(seen[k])P.dup=true;else seen[k]=1;}}
 function synPrevRender(){
   const box=document.getElementById('synPrev');if(!box)return;
   if(!SYN_PEND.length){box.innerHTML='';return;}
   const opt=(v,list)=>list.map(o=>'<option value="'+escAttr(o[0])+'"'+(o[0]===v?' selected':'')+'>'+o[1]+'</option>').join('');
   const sitOpts=[['','¿Qué jugada es?'],['__skip','No guardar este archivo']].concat(SYN_SITS.map(x=>[x[0],x[1]+' ('+x[0]+')']));
   box.innerHTML='<div class="syn-prev"><div class="syn-ph">Revisá lo que detecté en cada archivo y tocá <b>Guardar</b>. Si alguno dice "¿Qué jugada es?", elegila de la lista.</div><table class="syn-t"><thead><tr><th>Archivo</th><th>Jugada</th><th>De</th><th>Lado</th><th>Liga Uruguaya</th></tr></thead><tbody>'+
-    SYN_PEND.map((P,i)=>{const skip=P.meta.situacion==='__skip'||P.dup,bad=!skip&&(!P.ok||!P.recs.length||!P.meta.situacion);return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
+    SYN_PEND.map((P,i)=>{if(P.cap){const tOpts=[['','¿Qué equipo es?']].concat(Object.values(SYN_TEAMS).map(t=>[t,t]));
+        return '<tr'+(!P.ok||!P.equipo?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">📥 '+escAttr(P.team_syn||P.name)+'</td><td>'+escAttr(P.meta.kind)+' · '+P.meta.sits.length+' situaciones'+(P.meta.unk.length?' <span style="color:var(--text-3)">(se ignoran: '+escAttr(P.meta.unk.join(', '))+')</span>':'')+'</td>'+
+        '<td>'+(P.equipo?escAttr(P.equipo):'<select onchange="SYN_PEND['+i+'].equipo=this.value;SYN_PEND['+i+'].recs.forEach(r=>r.equipo=this.value);synPrevRender()">'+opt('',tOpts)+'</select>')+'</td>'+
+        '<td><select onchange="SYN_PEND['+i+'].meta.lado=this.value">'+opt(P.meta.lado,[['off','Ataque'],['def','Defensa']])+'</select></td>'+
+        '<td>'+(P.dup?'Repetido: se usa la captura más nueva':!P.ok?'⚠ no encontré la tabla (¿estaba en Player Breakdown?)':new Set(P.recs.map(r=>r.nombre)).size+' jugadores · '+P.recs.length+' filas')+'</td></tr>';}
+      const skip=P.meta.situacion==='__skip'||P.dup,bad=!skip&&(!P.ok||!P.recs.length||!P.meta.situacion);return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.situacion=this.value;synMarkDup();synPrevRender()">'+opt(P.meta.situacion,sitOpts)+'</select></td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.tipo=this.value">'+opt(P.meta.tipo,[['player','Jugadores'],['team','Equipos']])+'</select></td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.lado=this.value">'+opt(P.meta.lado,[['off','Ataque'],['def','Defensa']])+'</select></td>'+
@@ -3284,15 +3320,24 @@ function synPrevRender(){
 async function synSave(){
   const msg=document.getElementById('synSaveMsg');const say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
   const miss=SYN_PEND.find(P=>P.ok&&P.recs.length&&!P.meta.situacion);
+  const capMiss=SYN_PEND.find(P=>P.cap&&P.ok&&!P.dup&&!P.equipo);if(capMiss){say('Elegí a qué equipo corresponde la captura «'+(capMiss.team_syn||capMiss.name)+'».',true);return;}
   const todo=SYN_PEND.filter(P=>P.ok&&P.recs.length&&!P.dup&&P.meta.situacion!=='__skip');
   if(!miss&&!todo.length){say('No hay nada para guardar.',true);return;}if(miss){say('Falta elegir la jugada de «'+miss.name+'».',true);return;}
   const c=getSB();let n=0;
-  try{for(const P of todo){const m=P.meta;say('Guardando '+synSitL(m.situacion)+'…');
-      const recs=P.recs.map(r=>({...r,temporada:m.temporada,situacion:m.situacion,lado:m.lado,tipo:m.tipo}));
-      const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',m.situacion).eq('lado',m.lado).eq('tipo',m.tipo);
+  try{for(const P of todo){const m=P.meta;
+      if(P.cap){say('Guardando captura de '+P.equipo+'…');
+        const recs=P.recs.map(r=>({...r,equipo:P.equipo,temporada:m.temporada,lado:m.lado,tipo:'player'}));
+        for(const st of m.sits){const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',st).eq('lado',m.lado).eq('tipo','player').eq('team_syn',P.team_syn);if(del.error)throw new Error(del.error.message);}
+        for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
+        SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.lado===m.lado&&r.tipo==='player'&&r.team_syn===P.team_syn&&m.sits.includes(r.situacion))).concat(recs);n++;continue;}
+      say('Guardando '+synSitL(m.situacion)+'…');
+      // los equipos que tienen captura completa no se pisan con el Leaderboard (que trae menos jugadores)
+      const capT=new Set(SYNDB.filter(r=>r.fuente==='cap'&&r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo).map(r=>r.team_syn));
+      const recs=P.recs.filter(r=>!capT.has(r.team_syn)).map(r=>({...r,temporada:m.temporada,situacion:m.situacion,lado:m.lado,tipo:m.tipo,fuente:'lb'}));
+      const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',m.situacion).eq('lado',m.lado).eq('tipo',m.tipo).neq('fuente','cap');
       if(del.error)throw new Error(del.error.message);
       for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
-      SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo)).concat(recs);n++;}
+      SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo&&r.fuente!=='cap')).concat(recs);n++;}
     SYN_PEND=[];synPrevRender();const st=document.getElementById('synMsg');if(st)st.innerHTML=synStatus();
     const ok=document.getElementById('synOk');if(ok){ok.textContent='✓ '+n+' archivo'+(n===1?'':'s')+' guardado'+(n===1?'':'s')+'.';}
     plDrawAll();
