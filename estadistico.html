@@ -3057,7 +3057,7 @@ function plSave(){try{localStorage.setItem(PL_KEY,JSON.stringify(PLS));}catch(_)
 let plTeam='',plVs='',plTok=0;
 const PL_MODS=[
   ['foto','Foto del jugador',1],['fisico','Altura / peso / posición',1],['prom','Promedios (PTS, REB, AST, MIN)',1],['tiro','Tiro (eFG%, triples, libres)',1],
-  ['uso','Uso y rol',1],['syn','Synergy (PPP y percentiles)',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
+  ['uso','Uso y rol',1],['syn','Synergy (PPP y percentiles)',1],['synt','Tendencias automáticas (Synergy)',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
 ];
 const PL_ESSENTIAL=['foto','fisico','prom','carta','tend'];
 function plOn(k){return PLS.mods[k]!=null?!!PLS.mods[k]:!!(PL_MODS.find(m=>m[0]===k)||[0,0,0])[2];}
@@ -3082,13 +3082,14 @@ function renderPlacas(){
   const pls=plPlayers(plTeam).slice(0,14);
   const cards=['__cover__'].concat(pls.map(p=>plPkey(plTeam,p))).map((k,i)=>{
     const isCov=k==='__cover__';const p=isCov?null:pls[i-1];const d=isCov?{}:(PLS.players[k]||{});const t=d.t||['','',''];
+    let au=[];if(!isCov&&plOn('synt')){try{const man=t.map(x=>String(x||'').trim()).filter(Boolean);au=synTendencias(plTeam,p).filter(a=>!man.includes(a));}catch(_){}}
+    let ai=0;const ph=[0,1,2].map(j=>String(t[j]||'').trim()?'':(au[ai++]||''));
     const inc=!PLS.excl[k];
     const ed=isCov?'':'<details class="pl-ed"><summary>✏️ Completar datos</summary><div class="pl-f">'+
       '<label>Altura<input value="'+escAttr(d.alt||'')+'" placeholder="1.98 m" oninput="plSet(\''+escAttr(k)+'\',\'alt\',this.value)"></label>'+
       '<label>Peso<input value="'+escAttr(d.peso||'')+'" placeholder="95 kg" oninput="plSet(\''+escAttr(k)+'\',\'peso\',this.value)"></label>'+
       '<label>Posición<input value="'+escAttr(d.pos||'')+'" placeholder="Base" oninput="plSet(\''+escAttr(k)+'\',\'pos\',this.value)"></label></div>'+
-      '<button class="sim-btn" style="margin:6px 0;padding:5px 10px" onclick="plSugerirUno(\''+escAttr(k)+'\')">✨ Sugerir con Synergy</button>'+
-      [0,1,2].map(j=>'<label class="pl-t">Tendencia '+(j+1)+'<input maxlength="90" value="'+escAttr(t[j]||'')+'" placeholder="'+(['Ej.: Busca la mano derecha en la penetración','Ej.: Tira de 3 tras bote, no en carrera','Ej.: Pierde pelotas ante presión'][j])+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)"></label>').join('')+
+      [0,1,2].map(j=>'<label class="pl-t">Tendencia '+(j+1)+(ph[j]?' <span style="color:var(--text-3);font-weight:400">· automática de Synergy (escribí encima para cambiarla)</span>':'')+'<input maxlength="110" value="'+escAttr(t[j]||'')+'" placeholder="'+escAttr(ph[j]||(['Ej.: Busca la mano derecha en la penetración','Ej.: Tira de 3 tras bote, no en carrera','Ej.: Pierde pelotas ante presión'][j]))+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)"></label>').join('')+
       '</details>';
     return '<div class="pl-card'+(inc?'':' off')+'"><canvas width="1920" height="1080" data-k="'+escAttr(k)+'"></canvas>'+
       '<div class="pl-bar"><b>'+(isCov?'Portada':('#'+p.num+' '+p.nombre))+'</b><label class="pl-inc"><input type="checkbox"'+(inc?' checked':'')+' onchange="plIncl(\''+escAttr(k)+'\',this.checked)"> Incluir en el PDF</label>'+
@@ -3104,7 +3105,7 @@ function renderPlacas(){
       '<label class="sim-btn" style="cursor:pointer">📥 Cargar archivos<input type="file" accept=".csv,.xls,.xlsx,.txt" multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
       '<label class="sim-btn" style="cursor:pointer">📁 Cargar carpeta<input type="file" webkitdirectory directory multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
       '<span class="zone-sub" style="margin:0">o arrastrá los archivos o la carpeta acá</span>'+
-      '<button class="sim-btn" onclick="plSugerirTodos()">✨ Sugerir tendencias para todos</button><span id="synOk" class="zone-sub" style="margin:0;color:var(--positive)"></span>'+
+      '<span id="synOk" class="zone-sub" style="margin:0;color:var(--positive)"></span>'+
       '<details class="syn-st" style="flex-basis:100%"><summary>Qué hay cargado</summary><div id="synMsg" class="zone-sub" style="margin:6px 0 0">'+synStatus()+'</div></details></div><div id="synPrev"></div>'+
     '<details class="pl-mods" open><summary>Qué mostrar en las placas</summary><div class="pl-tgs">'+modBtns+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="sim-btn" onclick="plPreset(\'all\')">Todo</button><button class="sim-btn" onclick="plPreset(\'ess\')">Lo fundamental</button></div></details>'+
@@ -3325,16 +3326,33 @@ function synTendencias(team,p){
   const weak=pt.filter(x=>x.r.pct_time>=12&&x.r.ppp<0.75).sort((a,b)=>a.r.ppp-b.r.ppp)[0];if(weak)T.push([7,'Flojo en '+weak.sit.toLowerCase()+': '+(+weak.r.ppp).toFixed(2)+' PPP — llevarlo a esa jugada']);
   if(ov.to_pct!=null&&ov.to_pct>=18&&tot>=20)T.push([7,'Pierde pelotas: '+(+ov.to_pct).toFixed(0)+'% de sus posesiones terminan en pérdida — presionarlo']);
   if(ov.ft_rate!=null&&ov.ft_rate>=18&&tot>=20)T.push([5,'Busca el foul: '+(+ov.ft_rate).toFixed(0)+'% de sus posesiones terminan en libres']);
+  // con el General alcanza para describir eficiencia, volumen y tipo de tiro
+  const pP=synPct(ov,'ppp'),pV=synPct(ov,'poss'),pE=synPct(ov,'efg');
+  if(pV!=null&&pV>=70)T.push([8,'Mucho volumen: '+(+ov.poss).toFixed(1)+' posesiones por partido (percentil '+pV+') — es opción principal']);
+  if(pP!=null&&pP>=75)T.push([8,'Muy eficiente: '+(+ov.ppp).toFixed(2)+' puntos por posesión (percentil '+pP+')']);
+  else if(pP!=null&&pP<=25&&tot>=15)T.push([6,'Poco eficiente: '+(+ov.ppp).toFixed(2)+' puntos por posesión (percentil '+pP+') — se le puede dar el tiro']);
+  const r3=+ov.fg3_rate;
+  if(ov.fg3_rate!=null&&r3>=0.5){if(ov.fg3_pct!=null&&ov.fg3_pct<28)T.push([7,'Tira mucho de 3 ('+Math.round(r3*100)+'% de sus tiros) pero mete poco: '+Math.round(ov.fg3_pct)+'% — se le puede dar']);
+    else T.push([7,'Tirador: '+Math.round(r3*100)+'% de sus tiros son triples'+(ov.fg3_pct!=null?' ('+Math.round(ov.fg3_pct)+'% de acierto)':'')+' — salir fuerte al tiro']);}
+  else if(ov.fg3_rate!=null&&r3<=0.12&&tot>=15)T.push([7,'Casi no tira de 3 ('+Math.round(r3*100)+'% de sus tiros) — se le puede ir por debajo y cerrar la pintura']);
+  if(pE!=null&&pE>=80&&!T.some(t=>/Muy eficiente/.test(t[1])))T.push([6,'Muy buen tirador de campo: eFG '+Math.round(ov.efg)+'% (percentil '+pE+')']);
   return T.sort((a,b)=>b[0]-a[0]).map(x=>x[1]).filter((t,i,a)=>a.indexOf(t)===i).slice(0,3);
 }
 // completa las tendencias vacías (o todas si force) con lo que sugiere Synergy
+// tendencias que van en la placa: las escritas a mano y, en los renglones vacíos, las de Synergy
+function plTend(team,p,d){const man=(d&&d.t||[]).map(x=>String(x||'').trim()).filter(Boolean);
+  if(!plOn('synt')||man.length>=3)return man.slice(0,3);
+  let auto=[];try{auto=synTendencias(team,p);}catch(_){}
+  return man.concat(auto.filter(a=>!man.includes(a))).slice(0,3);}
 function plSugerir(k,force){const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);if(!p)return 0;const sug=synTendencias(plTeam,p);if(!sug.length)return 0;
   const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||['','',''];let n=0;
   if(force){d.t=[sug[0]||'',sug[1]||'',sug[2]||''];n=sug.length;}else{let j=0;for(let i=0;i<3&&j<sug.length;i++){if(!String(d.t[i]||'').trim()){while(j<sug.length&&d.t.includes(sug[j]))j++;if(j<sug.length){d.t[i]=sug[j++];n++;}}}}
   plSave();return n;}
 function plSugerirUno(k){const d=PLS.players[k]||{};const full=(d.t||[]).filter(x=>String(x||'').trim()).length===3;
   if(full&&!confirm('Este jugador ya tiene 3 tendencias. ¿Reemplazarlas por las que sugiere Synergy?'))return;
-  const n=plSugerir(k,full);if(!n){alert('No hay datos de Synergy suficientes para este jugador.');return;}renderPlacas();}
+  const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);
+  if(p&&!synFor(plTeam,p,'Overall','off')){alert('Este jugador no aparece en el archivo «Overall» de Synergy cargado. Revisá que el número y el apellido coincidan, o volvé a subir el Overall.');return;}
+  const n=plSugerir(k,full);if(!n){alert(full?'Synergy no tiene nada distinto para sugerir.':'Los renglones de tendencias ya están completos.');return;}renderPlacas();}
 function plSugerirTodos(){let n=0,j=0;plPlayers(plTeam).slice(0,14).forEach(p=>{const c=plSugerir(plPkey(plTeam,p),false);if(c){n+=c;j++;}});
   const ok=document.getElementById('synOk');renderPlacas();const ok2=document.getElementById('synOk');if(ok2)ok2.textContent=n?'✓ '+n+' tendencias sugeridas en '+j+' jugadores (solo se completaron renglones vacíos).':'No había renglones vacíos o faltan datos de Synergy para este equipo.';}
 function plStatsFor(team,p,pool,A){
@@ -3364,7 +3382,7 @@ function plDraw(cv,k){
   if(plOn('fisico')&&(d.alt||d.peso)){ctx.font='700 42px '+PL_FD;ctx.fillStyle=txt;ctx.fillText([d.alt,d.peso].filter(Boolean).join('   ·   '),nx,262);}
   if(plOn('uso')){const tag=S.rol.toUpperCase();ctx.font='800 30px '+PL_FD;const w=ctx.measureText(tag).width+44;plRR(ctx,1850-w,222,w,54,27);ctx.fillStyle=acc;ctx.fill();ctx.fillStyle=plLum(acc)>0.6?'#111':'#fff';ctx.fillText(tag,1872-w,260);}
   // tendencias (franja inferior de ancho completo)
-  const tend=plOn('tend')?(d.t||[]).map(x=>String(x||'').trim()).filter(Boolean):[];
+  const tend=plOn('tend')?plTend(plTeam,p,d):[];
   const top=310,bottom=tend.length?790:985;
   // columna izquierda: tarjetas
   const tiles=[];
