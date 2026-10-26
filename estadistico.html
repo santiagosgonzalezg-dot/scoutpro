@@ -3057,7 +3057,7 @@ function plSave(){try{localStorage.setItem(PL_KEY,JSON.stringify(PLS));}catch(_)
 let plTeam='',plVs='',plTok=0;
 const PL_MODS=[
   ['foto','Foto del jugador',1],['fisico','Altura / peso / posición',1],['prom','Promedios (PTS, REB, AST, MIN)',1],['tiro','Tiro (eFG%, triples, libres)',1],
-  ['uso','Uso y rol',1],['pt','Play types (Synergy)',1],['st','Shot types (Synergy)',1],['syn','Synergy (PPP y percentiles)',1],['synt','Tendencias automáticas (Synergy)',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
+  ['uso','Uso y rol',1],['pt','Play types (Synergy)',1],['st','Shot types (Synergy)',1],['syn','Synergy (general)',1],['synt','Tendencias automáticas (Synergy)',1],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
 ];
 const PL_ESSENTIAL=['foto','fisico','prom','carta','tend'];
 function plOn(k){return PLS.mods[k]!=null?!!PLS.mods[k]:!!(PL_MODS.find(m=>m[0]===k)||[0,0,0])[2];}
@@ -3120,11 +3120,13 @@ function synBindDrop(){const z=document.getElementById('synZone');if(!z||z._b)re
   z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('syn-drop');});z.addEventListener('dragleave',()=>z.classList.remove('syn-drop'));
   z.addEventListener('drop',async e=>{e.preventDefault();z.classList.remove('syn-drop');synImport(await synDropFiles(e.dataTransfer));});}
 function synStatus(){
-  if(!SYNDB.length)return 'Todavía no hay datos de Synergy. Exportá desde Leaderboards (CSV o Excel) y subilos acá; se guardan solo los equipos de la Liga Uruguaya.';
-  const L=synLatest(SYNDB),has=w=>L.some(r=>r.tipo===w[0]&&r.lado===w[1]&&r.situacion===w[2]);
-  const nm=w=>(w[0]==='team'?'Equipos '+(w[1]==='def'?'defensa':'ataque'):synSitL(w[2]));
-  const got=SYN_WANT.filter(has).length;
-  return 'Temporada '+(L[0]?L[0].temporada:'')+' · <b>'+got+' de '+SYN_WANT.length+'</b> archivos cargados<div class="syn-chk">'+SYN_WANT.map(w=>'<span class="'+(has(w)?'ok':'no')+'">'+(has(w)?'✓':'·')+' '+nm(w)+'</span>').join('')+'</div>';}
+  if(!SYNDB.length)return 'Todavía no hay datos de Synergy. En Synergy: Team → equipo → pestañas Overall, Play Types y Shot Types (Player Breakdown, Total) → botón «📥 ScoutPro: capturar». Subí acá los .txt.';
+  const L=synLatest(SYNDB),teams=[...new Set(Object.values(SYN_TEAMS))].sort();
+  const has=(t,f)=>L.some(r=>r.equipo===t&&f(r));
+  return 'Temporada '+(L[0]?L[0].temporada:'')+' · por equipo:<div class="syn-chk" style="flex-direction:column;gap:3px">'+teams.map(t=>{
+    const g=has(t,r=>r.situacion==='Overall'&&r.tipo==='player'),pt=has(t,r=>SYN_PT.includes(r.situacion)),st=has(t,r=>/Dribble|Catch|At Rim/.test(r.situacion));
+    const c=has(t,r=>r.fuente==='cap');
+    return '<span><b style="display:inline-block;min-width:200px">'+escAttr(t)+'</b> <span class="'+(g?'ok':'no')+'">'+(g?'✓':'·')+' General</span> · <span class="'+(pt?'ok':'no')+'">'+(pt?'✓':'·')+' Jugadas</span> · <span class="'+(st?'ok':'no')+'">'+(st?'✓':'·')+' Tiro</span>'+(c?' <span style="color:var(--text-3)">(captura)</span>':'')+'</span>';}).join('')+'</div>';}
 function plLigaOf(team){const r=RAWD.find(x=>sameTeam(x.equipo,team)&&x.liga);return r?String(r.liga).toLowerCase():'';}
 function plSetTeam(v){plTeam=v;plVs='';
   // percentiles, rankings y rivales se calculan dentro de la liga del equipo elegido
@@ -3252,13 +3254,14 @@ function synParse(txt,fname){
 }
 // ── Capturas hechas con el botón "ScoutPro: capturar" (pantalla Team/Player de Synergy, con nombres) ──
 function synCapSit(label){const raw=String(label||'').toLowerCase().replace(/\s+/g,' ').trim(),t=' '+raw+' ';
-  if(/including passes|defense commits|traps|hard double/.test(raw))return '';
+  if(raw==='all possessions'||raw==='overall')return 'Overall';
+  if(/including passes|defense commits|traps|hard double|half court|out of bounds|after time|against|press|short clock|last 4/.test(raw))return '';
   for(const x of SYN_SITS){if(x[0]==='Overall')continue;if(x[3].some(a=>a==='cut'?/\bcuts?\b/.test(t):t.includes(a)))return x[0];}
   return '';}
 function synParseCap(txt,fname){
   const L=String(txt).split(/\r?\n/),get=k=>{const l=L.find(x=>x.startsWith(k+'\t'));return l?l.slice(k.length+1).trim():'';};
   const url=get('#URL'),head=get('#HEAD'),end=L.findIndex(x=>x.startsWith('#ROWS'));
-  const kind=/shottypes|shot-types/i.test(url)?'Shot types':/playtypes|play-types/i.test(url)?'Play types':'Tabla';
+  const kind=/shottypes|shot-types/i.test(url)?'Shot types':/playtypes|play-types/i.test(url)?'Play types':'General';
   const eq=SYN_TEAMS[teamKey(head)]||'';const meta={tipo:'player',lado:/defens/i.test(url)?'def':'off',situacion:'__cap',temporada:'2026-2027',kind};
   const hi=L.findIndex((x,i)=>i<end&&/^STAT\tPOSS\t/.test(x));if(hi<0)return {meta,recs:[],skipped:0,ok:false,cap:true,team_syn:head,equipo:eq};
   const H=L[hi].split('\t').map(h=>h.trim().toLowerCase()),ix=h=>H.indexOf(h.toLowerCase());
@@ -3268,7 +3271,9 @@ function synParseCap(txt,fname){
     if(!first||/^STAT$/i.test(first)||first.startsWith('#ROWS'))break;
     const g=h=>{const j=ix(h);return j<0?null:r[j];};
     const pm=first.match(/^#(\d+)\s*(.+)$/);
-    if(!pm){curRaw=first;cur=synCapSit(first);if(!cur)unk.add(first);else sits.add(cur);continue;}
+    if(!pm){curRaw=first;cur=synCapSit(first);if(!cur)unk.add(first);else{sits.add(cur);
+        if(cur==='Overall')recs.push({tipo:'team',team_syn:head,nombre:head,equipo:eq,num:null,situacion:'Overall',gp:1,poss:num(g('POSS')),pct_time:100,pts:num(g('PTS')),ppp:num(g('PPP')),fg_pct:num(g('FG%')),efg:num(g('EFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('SCORE%')),fg3_pct:num(g('3 FG%')),fg3_rate:num(g('3PA/FGA')),fuente:'cap'});}
+      continue;}
     if(!cur)continue;
     recs.push({team_syn:head,nombre:pm[2].trim(),equipo:eq,num:pm[1],situacion:cur,gp:1,poss:num(g('POSS')),pct_time:num(g('%TIME')),pts:num(g('PTS')),ppp:num(g('PPP')),
       fg_pct:num(g('FG%')),efg:num(g('EFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('SCORE%')),fg3_pct:num(g('3 FG%')),fg3_rate:num(g('3PA/FGA')),fuente:'cap'});}
@@ -3276,8 +3281,9 @@ function synParseCap(txt,fname){
   // En esta pantalla %TIME es la parte del EQUIPO en esa jugada; para la placa interesa cuánto de SU juego es cada jugada
   const tot={};recs.forEach(r=>{const isPt=SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous';if(isPt)tot[r.nombre]=(tot[r.nombre]||0)+(+r.poss||0);});
   recs.forEach(r=>{r.raw={team_pct_time:r.pct_time};
+    if(r.situacion==='Overall'){r.pct_time=100;return;}
     if(SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous'){const t=tot[r.nombre];r.pct_time=t?Math.round((+r.poss||0)/t*1000)/10:null;}
-    else{const ov=SYNDB.find(x=>x.situacion==='Overall'&&x.lado==='off'&&x.tipo==='player'&&x.team_syn===r.team_syn&&synNorm(x.nombre)===synNorm(r.nombre));
+    else{const ov=recs.find(x=>x.situacion==='Overall'&&x.tipo!=='team'&&x.nombre===r.nombre)||SYNDB.find(x=>x.situacion==='Overall'&&x.lado==='off'&&x.tipo==='player'&&x.team_syn===r.team_syn&&synNorm(x.nombre)===synNorm(r.nombre));
       const t=ov?(+ov.poss||0)*(+ov.gp||0):0;r.pct_time=t?Math.round((+r.poss||0)/t*1000)/10:null;}});
   return {meta,recs,skipped:0,ok:recs.length>0,cap:true,team_syn:head,equipo:eq};
 }
@@ -3308,7 +3314,7 @@ function synPrevRender(){
         return '<tr'+(!P.ok||!P.equipo?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">📥 '+escAttr(P.team_syn||P.name)+'</td><td>'+escAttr(P.meta.kind)+' · '+P.meta.sits.length+' situaciones'+(P.meta.unk.length?' <span style="color:var(--text-3)">(se ignoran: '+escAttr(P.meta.unk.join(', '))+')</span>':'')+'</td>'+
         '<td>'+(P.equipo?escAttr(P.equipo):'<select onchange="SYN_PEND['+i+'].equipo=this.value;SYN_PEND['+i+'].recs.forEach(r=>r.equipo=this.value);synPrevRender()">'+opt('',tOpts)+'</select>')+'</td>'+
         '<td><select onchange="SYN_PEND['+i+'].meta.lado=this.value">'+opt(P.meta.lado,[['off','Ataque'],['def','Defensa']])+'</select></td>'+
-        '<td>'+(P.dup?'Repetido: se usa la captura más nueva':!P.ok?'⚠ no encontré la tabla (¿estaba en Player Breakdown?)':new Set(P.recs.map(r=>r.nombre)).size+' jugadores · '+P.recs.length+' filas')+'</td></tr>';}
+        '<td>'+(P.dup?'Repetido: se usa la captura más nueva':!P.ok?'⚠ no encontré la tabla (¿estaba en Player Breakdown?)':new Set(P.recs.filter(r=>r.tipo!=='team').map(r=>r.nombre)).size+' jugadores')+'</td></tr>';}
       const skip=P.meta.situacion==='__skip'||P.dup,bad=!skip&&(!P.ok||!P.recs.length||!P.meta.situacion);return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.situacion=this.value;synMarkDup();synPrevRender()">'+opt(P.meta.situacion,sitOpts)+'</select></td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.tipo=this.value">'+opt(P.meta.tipo,[['player','Jugadores'],['team','Equipos']])+'</select></td>'+
@@ -3326,10 +3332,10 @@ async function synSave(){
   const c=getSB();let n=0;
   try{for(const P of todo){const m=P.meta;
       if(P.cap){say('Guardando captura de '+P.equipo+'…');
-        const recs=P.recs.map(r=>({...r,equipo:P.equipo,temporada:m.temporada,lado:m.lado,tipo:'player'}));
-        for(const st of m.sits){const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',st).eq('lado',m.lado).eq('tipo','player').eq('team_syn',P.team_syn);if(del.error)throw new Error(del.error.message);}
+        const recs=P.recs.map(r=>({...r,equipo:P.equipo,temporada:m.temporada,lado:m.lado,tipo:r.tipo||'player'}));
+        for(const st of m.sits){const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',st).eq('lado',m.lado).eq('team_syn',P.team_syn);if(del.error)throw new Error(del.error.message);}
         for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
-        SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.lado===m.lado&&r.tipo==='player'&&r.team_syn===P.team_syn&&m.sits.includes(r.situacion))).concat(recs);n++;continue;}
+        SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.lado===m.lado&&r.team_syn===P.team_syn&&m.sits.includes(r.situacion))).concat(recs);n++;continue;}
       say('Guardando '+synSitL(m.situacion)+'…');
       // los equipos que tienen captura completa no se pisan con el Leaderboard (que trae menos jugadores)
       const capT=new Set(SYNDB.filter(r=>r.fuente==='cap'&&r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo).map(r=>r.team_syn));
@@ -3355,16 +3361,21 @@ function synFor(team,p,sit,lado){
 // percentil dentro de la Liga Uruguaya (jugadores con al menos 15 posesiones en total)
 function synPct(row,f,inv){const pool=SYNDB.filter(r=>r.tipo===row.tipo&&r.temporada===row.temporada&&r.situacion===row.situacion&&r.lado===row.lado&&(row.tipo==='team'||(+r.poss||0)*(+r.gp||0)>=15)&&r[f]!=null).map(r=>+r[f]);
   if(row[f]==null||!pool.length)return null;const p=pctRank(pool,+row[f]);return inv?100-p:p;}
+// posesiones totales de esa fila (la captura viene en total; el Leaderboard, por partido)
+function synTotPoss(r){return Math.round((+r.poss||0)*(+r.gp||1));}
+const SYN_MINP=10;
+function pppColor(v){v=+v;return v>=1.1?'#34c769':v>=0.95?'#7bc96f':v>=0.8?'#e0a83b':'#f97316';}
+// posesiones por partido: la captura trae el total de la temporada; se divide por los partidos que jugó (planillas FIBA)
+function synPPG(r,p){if(!r)return null;return r.fuente==='cap'?synTotPoss(r)/Math.max(1,+(p&&p.g)||1):+r.poss;}
 function synPlayTypes(team,p){const out=[];SYN_PT.forEach(s=>{const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0)out.push({k:s,sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
 // Tipos de tiro (archivos de Shot Attempts / Catch and Shoot)
 function synShotTypes(team,p){const L=[['Jump Shots off the Dribble','Tiro tras bote'],['Catch and Shoot Unguarded','Catch & shoot solo'],['Catch and Shoot Guarded','Catch & shoot marcado'],['Catch and Shoot','Catch & shoot'],['At Rim','En el aro']];
   const out=[];L.forEach(([k,l])=>{if(k==='Catch and Shoot'&&out.some(x=>/^Catch/.test(x.k)))return;const r=synFor(team,p,k,'off');if(r&&((+r.poss||0)>0))out.push({k,sit:l,r});});return out;}
 // Tendencias sugeridas a partir de Synergy (hasta 3, de la más a la menos importante)
 function synTendencias(team,p){
-  const T=[],ov=synFor(team,p,'Overall','off');if(!ov)return T;const tot=(+ov.poss||0)*(+ov.gp||0);
+  const T=[],ov=synFor(team,p,'Overall','off');if(!ov)return T;const tot=synTotPoss(ov),ppg=synPPG(ov,p);
   const pt=synPlayTypes(team,p).filter(x=>(+x.r.poss||0)*(+x.r.gp||0)>=4);
-  const pc=(r,f,inv)=>{const v=synPct(r,f,inv);return v==null?'':' (percentil '+v+')';};
-  if(pt[0]&&pt[0].r.pct_time>=20)T.push([9,'Jugada principal: '+pt[0].sit.toLowerCase()+', '+Math.round(pt[0].r.pct_time)+'% de su juego, '+(+pt[0].r.ppp).toFixed(2)+' PPP'+pc(pt[0].r,'ppp')]);
+  if(pt[0]&&pt[0].r.pct_time>=20)T.push([9,'Jugada principal: '+pt[0].sit.toLowerCase()+', '+Math.round(pt[0].r.pct_time)+'% de su juego, '+(+pt[0].r.ppp).toFixed(2)+' PPP'+' ('+synTotPoss(pt[0].r)+' pos.)']);
   if(pt[1]&&pt[1].r.pct_time>=15)T.push([6,'También: '+pt[1].sit.toLowerCase()+' '+Math.round(pt[1].r.pct_time)+'% ('+(+pt[1].r.ppp).toFixed(2)+' PPP)']);
   const cu=synFor(team,p,'Catch and Shoot Unguarded','off');if(cu&&(+cu.poss||0)*(+cu.gp||0)>=5&&cu.ppp>=1.15)T.push([10,'Peligroso solo: '+(+cu.ppp).toFixed(2)+' PPP en catch & shoot sin marca — no dejarlo libre']);
   const cs=synFor(team,p,'Catch and Shoot','off')||cu;if(cs&&(+cs.poss||0)*(+cs.gp||0)>=5&&cs.ppp<0.8)T.push([5,'Tira mal recibiendo: '+(+cs.ppp).toFixed(2)+' PPP en catch & shoot — se le puede ayudar']);
@@ -3375,15 +3386,14 @@ function synTendencias(team,p){
   if(ov.to_pct!=null&&ov.to_pct>=18&&tot>=20)T.push([7,'Pierde pelotas: '+(+ov.to_pct).toFixed(0)+'% de sus posesiones terminan en pérdida — presionarlo']);
   if(ov.ft_rate!=null&&ov.ft_rate>=18&&tot>=20)T.push([5,'Busca el foul: '+(+ov.ft_rate).toFixed(0)+'% de sus posesiones terminan en libres']);
   // con el General alcanza para describir eficiencia, volumen y tipo de tiro
-  const pP=synPct(ov,'ppp'),pV=synPct(ov,'poss'),pE=synPct(ov,'efg');
-  if(pV!=null&&pV>=70)T.push([8,'Mucho volumen: '+(+ov.poss).toFixed(1)+' posesiones por partido (percentil '+pV+') — es opción principal']);
-  if(pP!=null&&pP>=75)T.push([8,'Muy eficiente: '+(+ov.ppp).toFixed(2)+' puntos por posesión (percentil '+pP+')']);
-  else if(pP!=null&&pP<=25&&tot>=15)T.push([6,'Poco eficiente: '+(+ov.ppp).toFixed(2)+' puntos por posesión (percentil '+pP+') — se le puede dar el tiro']);
+  if(ppg!=null&&ppg>=12)T.push([8,'Mucho volumen: '+ppg.toFixed(1)+' posesiones por partido — es opción principal']);
+  if(ov.ppp!=null&&+ov.ppp>=1.05&&tot>=15)T.push([8,'Muy eficiente: '+(+ov.ppp).toFixed(2)+' puntos por posesión']);
+  else if(ov.ppp!=null&&+ov.ppp<=0.75&&tot>=15)T.push([6,'Poco eficiente: '+(+ov.ppp).toFixed(2)+' puntos por posesión — se le puede dar el tiro']);
   const r3=+ov.fg3_rate;
   if(ov.fg3_rate!=null&&r3>=0.5){if(ov.fg3_pct!=null&&ov.fg3_pct<28)T.push([7,'Tira mucho de 3 ('+Math.round(r3*100)+'% de sus tiros) pero mete poco: '+Math.round(ov.fg3_pct)+'% — se le puede dar']);
     else T.push([7,'Tirador: '+Math.round(r3*100)+'% de sus tiros son triples'+(ov.fg3_pct!=null?' ('+Math.round(ov.fg3_pct)+'% de acierto)':'')+' — salir fuerte al tiro']);}
   else if(ov.fg3_rate!=null&&r3<=0.12&&tot>=15)T.push([7,'Casi no tira de 3 ('+Math.round(r3*100)+'% de sus tiros) — se le puede ir por debajo y cerrar la pintura']);
-  if(pE!=null&&pE>=80&&!T.some(t=>/Muy eficiente/.test(t[1])))T.push([6,'Muy buen tirador de campo: eFG '+Math.round(ov.efg)+'% (percentil '+pE+')']);
+  if(ov.efg!=null&&+ov.efg>=58&&tot>=15&&!T.some(t=>/Muy eficiente/.test(t[1])))T.push([6,'Muy buen tirador de campo: eFG '+Math.round(ov.efg)+'%']);
   return T.sort((a,b)=>b[0]-a[0]).map(x=>x[1]).filter((t,i,a)=>a.indexOf(t)===i).slice(0,3);
 }
 // completa las tendencias vacías (o todas si force) con lo que sugiere Synergy
@@ -3447,36 +3457,30 @@ function plDraw(cv,k){
   // PLAY TYPES: % de su juego en cada jugada, puntos por posesión y percentil
   const PT=plOn('pt')?synPlayTypes(plTeam,p):[];
   if(PT.length&&bottom-ty>=36+2*30){const nr=Math.min(PT.length,6,Math.floor((bottom-ty-40)/32));const rh=Math.min(38,Math.floor((bottom-ty-40)/nr));
-    usedSyn=true;ptDrawn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PLAY TYPES · % DE SU JUEGO · PUNTOS POR POSESIÓN (PERCENTIL)',70,ty+22);ty+=36;
+    usedSyn=true;ptDrawn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PLAY TYPES',70,ty+22);ctx.font='500 18px '+PL_FB;ctx.textAlign='right';ctx.fillText('% de su juego · posesiones · puntos por posesión (gris: menos de '+SYN_MINP+' pos.)',70+colW,ty+22);ctx.textAlign='left';ty+=36;
     const mx=Math.max(...PT.slice(0,nr).map(x=>+x.r.pct_time||0),1);
-    PT.slice(0,nr).forEach((x,i)=>{const y=ty+i*rh,bx=330,bw=colW-(bx-70)-250,pc=synPct(x.r,'ppp'),pp=x.r.ppp!=null?(+x.r.ppp).toFixed(2):'—';
+    PT.slice(0,nr).forEach((x,i)=>{const y=ty+i*rh,bx=330,bw=colW-(bx-70)-280,pp=x.r.ppp!=null?(+x.r.ppp).toFixed(2):'—',tp=synTotPoss(x.r),few=tp<SYN_MINP;
       ctx.fillStyle=txt;ctx.font='700 24px '+PL_FB;ctx.fillText(x.sit,70,y+20);
       plRR(ctx,bx,y+3,bw,20,10);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
       plRR(ctx,bx,y+3,Math.max(20,bw*(+x.r.pct_time||0)/mx),20,10);ctx.fillStyle=acc;ctx.fill();
       ctx.font='800 26px '+PL_FD;ctx.fillStyle=txt;ctx.fillText(Math.round(+x.r.pct_time||0)+'%',bx+bw+14,y+22);
-      ctx.textAlign='right';ctx.fillText(pp,70+colW-70,y+22);ctx.fillStyle=pc!=null?pctColor(pc):sub;ctx.fillText(pc!=null?'p'+pc:'',70+colW,y+22);ctx.textAlign='left';});
+      ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.fillText(tp+' pos',bx+bw+84,y+21);
+      ctx.font='800 28px '+PL_FD;ctx.fillStyle=few||x.r.ppp==null?sub:pppColor(x.r.ppp);ctx.textAlign='right';ctx.fillText(pp+' PPP',70+colW,y+22);ctx.textAlign='left';});
     ty+=nr*rh+12;}
   else if(plOn('pt')&&SYNDB.length&&bottom-ty>=60){ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PLAY TYPES',70,ty+22);
     ctx.font='500 22px '+PL_FB;ctx.fillText('Todavía sin datos en Synergy: no llega al mínimo de posesiones por jugada.',70,ty+52);ty+=70;}
   const sy=plOn('syn')?synFor(plTeam,p,'Overall','off'):null;
-  if(sy&&bottom-ty>=130){
-    let it=[['Puntos por posesión',sy.ppp!=null?(+sy.ppp).toFixed(2):'—',synPct(sy,'ppp')],['Posesiones por partido',sy.poss!=null?(+sy.poss).toFixed(1):'—',synPct(sy,'poss')],
-      ['eFG%',sy.efg!=null?Math.round(sy.efg)+'%':'—',synPct(sy,'efg')],['Pérdidas (TO%)',sy.to_pct!=null?(+sy.to_pct).toFixed(1)+'%':'—',synPct(sy,'to_pct',true)],
-      ['Anota en la posesión',sy.score_pct!=null?Math.round(sy.score_pct)+'%':'—',synPct(sy,'score_pct')],['Termina en libres',sy.ft_rate!=null?(+sy.ft_rate).toFixed(1)+'%':'—',synPct(sy,'ft_rate')]];
-    const pt=ptDrawn?[]:synPlayTypes(plTeam,p).slice(0,3);
-    let rh=Math.min(36,Math.floor((bottom-ty-44-(pt.length?40:0))/it.length));
-    if(rh<24){it=it.slice(0,4);rh=Math.min(36,Math.floor((bottom-ty-44-(pt.length?40:0))/it.length));}
-    if(rh>=24){usedSyn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SYNERGY · ATAQUE (PERCENTIL EN LA LIGA)',70,ty+22);ty+=36;
-      it.forEach((t,i)=>{const y=ty+i*rh,bx=400,bw=colW-(bx-70)-70;ctx.fillStyle=txt;ctx.font='600 22px '+PL_FB;ctx.fillText(t[0],70,y+19);
-        ctx.font='800 26px '+PL_FD;ctx.textAlign='right';ctx.fillText(t[1],bx-16,y+21);ctx.textAlign='left';
-        plRR(ctx,bx,y+4,bw,16,8);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
-        if(t[2]!=null){plRR(ctx,bx,y+4,Math.max(16,bw*t[2]/100),16,8);ctx.fillStyle=pctColor(t[2]);ctx.fill();}
-        ctx.fillStyle=txt;ctx.font='800 24px '+PL_FD;ctx.textAlign='right';ctx.fillText(t[2]!=null?String(t[2]):'—',70+colW,y+21);ctx.textAlign='left';});
-      ty+=it.length*rh+6;
-      if(pt.length&&!ptDrawn){ctx.font='600 22px '+PL_FB;ctx.fillStyle=sub;let tx='Jugadas: '+pt.map(x=>x.sit+' '+Math.round(x.r.pct_time)+'% ('+(+x.r.ppp).toFixed(2)+' PPP)').join('  ·  ');
-        while(ctx.measureText(tx).width>colW&&tx.length>10)tx=tx.slice(0,-1);ctx.fillText(tx,70,ty+24);ty+=40;}
-      ty+=8;}}
-  if(plOn('perfil')&&bottom-ty>=120){const L=['Anotación','Generación','Tiro ext.','Rebote','Defensa'];const rh=Math.min(36,Math.floor((bottom-ty-40)/5));
+  if(sy&&bottom-ty>=100){
+    const pg=synPPG(sy,p);
+    let it=[['PPP',sy.ppp!=null?(+sy.ppp).toFixed(2):'—',sy.ppp!=null?pppColor(sy.ppp):null],['POS./PARTIDO',pg!=null?pg.toFixed(1):'—'],['eFG%',sy.efg!=null?Math.round(sy.efg)+'%':'—'],
+      ['PÉRDIDAS',sy.to_pct!=null?Math.round(sy.to_pct)+'%':'—'],['ANOTA',sy.score_pct!=null?Math.round(sy.score_pct)+'%':'—'],['VA A LIBRES',sy.ft_rate!=null?Math.round(sy.ft_rate)+'%':'—']];
+    const per=bottom-ty>=36+2*96?3:6,rows=Math.ceil(it.length/per),th=Math.min(84,Math.floor((bottom-ty-36-(rows-1)*10)/rows));
+    if(th>=60){usedSyn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SYNERGY · ATAQUE (TEMPORADA)',70,ty+22);ty+=34;
+      const tw=(colW-(per-1)*12)/per;
+      it.forEach((t,i)=>{const r=Math.floor(i/per),c=i%per,x=70+c*(tw+12),y=ty+r*(th+10);plRR(ctx,x,y,tw,th,12);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
+        ctx.textAlign='center';ctx.fillStyle=sub;ctx.font='700 18px '+PL_FD;ctx.fillText(t[0],x+tw/2,y+24);ctx.fillStyle=t[2]||txt;ctx.font='800 '+Math.min(40,th-34)+'px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+th-14);ctx.textAlign='left';});
+      ty+=rows*(th+10)+6;}}
+  if(false&&plOn('perfil')&&bottom-ty>=120){const L=['Anotación','Generación','Tiro ext.','Rebote','Defensa'];const rh=Math.min(36,Math.floor((bottom-ty-40)/5));
     ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PERFIL VS LA LIGA (PERCENTIL)',70,ty+22);ty+=36;
     L.forEach((l,i)=>{const y=ty+i*rh,bw=colW-330;ctx.fillStyle=txt;ctx.font='600 22px '+PL_FB;ctx.fillText(l,70,y+19);plRR(ctx,270,y+4,bw,16,8);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
       plRR(ctx,270,y+4,Math.max(16,bw*S.pct[i]/100),16,8);ctx.fillStyle=pctColor(S.pct[i]);ctx.fill();ctx.fillStyle=txt;ctx.font='800 24px '+PL_FD;ctx.textAlign='right';ctx.fillText(String(S.pct[i]),70+colW,y+21);ctx.textAlign='left';});}
@@ -3487,19 +3491,19 @@ function plDraw(cv,k){
     ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % por zona',1000+cw,bottom);ctx.textAlign='left';
     if(STL.length){usedSyn=true;const x0=1510,w=340,n=STL.length,gap=12,hh=Math.min(130,Math.floor((bottom-top-36-(n-1)*gap)/n));
       ctx.font='700 22px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',x0,top+18);
-      STL.forEach((x,i)=>{const y=top+30+i*(hh+gap),r=x.r,pc=synPct(r,'ppp');plRR(ctx,x0,y,w,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
-        ctx.fillStyle=pc!=null?pctColor(pc):acc;ctx.fillRect(x0,y+10,5,hh-20);
+      STL.forEach((x,i)=>{const y=top+30+i*(hh+gap),r=x.r,tp=synTotPoss(r),few=tp<SYN_MINP;plRR(ctx,x0,y,w,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
+        ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillRect(x0,y+10,5,hh-20);
         ctx.font='700 22px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(x.sit,x0+20,y+30);
         ctx.font='800 '+Math.min(46,Math.round(hh*0.42))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':(+r.ppp).toFixed(2),x0+20,y+hh-16);
         ctx.font='600 19px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';
-        ctx.fillText((r.ppp!=null?(+r.ppp).toFixed(2)+' PPP':''),x0+w-16,y+hh-42);
-        ctx.fillText((r.pct_time!=null?Math.round(r.pct_time)+'% de sus pos.':'')+(pc!=null?' · p'+pc:''),x0+w-16,y+hh-16);ctx.textAlign='left';});}
+        ctx.fillText((r.ppp!=null?(+r.ppp).toFixed(2)+' PPP · ':'')+tp+' pos',x0+w-16,y+hh-42);
+        ctx.fillText(r.pct_time!=null?Math.round(r.pct_time)+'% de sus pos.':'',x0+w-16,y+hh-16);ctx.textAlign='left';});}
   } else if(STL.length&&bottom-ty>=36+2*30){usedSyn=true;
     const nr=Math.min(STL.length,Math.floor((bottom-ty-40)/32)),rh=Math.min(38,Math.floor((bottom-ty-40)/nr));
-    ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES · % DE ACIERTO · PUNTOS POR POSESIÓN (PERCENTIL)',70,ty+22);ty+=36;
-    STL.slice(0,nr).forEach((x,i)=>{const y=ty+i*rh,pc=synPct(x.r,'ppp');ctx.fillStyle=txt;ctx.font='700 24px '+PL_FB;ctx.fillText(x.sit,70,y+20);
+    ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES · % DE ACIERTO · PUNTOS POR POSESIÓN',70,ty+22);ty+=36;
+    STL.slice(0,nr).forEach((x,i)=>{const y=ty+i*rh;ctx.fillStyle=txt;ctx.font='700 24px '+PL_FB;ctx.fillText(x.sit,70,y+20);
       ctx.font='800 26px '+PL_FD;ctx.fillText((x.r.fg_pct!=null?Math.round(x.r.fg_pct)+'%':'—')+'   '+(x.r.ppp!=null?(+x.r.ppp).toFixed(2)+' PPP':'')+'   '+(x.r.pct_time!=null?Math.round(x.r.pct_time)+'% de sus pos.':''),420,y+22);
-      ctx.fillStyle=pc!=null?pctColor(pc):sub;ctx.textAlign='right';ctx.fillText(pc!=null?'p'+pc:'',70+colW,y+22);ctx.textAlign='left';});
+      ctx.textAlign='left';});
     ty+=nr*rh+12;}
   if(tend.length){const x=70,y=812,w=1780,h=178;plRR(ctx,x,y,w,h,18);ctx.fillStyle=plHex(acc,0.14);ctx.fill();ctx.fillStyle=acc;ctx.fillRect(x,y,8,h);
     ctx.font='800 26px '+PL_FD;ctx.fillStyle=acc;ctx.fillText('TENDENCIAS',x+30,y+40);ctx.font='600 32px '+PL_FB;
@@ -3524,8 +3528,7 @@ function plDrawCover(ctx,base,acc,txt,sub){
   }
   const st=plOn('syn')?synLatest(SYNDB.filter(r=>r.tipo==='team'&&r.situacion==='Overall'&&sameTeam(r.equipo,team))):[];
   const so=st.find(r=>r.lado==='off'),sd=st.find(r=>r.lado==='def');
-  if(so||sd){const rk=r=>{const pool=SYNDB.filter(x=>x.tipo==='team'&&x.temporada===r.temporada&&x.situacion==='Overall'&&x.lado===r.lado&&x.ppp!=null).map(x=>+x.ppp).sort((a,b)=>r.lado==='off'?b-a:a-b);return (pool.indexOf(+r.ppp)+1)+'° de '+pool.length;};
-    ctx.font='600 30px '+PL_FB;ctx.fillStyle=acc;ctx.fillText('Synergy: '+[so?(+so.ppp).toFixed(2)+' PPP en ataque ('+rk(so)+')':null,sd?(+sd.ppp).toFixed(2)+' PPP en defensa ('+rk(sd)+')':null].filter(Boolean).join('   ·   '),80,plVs?598:560);}
+  if(so||sd){ctx.font='600 30px '+PL_FB;ctx.fillStyle=acc;ctx.fillText('Synergy: '+[so?(+so.ppp).toFixed(2)+' puntos por posesión en ataque':null,sd?(+sd.ppp).toFixed(2)+' en defensa':null].filter(Boolean).join('   ·   '),80,plVs?598:560);}
   const top=plPlayers(team).slice().sort((a,b)=>b.pts/b.g-a.pts/a.g).slice(0,4);
   ctx.font='700 28px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('GOLEADORES',80,905);
   ctx.font='600 34px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(top.map(p=>'#'+p.num+' '+p.nombre+' '+(p.pts/p.g).toFixed(1)).join('     '),80,955);
