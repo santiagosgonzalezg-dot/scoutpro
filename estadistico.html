@@ -3057,7 +3057,7 @@ function plSave(){try{localStorage.setItem(PL_KEY,JSON.stringify(PLS));}catch(_)
 let plTeam='',plVs='',plTok=0;
 const PL_MODS=[
   ['foto','Foto del jugador',1],['fisico','Altura / peso / posición',1],['prom','Promedios (PTS, REB, AST, MIN)',1],['tiro','Tiro (eFG%, triples, libres)',1],
-  ['uso','Uso y rol',1],['syn','Synergy (PPP y percentiles)',1],['synt','Tendencias automáticas (Synergy)',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
+  ['uso','Uso y rol',1],['pt','Play types (Synergy)',1],['st','Shot types (Synergy)',1],['syn','Synergy (PPP y percentiles)',1],['synt','Tendencias automáticas (Synergy)',1],['perfil','Perfil vs la liga (percentiles)',0],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
 ];
 const PL_ESSENTIAL=['foto','fisico','prom','carta','tend'];
 function plOn(k){return PLS.mods[k]!=null?!!PLS.mods[k]:!!(PL_MODS.find(m=>m[0]===k)||[0,0,0])[2];}
@@ -3311,6 +3311,9 @@ function synFor(team,p,sit,lado){
 function synPct(row,f,inv){const pool=SYNDB.filter(r=>r.tipo===row.tipo&&r.temporada===row.temporada&&r.situacion===row.situacion&&r.lado===row.lado&&(row.tipo==='team'||(+r.poss||0)*(+r.gp||0)>=15)&&r[f]!=null).map(r=>+r[f]);
   if(row[f]==null||!pool.length)return null;const p=pctRank(pool,+row[f]);return inv?100-p:p;}
 function synPlayTypes(team,p){const out=[];SYN_PT.forEach(s=>{const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0)out.push({k:s,sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
+// Tipos de tiro (archivos de Shot Attempts / Catch and Shoot)
+function synShotTypes(team,p){const L=[['Jump Shots off the Dribble','Tiro tras bote'],['Catch and Shoot Unguarded','Catch & shoot solo'],['Catch and Shoot Guarded','Catch & shoot marcado'],['Catch and Shoot','Catch & shoot'],['At Rim','En el aro']];
+  const out=[];L.forEach(([k,l])=>{if(k==='Catch and Shoot'&&out.some(x=>/^Catch/.test(x.k)))return;const r=synFor(team,p,k,'off');if(r&&((+r.poss||0)>0))out.push({k,sit:l,r});});return out;}
 // Tendencias sugeridas a partir de Synergy (hasta 3, de la más a la menos importante)
 function synTendencias(team,p){
   const T=[],ov=synFor(team,p,'Overall','off');if(!ov)return T;const tot=(+ov.poss||0)*(+ov.gp||0);
@@ -3395,13 +3398,25 @@ function plDraw(cv,k){
       ctx.fillStyle=sub;ctx.font='700 22px '+PL_FD;ctx.textAlign='center';ctx.fillText(t[0],x+tw/2,y+34);ctx.fillStyle=txt;ctx.font='800 56px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+(t[2]?86:94));
       if(t[2]){ctx.fillStyle=sub;ctx.font='600 20px '+PL_FB;ctx.fillText(t[2],x+tw/2,y+110);}ctx.textAlign='left';});
     ty+=Math.ceil(tiles.length/per)*(th+16)+8;}
-  let usedSyn=false;
+  let usedSyn=false,ptDrawn=false;
+  // PLAY TYPES: % de su juego en cada jugada, puntos por posesión y percentil
+  const PT=plOn('pt')?synPlayTypes(plTeam,p):[];
+  if(PT.length&&bottom-ty>=36+2*30){const nr=Math.min(PT.length,6,Math.floor((bottom-ty-40)/32));const rh=Math.min(38,Math.floor((bottom-ty-40)/nr));
+    usedSyn=true;ptDrawn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PLAY TYPES · % DE SU JUEGO · PUNTOS POR POSESIÓN (PERCENTIL)',70,ty+22);ty+=36;
+    const mx=Math.max(...PT.slice(0,nr).map(x=>+x.r.pct_time||0),1);
+    PT.slice(0,nr).forEach((x,i)=>{const y=ty+i*rh,bx=330,bw=colW-(bx-70)-250,pc=synPct(x.r,'ppp'),pp=x.r.ppp!=null?(+x.r.ppp).toFixed(2):'—';
+      ctx.fillStyle=txt;ctx.font='700 24px '+PL_FB;ctx.fillText(x.sit,70,y+20);
+      plRR(ctx,bx,y+3,bw,20,10);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
+      plRR(ctx,bx,y+3,Math.max(20,bw*(+x.r.pct_time||0)/mx),20,10);ctx.fillStyle=acc;ctx.fill();
+      ctx.font='800 26px '+PL_FD;ctx.fillStyle=txt;ctx.fillText(Math.round(+x.r.pct_time||0)+'%',bx+bw+14,y+22);
+      ctx.textAlign='right';ctx.fillText(pp,70+colW-70,y+22);ctx.fillStyle=pc!=null?pctColor(pc):sub;ctx.fillText(pc!=null?'p'+pc:'',70+colW,y+22);ctx.textAlign='left';});
+    ty+=nr*rh+12;}
   const sy=plOn('syn')?synFor(plTeam,p,'Overall','off'):null;
   if(sy&&bottom-ty>=130){
     let it=[['Puntos por posesión',sy.ppp!=null?(+sy.ppp).toFixed(2):'—',synPct(sy,'ppp')],['Posesiones por partido',sy.poss!=null?(+sy.poss).toFixed(1):'—',synPct(sy,'poss')],
       ['eFG%',sy.efg!=null?Math.round(sy.efg)+'%':'—',synPct(sy,'efg')],['Pérdidas (TO%)',sy.to_pct!=null?(+sy.to_pct).toFixed(1)+'%':'—',synPct(sy,'to_pct',true)],
       ['Anota en la posesión',sy.score_pct!=null?Math.round(sy.score_pct)+'%':'—',synPct(sy,'score_pct')],['Termina en libres',sy.ft_rate!=null?(+sy.ft_rate).toFixed(1)+'%':'—',synPct(sy,'ft_rate')]];
-    const pt=synPlayTypes(plTeam,p).slice(0,3);
+    const pt=ptDrawn?[]:synPlayTypes(plTeam,p).slice(0,3);
     let rh=Math.min(36,Math.floor((bottom-ty-44-(pt.length?40:0))/it.length));
     if(rh<24){it=it.slice(0,4);rh=Math.min(36,Math.floor((bottom-ty-44-(pt.length?40:0))/it.length));}
     if(rh>=24){usedSyn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SYNERGY · ATAQUE (PERCENTIL EN LA LIGA)',70,ty+22);ty+=36;
@@ -3411,17 +3426,34 @@ function plDraw(cv,k){
         if(t[2]!=null){plRR(ctx,bx,y+4,Math.max(16,bw*t[2]/100),16,8);ctx.fillStyle=pctColor(t[2]);ctx.fill();}
         ctx.fillStyle=txt;ctx.font='800 24px '+PL_FD;ctx.textAlign='right';ctx.fillText(t[2]!=null?String(t[2]):'—',70+colW,y+21);ctx.textAlign='left';});
       ty+=it.length*rh+6;
-      if(pt.length){ctx.font='600 22px '+PL_FB;ctx.fillStyle=sub;let tx='Jugadas: '+pt.map(x=>x.sit+' '+Math.round(x.r.pct_time)+'% ('+(+x.r.ppp).toFixed(2)+' PPP)').join('  ·  ');
+      if(pt.length&&!ptDrawn){ctx.font='600 22px '+PL_FB;ctx.fillStyle=sub;let tx='Jugadas: '+pt.map(x=>x.sit+' '+Math.round(x.r.pct_time)+'% ('+(+x.r.ppp).toFixed(2)+' PPP)').join('  ·  ');
         while(ctx.measureText(tx).width>colW&&tx.length>10)tx=tx.slice(0,-1);ctx.fillText(tx,70,ty+24);ty+=40;}
       ty+=8;}}
   if(plOn('perfil')&&bottom-ty>=120){const L=['Anotación','Generación','Tiro ext.','Rebote','Defensa'];const rh=Math.min(36,Math.floor((bottom-ty-40)/5));
     ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PERFIL VS LA LIGA (PERCENTIL)',70,ty+22);ty+=36;
     L.forEach((l,i)=>{const y=ty+i*rh,bw=colW-330;ctx.fillStyle=txt;ctx.font='600 22px '+PL_FB;ctx.fillText(l,70,y+19);plRR(ctx,270,y+4,bw,16,8);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
       plRR(ctx,270,y+4,Math.max(16,bw*S.pct[i]/100),16,8);ctx.fillStyle=pctColor(S.pct[i]);ctx.fill();ctx.fillStyle=txt;ctx.font='800 24px '+PL_FD;ctx.textAlign='right';ctx.fillText(String(S.pct[i]),70+colW,y+21);ctx.textAlign='left';});}
+  const STL=plOn('st')?synShotTypes(plTeam,p):[];
   if(plOn('carta')){
-    const sh=fichaShots(p);plCourt(ctx,sh,1000,top,850,bottom-top-26,txt,acc);
-    ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % de acierto por zona',1850,bottom);ctx.textAlign='left';
-  }
+    const cw=STL.length?480:850;
+    const sh=fichaShots(p);plCourt(ctx,sh,1000,top,cw,bottom-top-26,txt,acc);
+    ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % por zona',1000+cw,bottom);ctx.textAlign='left';
+    if(STL.length){usedSyn=true;const x0=1510,w=340,n=STL.length,gap=12,hh=Math.min(130,Math.floor((bottom-top-36-(n-1)*gap)/n));
+      ctx.font='700 22px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',x0,top+18);
+      STL.forEach((x,i)=>{const y=top+30+i*(hh+gap),r=x.r,pc=synPct(r,'ppp');plRR(ctx,x0,y,w,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
+        ctx.fillStyle=pc!=null?pctColor(pc):acc;ctx.fillRect(x0,y+10,5,hh-20);
+        ctx.font='700 22px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(x.sit,x0+20,y+30);
+        ctx.font='800 '+Math.min(46,Math.round(hh*0.42))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':(+r.ppp).toFixed(2),x0+20,y+hh-16);
+        ctx.font='600 19px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';
+        ctx.fillText((r.ppp!=null?(+r.ppp).toFixed(2)+' PPP':''),x0+w-16,y+hh-42);
+        ctx.fillText((r.pct_time!=null?Math.round(r.pct_time)+'% de sus pos.':'')+(pc!=null?' · p'+pc:''),x0+w-16,y+hh-16);ctx.textAlign='left';});}
+  } else if(STL.length&&bottom-ty>=36+2*30){usedSyn=true;
+    const nr=Math.min(STL.length,Math.floor((bottom-ty-40)/32)),rh=Math.min(38,Math.floor((bottom-ty-40)/nr));
+    ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES · % DE ACIERTO · PUNTOS POR POSESIÓN (PERCENTIL)',70,ty+22);ty+=36;
+    STL.slice(0,nr).forEach((x,i)=>{const y=ty+i*rh,pc=synPct(x.r,'ppp');ctx.fillStyle=txt;ctx.font='700 24px '+PL_FB;ctx.fillText(x.sit,70,y+20);
+      ctx.font='800 26px '+PL_FD;ctx.fillText((x.r.fg_pct!=null?Math.round(x.r.fg_pct)+'%':'—')+'   '+(x.r.ppp!=null?(+x.r.ppp).toFixed(2)+' PPP':'')+'   '+(x.r.pct_time!=null?Math.round(x.r.pct_time)+'% de sus pos.':''),420,y+22);
+      ctx.fillStyle=pc!=null?pctColor(pc):sub;ctx.textAlign='right';ctx.fillText(pc!=null?'p'+pc:'',70+colW,y+22);ctx.textAlign='left';});
+    ty+=nr*rh+12;}
   if(tend.length){const x=70,y=812,w=1780,h=178;plRR(ctx,x,y,w,h,18);ctx.fillStyle=plHex(acc,0.14);ctx.fill();ctx.fillStyle=acc;ctx.fillRect(x,y,8,h);
     ctx.font='800 26px '+PL_FD;ctx.fillStyle=acc;ctx.fillText('TENDENCIAS',x+30,y+40);ctx.font='600 32px '+PL_FB;
     tend.slice(0,3).forEach((t,i)=>{const yy=y+84+i*42;ctx.fillStyle=acc;ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();ctx.fillStyle=txt;
