@@ -3181,7 +3181,7 @@ const SYN_TEAMS={'CLUB SOCIAL LARRANAGA':'LARRAÑAGA','NACIONAL DE FUTBOL MONTEV
   'DEFENSOR SPORTING':'D SPORTING','CLUB ATLETICO GOES':'GOES','HEBRAICA Y MACABI':'HEBRAICA Y MACABI','MALVIN MONTEVIDEO':'MALVIN','CLUB ATLETICO PENAROL MONTEVIDEO':'PEÑAROL','UNION ATLETICA':'UNION ATLETICA',
   'URUNDAY UNIVERSITARIO':'URUNDAY UNIVERSITARIO','OLIMPIA KINGS MONTEVIDEO':'OLIMPIA KINGS'};
 const SYN_SIT={'Overall':'General','P&R Ball Handler':'P&R manejador','Pick & Roll Ball Handler':'P&R manejador','P&R Roll Man':'P&R continuación','Pick & Roll Roll Man':'P&R continuación','Spot Up':'Spot up','Isolation':'Aislamiento',
-  'Transition':'Transición','Post-Up':'Poste','Post Up':'Poste','Cut':'Cortes','Handoff':'Hand-off','Off Screen':'Salida de bloqueo','Putbacks':'Rebote ofensivo','Offensive Rebounds (put backs)':'Rebote ofensivo','Miscellaneous':'Varios'};
+  'Transition':'Transición','Post-Up':'Poste','Post Up':'Poste','Cut':'Cortes','Handoff':'Hand-off','Hand Off':'Hand-off','Offensive Rebounds':'Rebote ofensivo','Off Screen':'Salida de bloqueo','Putbacks':'Rebote ofensivo','Offensive Rebounds (put backs)':'Rebote ofensivo','Miscellaneous':'Varios'};
 function synSitL(s){return SYN_SIT[s]||s;}
 function synCsv(txt){const out=[];let row=[],f='',q=false;for(let i=0;i<txt.length;i++){const ch=txt[i];
     if(q){if(ch==='"'){if(txt[i+1]==='"'){f+='"';i++;}else q=false;}else f+=ch;}
