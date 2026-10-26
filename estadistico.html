@@ -3411,6 +3411,8 @@ function plDraw(cv,k){
       ctx.font='800 26px '+PL_FD;ctx.fillStyle=txt;ctx.fillText(Math.round(+x.r.pct_time||0)+'%',bx+bw+14,y+22);
       ctx.textAlign='right';ctx.fillText(pp,70+colW-70,y+22);ctx.fillStyle=pc!=null?pctColor(pc):sub;ctx.fillText(pc!=null?'p'+pc:'',70+colW,y+22);ctx.textAlign='left';});
     ty+=nr*rh+12;}
+  else if(plOn('pt')&&SYNDB.length&&bottom-ty>=60){ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PLAY TYPES',70,ty+22);
+    ctx.font='500 22px '+PL_FB;ctx.fillText('Todavía sin datos en Synergy: no llega al mínimo de posesiones por jugada.',70,ty+52);ty+=70;}
   const sy=plOn('syn')?synFor(plTeam,p,'Overall','off'):null;
   if(sy&&bottom-ty>=130){
     let it=[['Puntos por posesión',sy.ppp!=null?(+sy.ppp).toFixed(2):'—',synPct(sy,'ppp')],['Posesiones por partido',sy.poss!=null?(+sy.poss).toFixed(1):'—',synPct(sy,'poss')],
