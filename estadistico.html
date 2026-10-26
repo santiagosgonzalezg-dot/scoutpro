@@ -3378,6 +3378,7 @@ function pppColor(v){v=+v;return v>=1.1?'#34c769':v>=0.95?'#7bc96f':v>=0.8?'#e0a
 function synPPG(r,p){if(!r)return null;return r.fuente==='cap'?synTotPoss(r)/Math.max(1,+(p&&p.g)||1):+r.poss;}
 function synPlayTypes(team,p){const out=[];SYN_PT.forEach(s=>{const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0)out.push({k:s,sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
 // Tipos de tiro (archivos de Shot Attempts / Catch and Shoot)
+function synBestShot(list){const ok=list.filter(x=>x.r.ppp!=null&&synTotPoss(x.r)>=5&&x.k!=='Jump Shot');return ok.sort((a,b)=>b.r.ppp-a.r.ppp)[0]||null;}
 function synShotTypes(team,p){const L=[['Long 3 pts','Long 3 Pts'],['Jump Shots off the Dribble','Dribble Jumper'],['Catch and Shoot Unguarded','Catch & Shoot · Unguarded'],['Catch and Shoot Guarded','Catch & Shoot · Guarded'],['Catch and Shoot','Catch & Shoot'],['At Rim','At Rim'],['Jump Shot','Jump Shot'],['Short to 17','Short to 17']];
   const out=[];L.forEach(([k,l])=>{if(k==='Catch and Shoot'&&out.some(x=>/^Catch/.test(x.k)))return;if(k==='Jump Shot'&&out.some(x=>x.k==='Jump Shots off the Dribble'||/^Catch/.test(x.k)))return;
     const r=synFor(team,p,k,'off');if(r&&((+r.poss||0)>0))out.push({k,sit:l,r});});return out;}
@@ -3391,6 +3392,7 @@ function synTendencias(team,p){
   const cs=synFor(team,p,'Catch and Shoot','off')||cu;if(cs&&(+cs.poss||0)*(+cs.gp||0)>=5&&cs.ppp<0.8)T.push([5,'Tira mal recibiendo: '+(+cs.ppp).toFixed(2)+' PPP en catch & shoot — se le puede ayudar']);
   const db=synFor(team,p,'Jump Shots off the Dribble','off');if(db&&db.pct_time>=15)T.push([db.ppp>=0.95?8:6,'Tira tras bote: '+Math.round(db.pct_time)+'% de sus posesiones, '+(db.fg_pct!=null?Math.round(db.fg_pct)+'% de campo':(+db.ppp).toFixed(2)+' PPP')]);
   const ar=synFor(team,p,'At Rim','off');if(ar&&ar.pct_time>=25)T.push([7,'Termina en el aro: '+Math.round(ar.pct_time)+'% de sus posesiones'+(ar.fg_pct!=null?', '+Math.round(ar.fg_pct)+'% de acierto':'')]);
+  const bs=synBestShot(synShotTypes(team,p));if(bs&&!(bs.k==='Catch and Shoot Unguarded'&&T.some(t=>/Peligroso solo/.test(t[1]))))T.push([8,'Su mejor tiro: '+bs.sit+' — '+(bs.r.fg_pct!=null?Math.round(bs.r.fg_pct)+'%, ':'')+(+bs.r.ppp).toFixed(2)+' PPP ('+synTotPoss(bs.r)+' pos.)']);
   const tr=pt.find(x=>x.k==='Transition');if(tr&&tr.r.pct_time>=20&&!(pt[0]&&pt[0].k==='Transition'))T.push([6,'Corre la cancha: '+Math.round(tr.r.pct_time)+'% en transición ('+(+tr.r.ppp).toFixed(2)+' PPP)']);
   const weak=pt.filter(x=>x.r.pct_time>=12&&x.r.ppp<0.75).sort((a,b)=>a.r.ppp-b.r.ppp)[0];if(weak)T.push([7,'Flojo en '+weak.sit.toLowerCase()+': '+(+weak.r.ppp).toFixed(2)+' PPP — llevarlo a esa jugada']);
   if(ov.to_pct!=null&&ov.to_pct>=18&&tot>=20)T.push([7,'Pierde pelotas: '+(+ov.to_pct).toFixed(0)+'% de sus posesiones terminan en pérdida — presionarlo']);
@@ -3499,21 +3501,23 @@ function plDraw(cv,k){
     const cw=STL.length?480:850;
     const sh=fichaShots(p);plCourt(ctx,sh,1000,top,cw,bottom-top-26,txt,acc);
     ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % por zona',1000+cw,bottom);ctx.textAlign='left';
-    if(STL.length){usedSyn=true;STL.splice(4);const x0=1510,w=340,n=STL.length,gap=12,hh=Math.min(130,Math.floor((bottom-top-36-(n-1)*gap)/n));
+    if(STL.length){usedSyn=true;STL.splice(4);const BS=synBestShot(STL);const x0=1510,w=340,n=STL.length,gap=12,hh=Math.min(130,Math.floor((bottom-top-36-(n-1)*gap)/n));
       ctx.font='700 22px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',x0,top+18);
       STL.forEach((x,i)=>{const y=top+30+i*(hh+gap),r=x.r,tp=synTotPoss(r),few=tp<SYN_MINP;plRR(ctx,x0,y,w,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
         ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillRect(x0,y+10,5,hh-20);
-        ctx.font='700 22px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(x.sit,x0+20,y+30);
+        const best=BS&&BS.k===x.k;ctx.font='700 22px '+PL_FB;ctx.fillStyle=best?acc:txt;ctx.fillText((best?'★ ':'')+x.sit,x0+20,y+30);
+        if(best){ctx.lineWidth=3;ctx.strokeStyle=acc;plRR(ctx,x0,y,w,hh,14);ctx.stroke();}
         ctx.font='800 '+Math.min(46,Math.round(hh*0.42))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':(+r.ppp).toFixed(2),x0+20,y+hh-16);
         ctx.font='600 19px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';
         ctx.fillText((r.ppp!=null?(+r.ppp).toFixed(2)+' PPP · ':'')+tp+' pos',x0+w-16,y+hh-42);
         ctx.fillText(r.pct_time!=null?Math.round(r.pct_time)+'% de sus pos.':'',x0+w-16,y+hh-16);ctx.textAlign='left';});}
-  } else if(STL.length){usedSyn=true;STL.splice(6);
+  } else if(STL.length){usedSyn=true;STL.splice(6);const BS=synBestShot(STL);
     const x0=1000,W=850,gap=14,cols=2,n=STL.length,rws=Math.ceil(n/cols),cw=(W-gap)/cols,hh=Math.min(150,Math.floor((bottom-top-36-(rws-1)*gap)/rws));
     ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',x0,top+20);ctx.font='500 18px '+PL_FB;ctx.textAlign='right';ctx.fillText('% de acierto · puntos por posesión · posesiones',x0+W,top+20);ctx.textAlign='left';
     STL.forEach((x,i)=>{const r=x.r,tp=synTotPoss(r),few=tp<SYN_MINP,cx=x0+(i%cols)*(cw+gap),y=top+34+Math.floor(i/cols)*(hh+gap);
       plRR(ctx,cx,y,cw,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillRect(cx,y+12,6,hh-24);
       ctx.font='700 26px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(x.sit,cx+24,y+38);
+      if(BS&&BS.k===x.k){ctx.lineWidth=4;ctx.strokeStyle=acc;plRR(ctx,cx,y,cw,hh,14);ctx.stroke();ctx.font='800 22px '+PL_FD;const bt='★ MEJOR TIRO';const bw=ctx.measureText(bt).width+22;plRR(ctx,cx+cw-bw-14,y+14,bw,32,16);ctx.fillStyle=acc;ctx.fill();ctx.fillStyle=plLum(acc)>0.6?'#111':'#fff';ctx.fillText(bt,cx+cw-bw-3,y+37);}
       ctx.font='800 '+Math.min(64,Math.round(hh*0.45))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':'—',cx+24,y+hh-20);
       ctx.font='700 24px '+PL_FD;ctx.textAlign='right';ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillText(r.ppp!=null?(+r.ppp).toFixed(2)+' PPP':'',cx+cw-18,y+hh-50);
       ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.fillText(tp+' pos'+(r.pct_time!=null?' · '+Math.round(r.pct_time)+'% de su juego':''),cx+cw-18,y+hh-20);ctx.textAlign='left';});}
