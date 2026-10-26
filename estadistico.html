@@ -767,7 +767,7 @@ table.t tr:hover td{background:var(--bg-hover)}
 @media(max-width:720px){.shot-wrap{grid-template-columns:1fr}}
 .court-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3)}
 .syn-st summary{cursor:pointer;font-size:12px;color:var(--text-2)}.syn-chk{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px}.syn-chk span{font-size:11px;white-space:nowrap}.syn-chk .ok{color:var(--positive)}.syn-chk .no{color:var(--text-3)}
-.syn-prev{border:1px solid var(--pl-acc,var(--border-light));border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--pl-acc-soft,transparent)}.syn-ph{font-size:12px;margin-bottom:8px}.syn-t{width:100%;border-collapse:collapse;font-size:12px}.syn-t th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);padding:4px}.syn-t td{padding:4px;border-top:1px solid var(--border-light)}.syn-t td:first-child{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.syn-t select{font-size:12px;padding:3px}.syn-t tr.bad td{color:var(--negative)}
+.syn-prev{border:1px solid var(--pl-acc,var(--border-light));border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--pl-acc-soft,transparent)}.syn-ph{font-size:12px;margin-bottom:8px}.syn-t{width:100%;border-collapse:collapse;font-size:12px}.syn-t th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);padding:4px}.syn-t td{padding:4px;border-top:1px solid var(--border-light)}.syn-t td:first-child{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.syn-t select{font-size:12px;padding:3px}.syn-t tr.bad td{color:var(--negative)}.syn-drop{outline:2px dashed var(--pl-acc,#f97316);outline-offset:4px;border-radius:8px}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;margin-top:12px}.pl-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:10px;display:grid;gap:8px;align-content:start}.pl-card canvas{width:100%;height:auto;aspect-ratio:16/9;border-radius:8px;display:block}.pl-card.off canvas{opacity:.35;filter:grayscale(.8)}.pl-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.pl-inc{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px;cursor:pointer}.pl-ed summary{cursor:pointer;color:var(--text-2);font-size:12px;padding:4px 0}.pl-f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:6px 0}.pl-ed label{display:grid;gap:3px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}.pl-t{margin-bottom:6px}.pl-ed input{font:500 13px var(--font-ui);padding:7px 9px;border:1px solid var(--border-light);border-radius:7px;background:var(--bg-panel);color:var(--text);width:100%;box-sizing:border-box}.pl-mods{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:8px 14px;margin-top:10px}.pl-mods summary{cursor:pointer;font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pl-tg{font:600 12px var(--font-ui);border:1px solid var(--border-light);background:transparent;color:var(--text-2);border-radius:999px;padding:7px 12px;cursor:pointer}.pl-tg.on{background:var(--pl-acc,var(--offense));border-color:var(--pl-acc,var(--offense));color:var(--pl-acc-fg,#fff)}#view-placas .sim-btn:hover{border-color:var(--pl-acc,var(--offense))}#view-placas #plPdfBtn{border-color:var(--pl-acc,var(--offense));color:var(--pl-acc,var(--offense));background:var(--pl-acc-soft,transparent)}#view-placas .pl-inc input{accent-color:var(--pl-acc,var(--offense))}#view-placas .pl-mods summary::marker{color:var(--pl-acc,var(--offense))}.pl-col{width:44px;height:32px;padding:2px;border:1px solid var(--border-light);border-radius:7px;background:transparent;cursor:pointer}
 .fh-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:top;border:3px solid var(--offense);margin-right:12px;background:var(--bg-panel);flex:0 0 auto}
 body.v-placas #controls{display:none!important}
@@ -3100,15 +3100,24 @@ function renderPlacas(){
     '<span class="zone-lbl">Fondo</span><input type="color" value="'+c1+'" oninput="plColor(0,this.value)" class="pl-col"><span class="zone-lbl">Acento</span><input type="color" value="'+c2+'" oninput="plColor(1,this.value)" class="pl-col">'+
     '<button class="sim-btn" onclick="plResetColors()">Colores por defecto</button>'+
     '<button class="sim-btn" id="plPdfBtn" style="margin-left:auto" onclick="plPdf()">📄 Descargar todas en PDF</button></div>'+
-    '<div class="tiros-ctl" style="flex-wrap:wrap;gap:8px;margin-top:-4px"><span class="zone-lbl">Synergy</span>'+
-      '<label class="sim-btn" style="cursor:pointer">📥 Cargar archivos de Synergy<input type="file" accept=".csv,.xls,.xlsx,.txt" multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
+    '<div id="synZone" class="tiros-ctl" style="flex-wrap:wrap;gap:8px;margin-top:-4px;padding:4px"><span class="zone-lbl">Synergy</span>'+
+      '<label class="sim-btn" style="cursor:pointer">📥 Cargar archivos<input type="file" accept=".csv,.xls,.xlsx,.txt" multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
+      '<label class="sim-btn" style="cursor:pointer">📁 Cargar carpeta<input type="file" webkitdirectory directory multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
+      '<span class="zone-sub" style="margin:0">o arrastrá los archivos o la carpeta acá</span>'+
       '<button class="sim-btn" onclick="plSugerirTodos()">✨ Sugerir tendencias para todos</button><span id="synOk" class="zone-sub" style="margin:0;color:var(--positive)"></span>'+
-      '<details class="syn-st"><summary>Qué hay cargado</summary><div id="synMsg" class="zone-sub" style="margin:6px 0 0">'+synStatus()+'</div></details></div><div id="synPrev"></div>'+
+      '<details class="syn-st" style="flex-basis:100%"><summary>Qué hay cargado</summary><div id="synMsg" class="zone-sub" style="margin:6px 0 0">'+synStatus()+'</div></details></div><div id="synPrev"></div>'+
     '<details class="pl-mods" open><summary>Qué mostrar en las placas</summary><div class="pl-tgs">'+modBtns+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="sim-btn" onclick="plPreset(\'all\')">Todo</button><button class="sim-btn" onclick="plPreset(\'ess\')">Lo fundamental</button></div></details>'+
     '<div class="pl-grid">'+cards+'</div>';
-  plDrawAll();
+  synBindDrop();plDrawAll();
 }
+async function synDropFiles(dt){const out=[];const walk=async(en)=>{if(!en)return;if(en.isFile){await new Promise(r=>en.file(f=>{out.push(f);r();},()=>r()));}
+    else if(en.isDirectory){const rd=en.createReader();let batch;do{batch=await new Promise(r=>rd.readEntries(r,()=>r([])));for(const e of batch)await walk(e);}while(batch.length);}};
+  const items=[...(dt.items||[])].map(it=>it.webkitGetAsEntry?it.webkitGetAsEntry():null);
+  if(items.some(Boolean)){for(const en of items)await walk(en);}else out.push(...(dt.files||[]));return out;}
+function synBindDrop(){const z=document.getElementById('synZone');if(!z||z._b)return;z._b=1;
+  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('syn-drop');});z.addEventListener('dragleave',()=>z.classList.remove('syn-drop'));
+  z.addEventListener('drop',async e=>{e.preventDefault();z.classList.remove('syn-drop');synImport(await synDropFiles(e.dataTransfer));});}
 function synStatus(){
   if(!SYNDB.length)return 'Todavía no hay datos de Synergy. Exportá desde Leaderboards (CSV o Excel) y subilos acá; se guardan solo los equipos de la Liga Uruguaya.';
   const L=synLatest(SYNDB),has=w=>L.some(r=>r.tipo===w[0]&&r.lado===w[1]&&r.situacion===w[2]);
@@ -3204,16 +3213,19 @@ const SYN_SITS=[
   ['Catch and Shoot Unguarded','Catch & shoot solo','tiro',['unguarded']],
   ['Catch and Shoot Guarded','Catch & shoot marcado','tiro',['guarded']],
   ['Catch and Shoot','Catch & shoot','tiro',['catch and shoot','catch & shoot']],
-  ['At Rim','En el aro','tiro',['at rim']]
+  ['At Rim','En el aro','tiro',['at rim']],
+  ['Miscellaneous','Varios','otro',['miscellaneous']]
 ];
 const SYN_SIT={};SYN_SITS.forEach(x=>SYN_SIT[x[0]]=x[1]);
 const SYN_PT=SYN_SITS.filter(x=>x[2]==='pt').map(x=>x[0]);
 // lo que conviene tener cargado (para el control de la carga)
 const SYN_WANT=[['player','off','Overall']].concat(SYN_PT.map(k=>['player','off',k]),[['player','off','Jump Shots off the Dribble'],['player','off','Catch and Shoot Unguarded'],['player','off','Catch and Shoot Guarded'],['player','off','At Rim'],['team','off','Overall'],['team','def','Overall']]);
 function synSitL(s){return SYN_SIT[s]||s;}
-function synSitDetect(seg){const t=' '+String(seg||'').toLowerCase().replace(/[_]+/g,' ').replace(/\s+/g,' ')+' ';
+function synSitDetect(seg){const raw=String(seg||'').toLowerCase().replace(/[_]+/g,' ').replace(/\s+/g,' ').trim(),t=' '+raw+' ';
+  if(raw==='overall')return 'Overall';
+  if(/overall|half court|including passes|defense commits|short clock|out of bounds|after time|against|press|ssq|short \(|medium|long \(|runner|hook|early jumper|around basket|layup|dunk|tip|all field goal|all poss/.test(raw))return '__skip';
   for(const x of SYN_SITS){if(x[0]==='Overall')continue;if(x[3].some(a=>a==='cut'?/\bcuts?\b/.test(t):t.includes(a)))return x[0];}
-  return /overall/.test(t)?'Overall':'';}
+  return '';}
 function synCsv(txt){const sep=(()=>{const l=String(txt).split(/\r?\n/).find(x=>x&&!/^sep=/i.test(x))||'';return (l.split('\t').length>l.split(',').length)?'\t':(l.split(';').length>l.split(',').length?';':',');})();
   const out=[];let row=[],f='',q=false;for(let i=0;i<txt.length;i++){const ch=txt[i];
     if(q){if(ch==='"'){if(txt[i+1]==='"'){f+='"';i++;}else q=false;}else f+=ch;}
@@ -3221,7 +3233,7 @@ function synCsv(txt){const sep=(()=>{const l=String(txt).split(/\r?\n/).find(x=>
   if(f!==''||row.length){row.push(f);out.push(row);}return out;}
 function synMeta(fname){const name=String(fname||'').replace(/\.(csv|xlsx?|txt)$/i,'').replace(/^[0-9a-f]{8}-/i,'').replace(/_/g,' ');const parts=name.split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);const last=parts[parts.length-1]||'';
   const seg=parts.length>=3?parts.slice(2,-1).join(' - '):name;
-  return {tipo:/team/i.test(last)?'team':'player',lado:/defens/i.test(last)?'def':'off',situacion:synSitDetect(seg)||synSitDetect(name)||'',sitRaw:parts.length>=3?parts[parts.length-2]:name,temporada:(name.match(/\d{4}-\d{4}/)||['2026-2027'])[0]};}
+  return {tipo:/team/i.test(last)?'team':'player',lado:/defens/i.test(last)?'def':'off',situacion:parts.length>=3?synSitDetect(seg):synSitDetect(name),sitRaw:parts.length>=3?parts[parts.length-2]:name,temporada:(name.match(/\d{4}-\d{4}/)||['2026-2027'])[0]};}
 function synParse(txt,fname){
   let rows=synCsv(String(txt).replace(/^\uFEFF/,''));if(rows.length&&/^sep=/i.test(rows[0][0]))rows=rows.slice(1);
   const hi=rows.findIndex(r=>r.some(c=>/^\s*(player|team)\s*$/i.test(c))&&r.some(c=>/^\s*ppp\s*$/i.test(c)));if(hi>0)rows=rows.slice(hi);
@@ -3247,28 +3259,32 @@ let SYN_PEND=[];
 // 1) se leen los archivos y se muestra qué se detectó (se puede corregir antes de guardar)
 async function synImport(files){
   const box=document.getElementById('synPrev');SYN_PEND=[];
+  files=[...files].filter(f=>/\.(csv|xlsx?|txt)$/i.test(f.name)&&!/^\./.test(f.name)).sort((a,b)=>(a.lastModified||0)-(b.lastModified||0));
+  if(!files.length){const ok=document.getElementById('synOk');if(ok){ok.style.color='var(--negative)';ok.textContent='No encontré archivos CSV o Excel en lo que elegiste.';}return;}
   for(const f of files){try{const P=synParse(await synReadFile(f),f.name);SYN_PEND.push({name:f.name,...P});}catch(e){SYN_PEND.push({name:f.name,meta:synMeta(f.name),recs:[],skipped:0,ok:false,err:e.message||String(e)});}}
-  synPrevRender();if(box)box.scrollIntoView({block:'nearest'});
+  synMarkDup();synPrevRender();if(box)box.scrollIntoView({block:'nearest'});
 }
+// si hay dos archivos de la misma jugada, se usa el más nuevo
+function synMarkDup(){const seen={};for(let i=SYN_PEND.length-1;i>=0;i--){const P=SYN_PEND[i],m=P.meta;P.dup=false;if(!m.situacion||m.situacion==='__skip')continue;const k=m.tipo+'|'+m.lado+'|'+m.situacion;if(seen[k])P.dup=true;else seen[k]=1;}}
 function synPrevRender(){
   const box=document.getElementById('synPrev');if(!box)return;
   if(!SYN_PEND.length){box.innerHTML='';return;}
   const opt=(v,list)=>list.map(o=>'<option value="'+escAttr(o[0])+'"'+(o[0]===v?' selected':'')+'>'+o[1]+'</option>').join('');
-  const sitOpts=[['','¿Qué jugada es?']].concat(SYN_SITS.map(x=>[x[0],x[1]+' ('+x[0]+')']));
+  const sitOpts=[['','¿Qué jugada es?'],['__skip','No guardar este archivo']].concat(SYN_SITS.map(x=>[x[0],x[1]+' ('+x[0]+')']));
   box.innerHTML='<div class="syn-prev"><div class="syn-ph">Revisá lo que detecté en cada archivo y tocá <b>Guardar</b>. Si alguno dice "¿Qué jugada es?", elegila de la lista.</div><table class="syn-t"><thead><tr><th>Archivo</th><th>Jugada</th><th>De</th><th>Lado</th><th>Liga Uruguaya</th></tr></thead><tbody>'+
-    SYN_PEND.map((P,i)=>{const bad=!P.ok||!P.recs.length;return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
-      '<td><select onchange="SYN_PEND['+i+'].meta.situacion=this.value">'+opt(P.meta.situacion,sitOpts)+'</select></td>'+
+    SYN_PEND.map((P,i)=>{const skip=P.meta.situacion==='__skip'||P.dup,bad=!skip&&(!P.ok||!P.recs.length||!P.meta.situacion);return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
+      '<td><select onchange="SYN_PEND['+i+'].meta.situacion=this.value;synMarkDup();synPrevRender()">'+opt(P.meta.situacion,sitOpts)+'</select></td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.tipo=this.value">'+opt(P.meta.tipo,[['player','Jugadores'],['team','Equipos']])+'</select></td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.lado=this.value">'+opt(P.meta.lado,[['off','Ataque'],['def','Defensa']])+'</select></td>'+
-      '<td>'+(P.err?'⚠ '+escAttr(P.err):!P.ok?'⚠ no parece un archivo de Synergy':(P.recs.length?P.recs.length+(P.meta.tipo==='team'?' equipos':' jugadores'):'⚠ ningún equipo uruguayo'))+'</td></tr>';}).join('')+
+      '<td>'+(P.dup?'Repetido: se usa el otro archivo de esta jugada':P.meta.situacion==='__skip'?'No se guarda':P.err?'⚠ '+escAttr(P.err):!P.ok?'⚠ no parece un archivo de Synergy':(P.recs.length?P.recs.length+(P.meta.tipo==='team'?' equipos':' jugadores'):'Ningún jugador uruguayo llega al mínimo de Synergy (se saltea)'))+'</td></tr>';}).join('')+
     '</tbody></table><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="sim-btn" style="background:var(--pl-acc);color:var(--pl-acc-fg);border-color:transparent" onclick="synSave()">💾 Guardar</button><button class="sim-btn" onclick="SYN_PEND=[];synPrevRender()">Cancelar</button><span id="synSaveMsg" class="zone-sub" style="margin:0"></span></div></div>';
 }
 // 2) se guarda en la base (reemplaza lo anterior de esa misma jugada)
 async function synSave(){
   const msg=document.getElementById('synSaveMsg');const say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
-  const todo=SYN_PEND.filter(P=>P.ok&&P.recs.length);
-  if(!todo.length){say('No hay nada para guardar.',true);return;}
-  const miss=todo.find(P=>!P.meta.situacion);if(miss){say('Falta elegir la jugada de «'+miss.name+'».',true);return;}
+  const miss=SYN_PEND.find(P=>P.ok&&P.recs.length&&!P.meta.situacion);
+  const todo=SYN_PEND.filter(P=>P.ok&&P.recs.length&&!P.dup&&P.meta.situacion!=='__skip');
+  if(!miss&&!todo.length){say('No hay nada para guardar.',true);return;}if(miss){say('Falta elegir la jugada de «'+miss.name+'».',true);return;}
   const c=getSB();let n=0;
   try{for(const P of todo){const m=P.meta;say('Guardando '+synSitL(m.situacion)+'…');
       const recs=P.recs.map(r=>({...r,temporada:m.temporada,situacion:m.situacion,lado:m.lado,tipo:m.tipo}));
