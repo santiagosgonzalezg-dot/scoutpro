@@ -766,6 +766,8 @@ table.t tr:hover td{background:var(--bg-hover)}
 .shot-wrap{display:grid;grid-template-columns:minmax(260px,1fr) minmax(220px,300px);gap:var(--sp-4);align-items:start}
 @media(max-width:720px){.shot-wrap{grid-template-columns:1fr}}
 .court-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3)}
+.syn-st summary{cursor:pointer;font-size:12px;color:var(--text-2)}.syn-chk{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px}.syn-chk span{font-size:11px;white-space:nowrap}.syn-chk .ok{color:var(--positive)}.syn-chk .no{color:var(--text-3)}
+.syn-prev{border:1px solid var(--pl-acc,var(--border-light));border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--pl-acc-soft,transparent)}.syn-ph{font-size:12px;margin-bottom:8px}.syn-t{width:100%;border-collapse:collapse;font-size:12px}.syn-t th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);padding:4px}.syn-t td{padding:4px;border-top:1px solid var(--border-light)}.syn-t td:first-child{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.syn-t select{font-size:12px;padding:3px}.syn-t tr.bad td{color:var(--negative)}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;margin-top:12px}.pl-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:10px;display:grid;gap:8px;align-content:start}.pl-card canvas{width:100%;height:auto;aspect-ratio:16/9;border-radius:8px;display:block}.pl-card.off canvas{opacity:.35;filter:grayscale(.8)}.pl-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.pl-inc{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px;cursor:pointer}.pl-ed summary{cursor:pointer;color:var(--text-2);font-size:12px;padding:4px 0}.pl-f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:6px 0}.pl-ed label{display:grid;gap:3px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}.pl-t{margin-bottom:6px}.pl-ed input{font:500 13px var(--font-ui);padding:7px 9px;border:1px solid var(--border-light);border-radius:7px;background:var(--bg-panel);color:var(--text);width:100%;box-sizing:border-box}.pl-mods{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:8px 14px;margin-top:10px}.pl-mods summary{cursor:pointer;font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pl-tg{font:600 12px var(--font-ui);border:1px solid var(--border-light);background:transparent;color:var(--text-2);border-radius:999px;padding:7px 12px;cursor:pointer}.pl-tg.on{background:var(--pl-acc,var(--offense));border-color:var(--pl-acc,var(--offense));color:var(--pl-acc-fg,#fff)}#view-placas .sim-btn:hover{border-color:var(--pl-acc,var(--offense))}#view-placas #plPdfBtn{border-color:var(--pl-acc,var(--offense));color:var(--pl-acc,var(--offense));background:var(--pl-acc-soft,transparent)}#view-placas .pl-inc input{accent-color:var(--pl-acc,var(--offense))}#view-placas .pl-mods summary::marker{color:var(--pl-acc,var(--offense))}.pl-col{width:44px;height:32px;padding:2px;border:1px solid var(--border-light);border-radius:7px;background:transparent;cursor:pointer}
 .fh-photo{width:64px;height:64px;border-radius:50%;object-fit:cover;object-position:top;border:3px solid var(--offense);margin-right:12px;background:var(--bg-panel);flex:0 0 auto}
 body.v-placas #controls{display:none!important}
@@ -3085,6 +3087,7 @@ function renderPlacas(){
       '<label>Altura<input value="'+escAttr(d.alt||'')+'" placeholder="1.98 m" oninput="plSet(\''+escAttr(k)+'\',\'alt\',this.value)"></label>'+
       '<label>Peso<input value="'+escAttr(d.peso||'')+'" placeholder="95 kg" oninput="plSet(\''+escAttr(k)+'\',\'peso\',this.value)"></label>'+
       '<label>Posición<input value="'+escAttr(d.pos||'')+'" placeholder="Base" oninput="plSet(\''+escAttr(k)+'\',\'pos\',this.value)"></label></div>'+
+      '<button class="sim-btn" style="margin:6px 0;padding:5px 10px" onclick="plSugerirUno(\''+escAttr(k)+'\')">✨ Sugerir con Synergy</button>'+
       [0,1,2].map(j=>'<label class="pl-t">Tendencia '+(j+1)+'<input maxlength="90" value="'+escAttr(t[j]||'')+'" placeholder="'+(['Ej.: Busca la mano derecha en la penetración','Ej.: Tira de 3 tras bote, no en carrera','Ej.: Pierde pelotas ante presión'][j])+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)"></label>').join('')+
       '</details>';
     return '<div class="pl-card'+(inc?'':' off')+'"><canvas width="1920" height="1080" data-k="'+escAttr(k)+'"></canvas>'+
@@ -3098,16 +3101,20 @@ function renderPlacas(){
     '<button class="sim-btn" onclick="plResetColors()">Colores por defecto</button>'+
     '<button class="sim-btn" id="plPdfBtn" style="margin-left:auto" onclick="plPdf()">📄 Descargar todas en PDF</button></div>'+
     '<div class="tiros-ctl" style="flex-wrap:wrap;gap:8px;margin-top:-4px"><span class="zone-lbl">Synergy</span>'+
-      '<label class="sim-btn" style="cursor:pointer">📥 Cargar CSV de Synergy<input type="file" accept=".csv" multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
-      '<span id="synMsg" class="zone-sub" style="margin:0">'+synStatus()+'</span></div>'+
+      '<label class="sim-btn" style="cursor:pointer">📥 Cargar archivos de Synergy<input type="file" accept=".csv,.xls,.xlsx,.txt" multiple style="display:none" onchange="synImport([...this.files]);this.value=\'\'"></label>'+
+      '<button class="sim-btn" onclick="plSugerirTodos()">✨ Sugerir tendencias para todos</button><span id="synOk" class="zone-sub" style="margin:0;color:var(--positive)"></span>'+
+      '<details class="syn-st"><summary>Qué hay cargado</summary><div id="synMsg" class="zone-sub" style="margin:6px 0 0">'+synStatus()+'</div></details></div><div id="synPrev"></div>'+
     '<details class="pl-mods" open><summary>Qué mostrar en las placas</summary><div class="pl-tgs">'+modBtns+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="sim-btn" onclick="plPreset(\'all\')">Todo</button><button class="sim-btn" onclick="plPreset(\'ess\')">Lo fundamental</button></div></details>'+
     '<div class="pl-grid">'+cards+'</div>';
   plDrawAll();
 }
-function synStatus(){if(!SYNDB.length)return 'Exportá desde Synergy → Leaderboards (jugadores o equipos, en CSV) y subilo acá. Se guardan solo los equipos de la Liga Uruguaya.';
-  const L=synLatest(SYNDB),sits=[...new Set(L.map(r=>synSitL(r.situacion)+(r.tipo==='team'?' (equipos)':'')+(r.lado==='def'?' def.':'')))];
-  return 'Cargado '+(L[0]?L[0].temporada:'')+': '+sits.join(', ')+'. Para actualizar, volvé a subir el CSV.';}
+function synStatus(){
+  if(!SYNDB.length)return 'Todavía no hay datos de Synergy. Exportá desde Leaderboards (CSV o Excel) y subilos acá; se guardan solo los equipos de la Liga Uruguaya.';
+  const L=synLatest(SYNDB),has=w=>L.some(r=>r.tipo===w[0]&&r.lado===w[1]&&r.situacion===w[2]);
+  const nm=w=>(w[0]==='team'?'Equipos '+(w[1]==='def'?'defensa':'ataque'):synSitL(w[2]));
+  const got=SYN_WANT.filter(has).length;
+  return 'Temporada '+(L[0]?L[0].temporada:'')+' · <b>'+got+' de '+SYN_WANT.length+'</b> archivos cargados<div class="syn-chk">'+SYN_WANT.map(w=>'<span class="'+(has(w)?'ok':'no')+'">'+(has(w)?'✓':'·')+' '+nm(w)+'</span>').join('')+'</div>';}
 function plLigaOf(team){const r=RAWD.find(x=>sameTeam(x.equipo,team)&&x.liga);return r?String(r.liga).toLowerCase():'';}
 function plSetTeam(v){plTeam=v;plVs='';
   // percentiles, rankings y rivales se calculan dentro de la liga del equipo elegido
@@ -3180,41 +3187,99 @@ let SYNDB=[];
 const SYN_TEAMS={'CLUB SOCIAL LARRANAGA':'LARRAÑAGA','NACIONAL DE FUTBOL MONTEVIDEO':'NACIONAL','CLUB ATLETICO AGUADA':'AGUADA','CLUB ATLETICO ATENAS (URUGUAY)':'ATENAS','CLUB BIGUA DE VILLA BIARRITZ':'BIGUA',
   'DEFENSOR SPORTING':'D SPORTING','CLUB ATLETICO GOES':'GOES','HEBRAICA Y MACABI':'HEBRAICA Y MACABI','MALVIN MONTEVIDEO':'MALVIN','CLUB ATLETICO PENAROL MONTEVIDEO':'PEÑAROL','UNION ATLETICA':'UNION ATLETICA',
   'URUNDAY UNIVERSITARIO':'URUNDAY UNIVERSITARIO','OLIMPIA KINGS MONTEVIDEO':'OLIMPIA KINGS'};
-const SYN_SIT={'Overall':'General','P&R Ball Handler':'P&R manejador','Pick & Roll Ball Handler':'P&R manejador','P&R Roll Man':'P&R continuación','Pick & Roll Roll Man':'P&R continuación','Spot Up':'Spot up','Isolation':'Aislamiento',
-  'Transition':'Transición','Post-Up':'Poste','Post Up':'Poste','Cut':'Cortes','Handoff':'Hand-off','Hand Off':'Hand-off','Offensive Rebounds':'Rebote ofensivo','Off Screen':'Salida de bloqueo','Putbacks':'Rebote ofensivo','Offensive Rebounds (put backs)':'Rebote ofensivo','Miscellaneous':'Varios'};
+// situaciones reconocidas: clave guardada → [nombre en pantalla, grupo, textos que la identifican en el nombre del archivo]
+const SYN_SITS=[
+  ['Overall','General','gen',['overall']],
+  ['Isolation','Aislamiento','pt',['isolation']],
+  ['P&R Ball Handler','P&R manejador','pt',['p&r ball handler','pick & roll ball handler','pr ball handler','ball handler']],
+  ['P&R Roll Man','P&R continuación','pt',['p&r roll man','pick & roll roll man','pr roll man','roll man']],
+  ['Spot Up','Spot up','pt',['spot up','spot-up']],
+  ['Post-Up','Poste','pt',['post-up','post up','post ups','post-ups']],
+  ['Off Screen','Salida de bloqueo','pt',['off screen']],
+  ['Hand Off','Hand-off','pt',['hand off','handoff','hand-off']],
+  ['Cut','Cortes','pt',['cut']],
+  ['Transition','Transición','pt',['transition']],
+  ['Offensive Rebounds','Rebote ofensivo','pt',['offensive rebounds','put backs','putbacks']],
+  ['Jump Shots off the Dribble','Tiro tras bote','tiro',['off the dribble']],
+  ['Catch and Shoot Unguarded','Catch & shoot solo','tiro',['unguarded']],
+  ['Catch and Shoot Guarded','Catch & shoot marcado','tiro',['guarded']],
+  ['Catch and Shoot','Catch & shoot','tiro',['catch and shoot','catch & shoot']],
+  ['At Rim','En el aro','tiro',['at rim']]
+];
+const SYN_SIT={};SYN_SITS.forEach(x=>SYN_SIT[x[0]]=x[1]);
+const SYN_PT=SYN_SITS.filter(x=>x[2]==='pt').map(x=>x[0]);
+// lo que conviene tener cargado (para el control de la carga)
+const SYN_WANT=[['player','off','Overall']].concat(SYN_PT.map(k=>['player','off',k]),[['player','off','Jump Shots off the Dribble'],['player','off','Catch and Shoot Unguarded'],['player','off','Catch and Shoot Guarded'],['player','off','At Rim'],['team','off','Overall'],['team','def','Overall']]);
 function synSitL(s){return SYN_SIT[s]||s;}
-function synCsv(txt){const out=[];let row=[],f='',q=false;for(let i=0;i<txt.length;i++){const ch=txt[i];
+function synSitDetect(seg){const t=' '+String(seg||'').toLowerCase().replace(/[_]+/g,' ').replace(/\s+/g,' ')+' ';
+  for(const x of SYN_SITS){if(x[0]==='Overall')continue;if(x[3].some(a=>a==='cut'?/\bcuts?\b/.test(t):t.includes(a)))return x[0];}
+  return /overall/.test(t)?'Overall':'';}
+function synCsv(txt){const sep=(()=>{const l=String(txt).split(/\r?\n/).find(x=>x&&!/^sep=/i.test(x))||'';return (l.split('\t').length>l.split(',').length)?'\t':(l.split(';').length>l.split(',').length?';':',');})();
+  const out=[];let row=[],f='',q=false;for(let i=0;i<txt.length;i++){const ch=txt[i];
     if(q){if(ch==='"'){if(txt[i+1]==='"'){f+='"';i++;}else q=false;}else f+=ch;}
-    else if(ch==='"')q=true;else if(ch===','){row.push(f);f='';}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(f);f='';if(row.length>1||row[0]!=='')out.push(row);row=[];}else f+=ch;}
+    else if(ch==='"')q=true;else if(ch===sep){row.push(f);f='';}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&txt[i+1]==='\n')i++;row.push(f);f='';if(row.length>1||row[0]!=='')out.push(row);row=[];}else f+=ch;}
   if(f!==''||row.length){row.push(f);out.push(row);}return out;}
-function synMeta(fname){const name=String(fname||'').replace(/\.csv$/i,'').replace(/_/g,' ');const parts=name.split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);const last=parts[parts.length-1]||'';
-  return {tipo:/team/i.test(last)?'team':'player',lado:/defens/i.test(last)?'def':'off',situacion:parts.length>=3?parts[parts.length-2]:'Overall',temporada:(name.match(/\d{4}-\d{4}/)||['s/d'])[0]};}
+function synMeta(fname){const name=String(fname||'').replace(/\.(csv|xlsx?|txt)$/i,'').replace(/^[0-9a-f]{8}-/i,'').replace(/_/g,' ');const parts=name.split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);const last=parts[parts.length-1]||'';
+  const seg=parts.length>=3?parts.slice(2,-1).join(' - '):name;
+  return {tipo:/team/i.test(last)?'team':'player',lado:/defens/i.test(last)?'def':'off',situacion:synSitDetect(seg)||synSitDetect(name)||'',sitRaw:parts.length>=3?parts[parts.length-2]:name,temporada:(name.match(/\d{4}-\d{4}/)||['2026-2027'])[0]};}
 function synParse(txt,fname){
-  let rows=synCsv(String(txt).replace(/^\uFEFF/,''));if(rows.length&&/^sep=/i.test(rows[0][0]))rows=rows.slice(1);if(rows.length<2)return {meta:synMeta(fname),recs:[],skipped:0};
-  const H=rows[0].map(h=>h.trim()),ix=h=>H.indexOf(h),num=v=>{if(v==null)return null;const x=String(v).replace('%','').trim();if(x==='')return null;const n=+x;return isFinite(n)?n:null;};
+  let rows=synCsv(String(txt).replace(/^\uFEFF/,''));if(rows.length&&/^sep=/i.test(rows[0][0]))rows=rows.slice(1);
+  const hi=rows.findIndex(r=>r.some(c=>/^\s*(player|team)\s*$/i.test(c))&&r.some(c=>/^\s*ppp\s*$/i.test(c)));if(hi>0)rows=rows.slice(hi);
+  if(rows.length<2)return {meta:synMeta(fname),recs:[],skipped:0,ok:false};
+  const H=rows[0].map(h=>h.trim()),HL=H.map(h=>h.toLowerCase()),ix=h=>HL.indexOf(String(h).toLowerCase()),num=v=>{if(v==null)return null;const x=String(v).replace('%','').replace(',','.').trim();if(x===''||x==='-')return null;const n=+x;return isFinite(n)?n:null;};
   const meta=synMeta(fname);if(ix('Player')<0)meta.tipo='team';
   const recs=[];let skipped=0;
-  rows.slice(1).forEach(r=>{const g=h=>{const i=ix(h);return i<0?null:r[i];};const tsyn=String(g('Team')||'').trim();if(!tsyn)return;
+  rows.slice(1).forEach(r=>{const g=h=>{const i=ix(h);return i<0?null:r[i];};const tsyn=String(g('Team')||(meta.tipo==='team'?g('Name'):'')||'').trim();if(!tsyn)return;
     const eq=SYN_TEAMS[teamKey(tsyn)];if(!eq){skipped++;return;}
     const raw={};H.forEach((h,i)=>{if(h)raw[h]=r[i];});
-    recs.push({temporada:meta.temporada,situacion:meta.situacion,lado:meta.lado,tipo:meta.tipo,team_syn:tsyn,nombre:meta.tipo==='team'?tsyn:String(g('Player')||'').trim(),equipo:eq,num:g('Jersey #')!=null?String(g('Jersey #')).trim():null,
+    recs.push({team_syn:tsyn,nombre:meta.tipo==='team'?tsyn:String(g('Player')||'').trim(),equipo:eq,num:g('Jersey #')!=null?String(g('Jersey #')).trim():null,
       gp:num(g('GP')),poss:num(g('Poss')),pct_time:num(g('%Time')),pts:num(g('Pts')),ppp:num(g('PPP')),fg_pct:num(g('FG%')),efg:num(g('eFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('Score%')),
       fg3_pct:num(g('3 FG%')!=null?g('3 FG%'):g('3FG%')),fg3_rate:num(g('3PA/FGA')),raw});});
-  return {meta,recs,skipped};
+  return {meta,recs,skipped,ok:H.some(h=>/^ppp$/i.test(h))};
 }
+// lee CSV o Excel (Synergy exporta los dos)
+async function synReadFile(f){
+  if(/\.xlsx?$/i.test(f.name)){await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});return XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);}
+  return await f.text();
+}
+let SYN_PEND=[];
+// 1) se leen los archivos y se muestra qué se detectó (se puede corregir antes de guardar)
 async function synImport(files){
-  const msg=document.getElementById('synMsg');const say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
-  const c=getSB();let tot=0,sk=0,done=[];
-  try{for(const f of files){const {meta,recs,skipped}=synParse(await f.text(),f.name);sk+=skipped;
-      if(!recs.length){done.push(f.name+': sin jugadores de la Liga Uruguaya');continue;}
-      say('Cargando '+f.name+'…');
-      const del=await c.from('synergy_stats').delete().eq('temporada',meta.temporada).eq('situacion',meta.situacion).eq('lado',meta.lado).eq('tipo',meta.tipo);
+  const box=document.getElementById('synPrev');SYN_PEND=[];
+  for(const f of files){try{const P=synParse(await synReadFile(f),f.name);SYN_PEND.push({name:f.name,...P});}catch(e){SYN_PEND.push({name:f.name,meta:synMeta(f.name),recs:[],skipped:0,ok:false,err:e.message||String(e)});}}
+  synPrevRender();if(box)box.scrollIntoView({block:'nearest'});
+}
+function synPrevRender(){
+  const box=document.getElementById('synPrev');if(!box)return;
+  if(!SYN_PEND.length){box.innerHTML='';return;}
+  const opt=(v,list)=>list.map(o=>'<option value="'+escAttr(o[0])+'"'+(o[0]===v?' selected':'')+'>'+o[1]+'</option>').join('');
+  const sitOpts=[['','¿Qué jugada es?']].concat(SYN_SITS.map(x=>[x[0],x[1]+' ('+x[0]+')']));
+  box.innerHTML='<div class="syn-prev"><div class="syn-ph">Revisá lo que detecté en cada archivo y tocá <b>Guardar</b>. Si alguno dice "¿Qué jugada es?", elegila de la lista.</div><table class="syn-t"><thead><tr><th>Archivo</th><th>Jugada</th><th>De</th><th>Lado</th><th>Liga Uruguaya</th></tr></thead><tbody>'+
+    SYN_PEND.map((P,i)=>{const bad=!P.ok||!P.recs.length;return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
+      '<td><select onchange="SYN_PEND['+i+'].meta.situacion=this.value">'+opt(P.meta.situacion,sitOpts)+'</select></td>'+
+      '<td><select onchange="SYN_PEND['+i+'].meta.tipo=this.value">'+opt(P.meta.tipo,[['player','Jugadores'],['team','Equipos']])+'</select></td>'+
+      '<td><select onchange="SYN_PEND['+i+'].meta.lado=this.value">'+opt(P.meta.lado,[['off','Ataque'],['def','Defensa']])+'</select></td>'+
+      '<td>'+(P.err?'⚠ '+escAttr(P.err):!P.ok?'⚠ no parece un archivo de Synergy':(P.recs.length?P.recs.length+(P.meta.tipo==='team'?' equipos':' jugadores'):'⚠ ningún equipo uruguayo'))+'</td></tr>';}).join('')+
+    '</tbody></table><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="sim-btn" style="background:var(--pl-acc);color:var(--pl-acc-fg);border-color:transparent" onclick="synSave()">💾 Guardar</button><button class="sim-btn" onclick="SYN_PEND=[];synPrevRender()">Cancelar</button><span id="synSaveMsg" class="zone-sub" style="margin:0"></span></div></div>';
+}
+// 2) se guarda en la base (reemplaza lo anterior de esa misma jugada)
+async function synSave(){
+  const msg=document.getElementById('synSaveMsg');const say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
+  const todo=SYN_PEND.filter(P=>P.ok&&P.recs.length);
+  if(!todo.length){say('No hay nada para guardar.',true);return;}
+  const miss=todo.find(P=>!P.meta.situacion);if(miss){say('Falta elegir la jugada de «'+miss.name+'».',true);return;}
+  const c=getSB();let n=0;
+  try{for(const P of todo){const m=P.meta;say('Guardando '+synSitL(m.situacion)+'…');
+      const recs=P.recs.map(r=>({...r,temporada:m.temporada,situacion:m.situacion,lado:m.lado,tipo:m.tipo}));
+      const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',m.situacion).eq('lado',m.lado).eq('tipo',m.tipo);
       if(del.error)throw new Error(del.error.message);
       for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
-      SYNDB=SYNDB.filter(r=>!(r.temporada===meta.temporada&&r.situacion===meta.situacion&&r.lado===meta.lado&&r.tipo===meta.tipo)).concat(recs);
-      tot+=recs.length;done.push(synSitL(meta.situacion)+' · '+(meta.tipo==='team'?'equipos':'jugadores')+' · '+(meta.lado==='def'?'defensa':'ataque')+': '+recs.length);}
-    say('✓ '+done.join('  |  '));plDrawAll();
-  }catch(e){say('No se pudo cargar: '+(e.message||e),true);}
+      SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo)).concat(recs);n++;}
+    SYN_PEND=[];synPrevRender();const st=document.getElementById('synMsg');if(st)st.innerHTML=synStatus();
+    const ok=document.getElementById('synOk');if(ok){ok.textContent='✓ '+n+' archivo'+(n===1?'':'s')+' guardado'+(n===1?'':'s')+'.';}
+    plDrawAll();
+  }catch(e){say('No se pudo guardar: '+(e.message||e),true);}
 }
 function synLatest(rows){let t='';rows.forEach(r=>{if(String(r.temporada)>t)t=String(r.temporada);});return rows.filter(r=>String(r.temporada)===t);}
 function synNorm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();}
@@ -3228,7 +3293,34 @@ function synFor(team,p,sit,lado){
 // percentil dentro de la Liga Uruguaya (jugadores con al menos 15 posesiones en total)
 function synPct(row,f,inv){const pool=SYNDB.filter(r=>r.tipo===row.tipo&&r.temporada===row.temporada&&r.situacion===row.situacion&&r.lado===row.lado&&(row.tipo==='team'||(+r.poss||0)*(+r.gp||0)>=15)&&r[f]!=null).map(r=>+r[f]);
   if(row[f]==null||!pool.length)return null;const p=pctRank(pool,+row[f]);return inv?100-p:p;}
-function synPlayTypes(team,p){const out=[];Object.keys(SYN_SIT).forEach(s=>{if(s==='Overall')return;const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0&&!out.some(o=>o.sit===synSitL(s)))out.push({sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
+function synPlayTypes(team,p){const out=[];SYN_PT.forEach(s=>{const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0)out.push({k:s,sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
+// Tendencias sugeridas a partir de Synergy (hasta 3, de la más a la menos importante)
+function synTendencias(team,p){
+  const T=[],ov=synFor(team,p,'Overall','off');if(!ov)return T;const tot=(+ov.poss||0)*(+ov.gp||0);
+  const pt=synPlayTypes(team,p).filter(x=>(+x.r.poss||0)*(+x.r.gp||0)>=4);
+  const pc=(r,f,inv)=>{const v=synPct(r,f,inv);return v==null?'':' (percentil '+v+')';};
+  if(pt[0]&&pt[0].r.pct_time>=20)T.push([9,'Jugada principal: '+pt[0].sit.toLowerCase()+', '+Math.round(pt[0].r.pct_time)+'% de su juego, '+(+pt[0].r.ppp).toFixed(2)+' PPP'+pc(pt[0].r,'ppp')]);
+  if(pt[1]&&pt[1].r.pct_time>=15)T.push([6,'También: '+pt[1].sit.toLowerCase()+' '+Math.round(pt[1].r.pct_time)+'% ('+(+pt[1].r.ppp).toFixed(2)+' PPP)']);
+  const cu=synFor(team,p,'Catch and Shoot Unguarded','off');if(cu&&(+cu.poss||0)*(+cu.gp||0)>=5&&cu.ppp>=1.15)T.push([10,'Peligroso solo: '+(+cu.ppp).toFixed(2)+' PPP en catch & shoot sin marca — no dejarlo libre']);
+  const cs=synFor(team,p,'Catch and Shoot','off')||cu;if(cs&&(+cs.poss||0)*(+cs.gp||0)>=5&&cs.ppp<0.8)T.push([5,'Tira mal recibiendo: '+(+cs.ppp).toFixed(2)+' PPP en catch & shoot — se le puede ayudar']);
+  const db=synFor(team,p,'Jump Shots off the Dribble','off');if(db&&db.pct_time>=15)T.push([db.ppp>=0.95?8:6,'Tira tras bote: '+Math.round(db.pct_time)+'% de sus posesiones, '+(db.fg_pct!=null?Math.round(db.fg_pct)+'% de campo':(+db.ppp).toFixed(2)+' PPP')]);
+  const ar=synFor(team,p,'At Rim','off');if(ar&&ar.pct_time>=25)T.push([7,'Termina en el aro: '+Math.round(ar.pct_time)+'% de sus posesiones'+(ar.fg_pct!=null?', '+Math.round(ar.fg_pct)+'% de acierto':'')]);
+  const tr=pt.find(x=>x.k==='Transition');if(tr&&tr.r.pct_time>=20&&!(pt[0]&&pt[0].k==='Transition'))T.push([6,'Corre la cancha: '+Math.round(tr.r.pct_time)+'% en transición ('+(+tr.r.ppp).toFixed(2)+' PPP)']);
+  const weak=pt.filter(x=>x.r.pct_time>=12&&x.r.ppp<0.75).sort((a,b)=>a.r.ppp-b.r.ppp)[0];if(weak)T.push([7,'Flojo en '+weak.sit.toLowerCase()+': '+(+weak.r.ppp).toFixed(2)+' PPP — llevarlo a esa jugada']);
+  if(ov.to_pct!=null&&ov.to_pct>=18&&tot>=20)T.push([7,'Pierde pelotas: '+(+ov.to_pct).toFixed(0)+'% de sus posesiones terminan en pérdida — presionarlo']);
+  if(ov.ft_rate!=null&&ov.ft_rate>=18&&tot>=20)T.push([5,'Busca el foul: '+(+ov.ft_rate).toFixed(0)+'% de sus posesiones terminan en libres']);
+  return T.sort((a,b)=>b[0]-a[0]).map(x=>x[1]).filter((t,i,a)=>a.indexOf(t)===i).slice(0,3);
+}
+// completa las tendencias vacías (o todas si force) con lo que sugiere Synergy
+function plSugerir(k,force){const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);if(!p)return 0;const sug=synTendencias(plTeam,p);if(!sug.length)return 0;
+  const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||['','',''];let n=0;
+  if(force){d.t=[sug[0]||'',sug[1]||'',sug[2]||''];n=sug.length;}else{let j=0;for(let i=0;i<3&&j<sug.length;i++){if(!String(d.t[i]||'').trim()){while(j<sug.length&&d.t.includes(sug[j]))j++;if(j<sug.length){d.t[i]=sug[j++];n++;}}}}
+  plSave();return n;}
+function plSugerirUno(k){const d=PLS.players[k]||{};const full=(d.t||[]).filter(x=>String(x||'').trim()).length===3;
+  if(full&&!confirm('Este jugador ya tiene 3 tendencias. ¿Reemplazarlas por las que sugiere Synergy?'))return;
+  const n=plSugerir(k,full);if(!n){alert('No hay datos de Synergy suficientes para este jugador.');return;}renderPlacas();}
+function plSugerirTodos(){let n=0,j=0;plPlayers(plTeam).slice(0,14).forEach(p=>{const c=plSugerir(plPkey(plTeam,p),false);if(c){n+=c;j++;}});
+  const ok=document.getElementById('synOk');renderPlacas();const ok2=document.getElementById('synOk');if(ok2)ok2.textContent=n?'✓ '+n+' tendencias sugeridas en '+j+' jugadores (solo se completaron renglones vacíos).':'No había renglones vacíos o faltan datos de Synergy para este equipo.';}
 function plStatsFor(team,p,pool,A){
   const g=p.g||1,pg=(q,k)=>q[k]/(q.g||1);
   const pct=[pctRank(A.anot,pg(p,'pts')),pctRank(A.gen,pg(p,'ast')),pctRank(A.tiro,pg(p,'tpm')),pctRank(A.reb,pg(p,'reb')),pctRank(A.def,pg(p,'rob')+pg(p,'tap'))];
