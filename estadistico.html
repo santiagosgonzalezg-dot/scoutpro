@@ -969,8 +969,8 @@ body.v-placas #controls{display:none!important}
 .wf-bar i{display:block;height:100%;border-radius:3px}
 .wf-foot{font-family:var(--font-mono);font-size:9.5px;line-height:1.7;color:var(--text-3);margin-top:var(--sp-3)}
 .wf-empty{font-family:var(--font-mono);font-size:11px;color:var(--text-2);padding:14px 4px}
-.syn-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
-.syn-tile{background:var(--bg-2,#161b25);border-radius:10px;padding:12px;text-align:center}.syn-tile b{display:block;font-size:24px;font-family:var(--font-mono)}.syn-tile span{font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+.syn-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.syn-tile{background:var(--bg-2,#161b25);border-radius:10px;padding:12px;text-align:center}.syn-tile b{display:block;font-size:24px;font-family:var(--font-mono)}.syn-tile span{font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}.syn-tile i{display:block;font-style:normal;font-size:11px;line-height:1.4;color:var(--text-2,#b8c0cc);margin-top:6px;text-align:left}
 .syn-ptr{margin-bottom:6px}.syn-ptr .brk-row{margin-bottom:2px}.syn-who{font-size:11.5px;color:var(--text-3,#8891a0);padding-left:162px;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}.syn-us{color:var(--text-2);margin-left:auto}
 .syn-pill{font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:4px;white-space:nowrap}.syn-pill.g{background:#34c76933;color:#34c769}.syn-pill.r{background:#f9731633;color:#f97316}
 .syn-shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.syn-shot{border:1px solid;border-left-width:4px;border-radius:9px;padding:10px 12px}
@@ -3857,8 +3857,15 @@ function synRivalSec(team,ours){
   if(!synHasTeam(team))return rvSec('syn','Synergy','<div class="court-box"><div class="zone-sub">Todavía no hay datos de Synergy de '+team+'. Capturá el equipo con el botón 📥 (pestañas Overall, Play Types y Shot Types) y subilo en Placas.</div></div>');
   const ov=synTeamRow(team,'Overall'),gm=(leagueTeamStats().find(s=>s.team===team)||{a:{}}).a.pj||0,PT=synTeamPT(team),bw=synBestWorst(PT,SYN_MINP);
   const oPT=ours?synTeamPT(ours):[],oRow=k=>oPT.find(x=>x.k===k);
-  const tile=(v,l)=>'<div class="syn-tile"><b>'+v+'</b><span>'+l+'</span></div>';
-  const tiles=ov?'<div class="syn-tiles">'+tile(f2(ov.ppp),'Pts por posesión')+tile(gm?(synTotPoss(ov)/gm).toFixed(1):synTotPoss(ov),gm?'Posesiones / partido':'Posesiones')+tile(f1p(ov.efg),'eFG%')+tile(f1p(ov.to_pct),'Pérdidas')+tile(f1p(ov.score_pct),'Anotan')+tile(f1p(ov.ft_rate),'Van a libres')+'</div>':
+  const tile=(v,l,d)=>'<div class="syn-tile"><b>'+v+'</b><span>'+l+'</span><i>'+d+'</i></div>';
+  const op=ov?synTotPoss(ov):0;
+  const tiles=ov?'<div class="syn-tiles">'+
+    tile(f2(ov.ppp),'Pts por posesión','Puntos que anotan, en promedio, cada vez que atacan. 1.00 o más es muy bueno; menos de 0.85, flojo.')+
+    tile(gm?(op/gm).toFixed(1):op,gm?'Ataques por partido':'Ataques en total',(gm?op+' ataques en '+gm+' partido'+(gm===1?'':'s')+'. ':'')+'Synergy cuenta como un ataque nuevo cada rebote ofensivo, por eso da más que las posesiones clásicas (70 a 80).')+
+    tile(f1p(ov.efg),'eFG%','Porcentaje de tiro de campo contando el triple como 1,5 tiros convertidos (vale un punto más). Lo normal es alrededor de 50%.')+
+    tile(f1p(ov.to_pct),'Pérdidas','De cada 100 ataques, en cuántos pierden la pelota sin tirar. Más de 15 es mucho.')+
+    tile(f1p(ov.score_pct),'Anotan','De cada 100 ataques, en cuántos meten al menos 1 punto (doble, triple o libre).')+
+    tile(f1p(ov.ft_rate),'Van a libres','De cada 100 ataques, en cuántos terminan tirando libres. Mide cuánto fuerzan faltas.')+'</div>':
     '<div class="zone-sub">Falta la captura de la pestaña Overall para ver los totales del equipo.</div>';
   const mx=Math.max(1,...PT.map(x=>x.sh));
   const ptRows=PT.map(x=>{const n=synTotPoss(x.r),few=n<SYN_MINP,col=few?'#8891a0':pppColor(x.r.ppp),w=synWho(team,x.k,3),o=oRow(x.k),
