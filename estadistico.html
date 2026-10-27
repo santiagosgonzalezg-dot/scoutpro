@@ -766,6 +766,9 @@ table.t tr:hover td{background:var(--bg-hover)}
 .shot-wrap{display:grid;grid-template-columns:minmax(260px,1fr) minmax(220px,300px);gap:var(--sp-4);align-items:start}
 @media(max-width:720px){.shot-wrap{grid-template-columns:1fr}}
 .court-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3)}
+.pl-man{margin:8px 0 2px;padding:8px 10px;border:1px solid var(--border-light);border-radius:10px}.pl-man-h{font-size:12px;font-weight:700;margin-bottom:6px}.pl-man-h span{font-weight:400;color:var(--text-3);margin-left:6px}
+.pl-man-i{display:block;width:100%;margin:4px 0;padding:7px 9px;font-size:13px;border-radius:8px;border:1px solid var(--border-light);background:var(--bg-raised,rgba(255,255,255,.04));color:inherit}
+.pl-man-a{margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5}.pl-man-a span{display:block}
 .syn-st summary{cursor:pointer;font-size:12px;color:var(--text-2)}.syn-chk{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px}.syn-chk span{font-size:11px;white-space:nowrap}.syn-chk .ok{color:var(--positive)}.syn-chk .no{color:var(--text-3)}
 .syn-prev{border:1px solid var(--pl-acc,var(--border-light));border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--pl-acc-soft,transparent)}.syn-ph{font-size:12px;margin-bottom:8px}.syn-t{width:100%;border-collapse:collapse;font-size:12px}.syn-t th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);padding:4px}.syn-t td{padding:4px;border-top:1px solid var(--border-light)}.syn-t td:first-child{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.syn-t select{font-size:12px;padding:3px}.syn-t tr.bad td{color:var(--negative)}.syn-drop{outline:2px dashed var(--pl-acc,#f97316);outline-offset:4px;border-radius:8px}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;margin-top:12px}.pl-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:10px;display:grid;gap:8px;align-content:start}.pl-card canvas{width:100%;height:auto;aspect-ratio:16/9;border-radius:8px;display:block}.pl-card.off canvas{opacity:.35;filter:grayscale(.8)}.pl-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.pl-inc{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px;cursor:pointer}.pl-ed summary{cursor:pointer;color:var(--text-2);font-size:12px;padding:4px 0}.pl-f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:6px 0}.pl-ed label{display:grid;gap:3px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}.pl-t{margin-bottom:6px}.pl-ed input{font:500 13px var(--font-ui);padding:7px 9px;border:1px solid var(--border-light);border-radius:7px;background:var(--bg-panel);color:var(--text);width:100%;box-sizing:border-box}.pl-mods{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:8px 14px;margin-top:10px}.pl-mods summary{cursor:pointer;font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pl-tg{font:600 12px var(--font-ui);border:1px solid var(--border-light);background:transparent;color:var(--text-2);border-radius:999px;padding:7px 12px;cursor:pointer}.pl-tg.on{background:var(--pl-acc,var(--offense));border-color:var(--pl-acc,var(--offense));color:var(--pl-acc-fg,#fff)}#view-placas .sim-btn:hover{border-color:var(--pl-acc,var(--offense))}#view-placas #plPdfBtn{border-color:var(--pl-acc,var(--offense));color:var(--pl-acc,var(--offense));background:var(--pl-acc-soft,transparent)}#view-placas .pl-inc input{accent-color:var(--pl-acc,var(--offense))}#view-placas .pl-mods summary::marker{color:var(--pl-acc,var(--offense))}.pl-col{width:44px;height:32px;padding:2px;border:1px solid var(--border-light);border-radius:7px;background:transparent;cursor:pointer}
@@ -993,6 +996,8 @@ body.v-placas #controls{display:none!important}
   <div class="tabs" id="tabs" style="display:none">
     <button class="tab active" data-v="dashboard" onclick="switchView('dashboard')">Dashboard</button>
     <button class="tab" data-v="lideres" onclick="switchView('lideres')">Líderes</button>
+    <button class="tab" data-v="placas" onclick="switchView('placas')">🎬 Placas</button>
+    <button class="tab" data-v="rival" onclick="switchView('rival')">Rival</button>
     <button class="tab" data-v="ficha" onclick="switchView('ficha')">Ficha</button>
     <button class="tab" data-v="buscador" onclick="switchView('buscador')">Buscador</button>
     <button class="tab" data-v="tiros" onclick="switchView('tiros')">Tiros</button>
@@ -1001,8 +1006,6 @@ body.v-placas #controls{display:none!important}
     <button class="tab" data-v="equipo" onclick="switchView('equipo')">Equipo</button>
     <button class="tab" data-v="comparar" onclick="switchView('comparar')">Comparar</button>
     <button class="tab" data-v="duplas" onclick="switchView('duplas')">Duplas</button>
-    <button class="tab" data-v="rival" onclick="switchView('rival')">Rival</button>
-    <button class="tab" data-v="placas" onclick="switchView('placas')">🎬 Placas</button>
     <button class="tab" data-v="pareto" onclick="switchView('pareto')">Reparto</button>
     <button class="tab" data-v="jugadores" onclick="switchView('jugadores')">Jugadores</button>
     <button class="tab" data-v="evolucion" onclick="switchView('evolucion')">Evolución</button>
@@ -3084,20 +3087,21 @@ function renderPlacas(){
   const pls=plPlayers(plTeam).slice(0,14);
   const cards=['__cover__'].concat(pls.map(p=>plPkey(plTeam,p))).map((k,i)=>{
     const isCov=k==='__cover__';const p=isCov?null:pls[i-1];const d=isCov?{}:(PLS.players[k]||{});const t=d.t||['','',''];
-    let au=[];if(!isCov&&plOn('synt')){try{const man=t.map(x=>String(x||'').trim()).filter(Boolean);au=synTendencias(plTeam,p).filter(a=>!man.includes(a));}catch(_){}}
-    let ai=0;const ph=[0,1,2].map(j=>String(t[j]||'').trim()?'':(au[ai++]||''));
+    let au=[];if(!isCov&&plOn('synt')){try{au=synTendencias(plTeam,p);}catch(_){}}
     const inc=!PLS.excl[k];
-    const ed=isCov?'':'<details class="pl-ed"><summary>✏️ Completar datos</summary><div class="pl-f">'+
+    const ed=isCov?'':'<div class="pl-man"><div class="pl-man-h">✍️ Tendencias manuales <span>se ven primero en la placa (con ◆); las automáticas completan hasta 4 renglones</span></div>'+
+      [0,1,2].map(j=>'<input class="pl-man-i" maxlength="110" value="'+escAttr(t[j]||'')+'" placeholder="'+escAttr(['Ej.: Busca la mano derecha en la penetración','Ej.: Defenderlo con ayuda temprana en el poste','Ej.: Pierde pelotas ante presión'][j])+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)">').join('')+
+      (au.length?'<div class="pl-man-a">Automáticas de Synergy: '+au.map(x=>'<span>● '+escAttr(x)+'</span>').join('')+'</div>':'')+'</div>'+
+      '<details class="pl-ed"><summary>✏️ Altura, peso y posición</summary><div class="pl-f">'+
       '<label>Altura<input value="'+escAttr(d.alt||'')+'" placeholder="1.98 m" oninput="plSet(\''+escAttr(k)+'\',\'alt\',this.value)"></label>'+
       '<label>Peso<input value="'+escAttr(d.peso||'')+'" placeholder="95 kg" oninput="plSet(\''+escAttr(k)+'\',\'peso\',this.value)"></label>'+
       '<label>Posición<input value="'+escAttr(d.pos||'')+'" placeholder="Base" oninput="plSet(\''+escAttr(k)+'\',\'pos\',this.value)"></label></div>'+
-      [0,1,2].map(j=>'<label class="pl-t">Tendencia '+(j+1)+(ph[j]?' <span style="color:var(--text-3);font-weight:400">· automática de Synergy (escribí encima para cambiarla)</span>':'')+'<input maxlength="110" value="'+escAttr(t[j]||'')+'" placeholder="'+escAttr(ph[j]||(['Ej.: Busca la mano derecha en la penetración','Ej.: Tira de 3 tras bote, no en carrera','Ej.: Pierde pelotas ante presión'][j]))+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)"></label>').join('')+
       '</details>';
     return '<div class="pl-card'+(inc?'':' off')+'"><canvas width="1920" height="1080" data-k="'+escAttr(k)+'"></canvas>'+
       '<div class="pl-bar"><b>'+(isCov?'Portada':('#'+p.num+' '+p.nombre))+'</b><label class="pl-inc"><input type="checkbox"'+(inc?' checked':'')+' onchange="plIncl(\''+escAttr(k)+'\',this.checked)"> Incluir en el PDF</label>'+
       '<button class="sim-btn" style="margin-left:auto;padding:5px 10px" onclick="plPng(\''+escAttr(k)+'\')">⬇ PNG</button></div>'+ed+'</div>';
   }).join('');
-  el.innerHTML='<div class="zone-sub" style="margin:0 0 10px">Armá las placas del rival en formato horizontal (1920×1080) para la charla o el video. Elegí qué mostrar, completá altura, peso y hasta 3 tendencias por jugador, y descargá cada placa en PNG o todas juntas en un PDF. Lo que escribas queda guardado en este navegador.</div>'+
+  el.innerHTML='<div class="zone-sub" style="margin:0 0 10px">Armá las placas del rival en formato horizontal (1920×1080) para la charla o el video. Elegí qué mostrar, escribí tus tendencias (se suman a las automáticas de Synergy), y descargá cada placa en PNG o todas juntas en un PDF. Lo que escribas queda guardado en este navegador.</div>'+
     '<div class="tiros-ctl" style="flex-wrap:wrap;gap:8px"><span class="zone-lbl">Equipo a scoutear</span><select onchange="plSetTeam(this.value)">'+teams.map(t=>'<option'+(sameTeam(t,plTeam)?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
     '<span class="zone-lbl">Rival en la portada</span><select onchange="plVs=this.value;plDrawAll()"><option value="">Sin rival</option>'+others.map(t=>'<option'+(sameTeam(t,plVs)?' selected':'')+'>'+t+'</option>').join('')+'</select>'+
     '<span class="zone-lbl">Fondo</span><input type="color" value="'+c1+'" oninput="plColor(0,this.value)" class="pl-col"><span class="zone-lbl">Acento</span><input type="color" value="'+c2+'" oninput="plColor(1,this.value)" class="pl-col">'+
@@ -3428,10 +3432,10 @@ function synTendencias(team,p){
 }
 // completa las tendencias vacías (o todas si force) con lo que sugiere Synergy
 // tendencias que van en la placa: las escritas a mano y, en los renglones vacíos, las de Synergy
-function plTend(team,p,d){const man=(d&&d.t||[]).map(x=>String(x||'').trim()).filter(Boolean);
-  if(!plOn('synt')||man.length>=3)return man.slice(0,3);
+function plTend(team,p,d){const man=(d&&d.t||[]).map(x=>String(x||'').trim()).filter(Boolean).map(t=>({t,man:true}));
+  if(!plOn('synt'))return man.slice(0,4);
   let auto=[];try{auto=synTendencias(team,p);}catch(_){}
-  return man.concat(auto.filter(a=>!man.includes(a))).slice(0,3);}
+  return man.concat(auto.filter(a=>!man.some(m=>m.t===a)).map(t=>({t,man:false}))).slice(0,4);}
 function plSugerir(k,force){const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);if(!p)return 0;const sug=synTendencias(plTeam,p);if(!sug.length)return 0;
   const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||['','',''];let n=0;
   if(force){d.t=[sug[0]||'',sug[1]||'',sug[2]||''];n=sug.length;}else{let j=0;for(let i=0;i<3&&j<sug.length;i++){if(!String(d.t[i]||'').trim()){while(j<sug.length&&d.t.includes(sug[j]))j++;if(j<sug.length){d.t[i]=sug[j++];n++;}}}}
@@ -3523,7 +3527,8 @@ function plDraw(cv,k){
   } else if(STL.length||SDL.length){usedSyn=true;const BS=synBestShot(STL),WS=synWorstShot(STL);plShotTypes(ctx,STL,BS,WS,{x0:1000,y0:top,w:850,h:bottom-top-10,cols:2,max:4,small:false},txt,sub,acc,SDL);}
   if(tend.length){const x=70,y=812,w=1780,h=178;plRR(ctx,x,y,w,h,18);ctx.fillStyle=plHex(acc,0.14);ctx.fill();ctx.fillStyle=acc;ctx.fillRect(x,y,8,h);
     ctx.font='800 26px '+PL_FD;ctx.fillStyle=acc;ctx.fillText('TENDENCIAS',x+30,y+40);ctx.font='600 32px '+PL_FB;
-    tend.slice(0,3).forEach((t,i)=>{const yy=y+84+i*42;ctx.fillStyle=acc;ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();ctx.fillStyle=txt;
+    const nT=Math.min(4,tend.length),lh=nT>3?33:42;ctx.font='600 '+(nT>3?28:32)+'px '+PL_FB;
+    tend.slice(0,4).forEach((o,i)=>{const t=o.t,yy=y+(nT>3?76:84)+i*lh;ctx.fillStyle=acc;if(o.man){ctx.save();ctx.translate(x+42,yy-11);ctx.rotate(Math.PI/4);ctx.fillRect(-6,-6,12,12);ctx.restore();}else{ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();}ctx.fillStyle=txt;
       let tt=t;while(ctx.measureText(tt).width>w-110&&tt.length>4)tt=tt.slice(0,-1);ctx.fillText(tt===t?t:tt+'…',x+64,yy);});}
   plFooter(ctx,txt,acc,'Scouting · '+plTeam,(plVs?'vs '+plVs+'  ·  ':'')+'Datos: planillas FIBA LiveStats'+(usedSyn?' + Synergy':''));
 }
