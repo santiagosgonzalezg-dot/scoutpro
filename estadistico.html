@@ -976,6 +976,18 @@ body.v-placas #controls{display:none!important}
 .syn-shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.syn-shot{border:1px solid;border-left-width:4px;border-radius:9px;padding:10px 12px}
 .syn-shot-n{font-size:12.5px;font-weight:700}.syn-shot-v{font-size:22px;font-weight:800;font-family:var(--font-mono);margin:2px 0}.syn-shot-s{font-size:11px;color:var(--text-2)}
 @media(max-width:640px){.syn-who{padding-left:0}.syn-ptr .brk-row{flex-wrap:wrap;gap:4px 10px}.syn-ptr .brk-name{width:100%}.syn-ptr .brk-track{flex:1 1 100%}.syn-ptr .brk-row{min-width:0}.syn-ptr{min-width:0;overflow:hidden}.syn-ptr .brk-val{width:auto!important;text-align:left}.syn-scroll{overflow-x:auto}}
+#view-rival .sec::before{background:var(--rv-acc,var(--offense))}
+#view-rival .rv-head{background:linear-gradient(120deg,var(--rv-bg,transparent),#0f1117 70%)}#view-rival .rv-head::before{background:var(--rv-acc,var(--offense))}#view-rival .rv-head::after{background:radial-gradient(circle,var(--rv-soft,rgba(249,115,22,.10)),transparent 70%)}
+#view-rival .fh-tag{background:var(--rv-acc,var(--offense));color:var(--rv-acc-fg,#fff);border-color:transparent}
+#view-rival .court-box{border-top:2px solid var(--rv-soft,var(--border-light))}
+#view-rival .syn-tile{background:var(--rv-soft,var(--bg-2,#161b25))}
+#view-rival #preBtn{background:var(--rv-acc,var(--offense));color:var(--rv-acc-fg,#fff);border-color:transparent}
+#view-rival #rivalPdfBtn{border-color:var(--rv-acc,var(--offense));color:var(--rv-acc,var(--offense))}
+#view-rival select:focus{outline:2px solid var(--rv-acc,var(--offense))}
+.rv-fold{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 0}
+details.rv-sec>summary{cursor:pointer;list-style:none;user-select:none}details.rv-sec>summary::-webkit-details-marker{display:none}
+details.rv-sec>summary.sec::after{order:1}.rv-chev{order:2;font-size:13px;color:var(--rv-acc,var(--text-2));transition:transform .15s}
+details.rv-sec:not([open])>summary .rv-chev{transform:rotate(-90deg)}details.rv-sec:not([open])>summary{opacity:.75}
 </style>
 </head>
 <body>
@@ -3842,7 +3854,7 @@ function synClaves(team){const C=[],ov=synTeamRow(team,'Overall'),PT=synTeamPT(t
   const S=synTeamShots(team),cu=S.find(x=>x.k==='Catch and Shoot Unguarded');if(cu&&synTotPoss(cu.r)>=8&&cu.r.ppp>=1.1)C.push('Liberados recibiendo meten ('+f2(cu.r.ppp)+' pts/pos): cerrá a los tiradores, nada de ayudas largas.');
   return C.slice(0,7);}
 function synRivalSec(team,ours){
-  if(!synHasTeam(team))return '<div class="sec">Synergy</div><div class="court-box"><div class="zone-sub">Todavía no hay datos de Synergy de '+team+'. Capturá el equipo con el botón 📥 (pestañas Overall, Play Types y Shot Types) y subilo en Placas.</div></div>';
+  if(!synHasTeam(team))return rvSec('syn','Synergy','<div class="court-box"><div class="zone-sub">Todavía no hay datos de Synergy de '+team+'. Capturá el equipo con el botón 📥 (pestañas Overall, Play Types y Shot Types) y subilo en Placas.</div></div>');
   const ov=synTeamRow(team,'Overall'),gm=(leagueTeamStats().find(s=>s.team===team)||{a:{}}).a.pj||0,PT=synTeamPT(team),bw=synBestWorst(PT,SYN_MINP);
   const oPT=ours?synTeamPT(ours):[],oRow=k=>oPT.find(x=>x.k===k);
   const tile=(v,l)=>'<div class="syn-tile"><b>'+v+'</b><span>'+l+'</span></div>';
@@ -3868,14 +3880,19 @@ function synRivalSec(team,ours){
   const shots=ST.length?'<div class="syn-shots">'+shotTiles(ST)+'</div>'+(SD.length?'<div class="zone-lbl" style="margin:12px 0 8px">Shot distances (jumpers)</div><div class="syn-shots">'+shotTiles(SD)+'</div>':'')+
     '<div class="zone-sub" style="margin-top:6px">'+(sbw.best?'★ Mejor tiro: <b>'+sbw.best.sit+'</b> ('+f2(sbw.best.r.ppp)+'). ':'')+(sbw.worst?'▼ Peor tiro: <b>'+sbw.worst.sit+'</b> ('+f2(sbw.worst.r.ppp)+'). ':'')+'Mínimo '+SYN_SHOTMIN+' tiros para elegir mejor/peor.</div>':
     '<div class="zone-sub">Falta la captura de la pestaña <b>Shot Types</b> (con «Jump Shot» y «Catch and Shoot» abiertos).</div>';
-  return '<div class="sec">Synergy · cómo ataca</div>'+
+  return rvSec('syn','Synergy · cómo ataca',
     help('¿Qué es esto?','Sale de las capturas de Synergy de este equipo. <b>Pts/pos</b> = puntos por posesión: más de 1.10 es muy bueno (verde), menos de 0.80 es malo (naranja). <b>%</b> = qué parte de sus posesiones termina en esa jugada. «Quién» = los jugadores que más la usan (posesiones). Mejor/peor: mínimo '+SYN_MINP+' posesiones.')+
     '<div class="court-box">'+tiles+'</div>'+
     '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Play types · cómo terminan sus posesiones</div>'+(ptRows||'<div class="zone-sub">Falta la captura de la pestaña <b>Play Types</b>.</div>')+'</div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Situaciones especiales</div>'+spTab+'</div></div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Shot types · qué tiros toman</div>'+shots+'</div>'+
-    '<div class="zone-sub" style="margin:4px 0 0">Cómo defienden: cuando captures el equipo en Synergy con <b>Defense</b>, va a aparecer acá.</div>';
+    '<div class="zone-sub" style="margin:4px 0 0">Cómo defienden: cuando captures el equipo en Synergy con <b>Defense</b>, va a aparecer acá.</div>');
 }
+// secciones que se pueden contraer (se recuerda en este navegador)
+function rvClosed(k){try{return (JSON.parse(localStorage.getItem('rvClosed')||'[]')).includes(k);}catch(e){return false;}}
+function rvToggle(d){try{const k=d.dataset.k;let a=JSON.parse(localStorage.getItem('rvClosed')||'[]').filter(x=>x!==k);if(!d.open)a.push(k);localStorage.setItem('rvClosed',JSON.stringify(a));}catch(e){}}
+function rvAll(open){document.querySelectorAll('#rival-report details.rv-sec').forEach(d=>{d.open=open;rvToggle(d);});}
+function rvSec(k,title,body){return '<details class="rv-sec" data-k="'+k+'"'+(rvClosed(k)?'':' open')+' ontoggle="rvToggle(this)"><summary class="sec">'+title+'<span class="rv-chev">▾</span></summary><div class="rv-body">'+body+'</div></details>';}
 function renderRival(){
   const el=document.getElementById('view-rival');
   if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
@@ -3888,6 +3905,9 @@ function renderRival(){
     '<button class="sim-btn" id="preBtn" onclick="preReport()" style="margin-left:8px">📄 Informe pre-partido</button>'+
     '<button class="sim-btn" onclick="printScoutSheet()" style="margin-left:8px">🖨 Informe 1 hoja</button>'+
     '<button class="sim-btn" id="rivalPdfBtn" onclick="downloadRivalPDF()" style="margin-left:8px">⬇ Descargar PDF</button></div>';
+  // la pestaña toma los colores del club (igual que las placas)
+  let [rvB,rvA]=plColors(rivalTeam);if(plLum(rvA)<0.18&&plLum(rvB)>plLum(rvA))[rvA,rvB]=[rvB,rvA];if(plLum(rvA)<0.18)rvA='#f97316';
+  el.style.setProperty('--rv-acc',rvA);el.style.setProperty('--rv-acc-fg',plLum(rvA)>0.6?'#111':'#fff');el.style.setProperty('--rv-soft',plHex(rvA,0.14));el.style.setProperty('--rv-bg',plHex(/^#/.test(rvB)?rvB:'#121722',0.55));
   const me=stats.find(s=>s.team===rivalTeam);if(!me){el.innerHTML=sel+'<div class="empty">Sin datos del equipo.</div>';return;}
   const a=me.a;
   const METR=[
@@ -3968,7 +3988,7 @@ function renderRival(){
   };
   const FF_OFF=[['eFG%','efg',true],['% Pérdidas','tov',false],['Reb. of. %','orb',true],['TL por 100 tiros','ftr',true]];
   const FF_DEF=[['eFG% que recibe','efg',false],['% Pérd. forzadas','tov',true],['Reb. of. cedido %','orb',false],['TL/100 cedidos','ftr',false]];
-  const ffSec='<div class="sec">Four Factors</div>'+
+  const ffSec=rvSec('ff','Four Factors',
     help('¿Cómo leer los Four Factors?',
       'Son los <b>4 números que más explican</b> por qué un equipo gana o pierde (Dean Oliver). En vez de mirar 50 estadísticas, mirás estos 4.'+
       '<ul>'+
@@ -3983,8 +4003,8 @@ function renderRival(){
       ffTable('Ofensivos (cómo atacan)',rOff,nOff,FF_OFF)+
       ffTable('Defensivos (cómo defienden)',rDef,nDef,FF_DEF)+
     '</div>'+
-    '<div class="zone-sub" style="margin:2px 0 4px">Verde = mejor de los dos en ese factor. Comparado contra '+(myTeam?('tu equipo, '+nLabel):'el promedio de la liga')+'. Los 4 factores (Dean Oliver): tiro (eFG%), cuidado del balón (% pérdidas), rebote ofensivo y generación de tiros libres.</div>';
-  const clutchSec='<div class="sec">Clutch · últimos 5 min, diferencia ≤5</div>'+
+    '<div class="zone-sub" style="margin:2px 0 4px">Verde = mejor de los dos en ese factor. Comparado contra '+(myTeam?('tu equipo, '+nLabel):'el promedio de la liga')+'. Los 4 factores (Dean Oliver): tiro (eFG%), cuidado del balón (% pérdidas), rebote ofensivo y generación de tiros libres.</div>');
+  const clutchSec=rvSec('clutch','Clutch · últimos 5 min, diferencia ≤5',
     help('¿Qué es el clutch?',
       'Es el rendimiento en los <b>momentos calientes</b>: los últimos 5 minutos del partido cuando la diferencia es de <b>5 puntos o menos</b>. Ahí muchos partidos se ganan o se pierden.'+
       '<ul>'+
@@ -3997,9 +4017,9 @@ function renderRival(){
     '<div class="court-box">'+
     clutchLine(rivalTeam,clutchStats(rivalTeam))+
     (myTeam?clutchLine(myTeam+' (vos)',clutchStats(myTeam)):'')+
-    '<div class="zone-sub" style="margin-top:8px">Rendimiento en finales ajustados. Sale del play-by-play: solo cuenta partidos guardados con la versión nueva (los que tienen jugadas).</div></div>';
-  el.innerHTML=sel+'<div id="rival-report">'+
-    '<div class="ficha-card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
+    '<div class="zone-sub" style="margin-top:8px">Rendimiento en finales ajustados. Sale del play-by-play: solo cuenta partidos guardados con la versión nueva (los que tienen jugadas).</div></div>');
+  el.innerHTML=sel+'<div class="rv-fold"><button class="sim-btn" onclick="rvAll(false)">▸ Contraer todo</button><button class="sim-btn" onclick="rvAll(true)">▾ Expandir todo</button><span class="zone-sub" style="margin:0">Lo que contraés no sale en el PDF.</span></div><div id="rival-report">'+
+    '<div class="ficha-card rv-head" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
       clubBadge(rivalTeam,'club-badge-lg')+
       '<div style="flex:1;min-width:200px"><div class="fh-name">'+rivalTeam+'</div>'+
         '<div class="fh-team" style="margin-top:6px">'+(a.pj||0)+' partidos · récord '+rec.w+'-'+rec.l+'</div>'+
@@ -4007,23 +4027,23 @@ function renderRival(){
         '<div class="fh-team" style="text-transform:none;font-size:13.5px;letter-spacing:0;color:#cfd5e3;line-height:1.55;margin-top:10px">'+resumen+'</div>'+
       '</div></div>'+
     synRivalSec(rivalTeam,myTeam&&synHasTeam(myTeam)?myTeam:null)+
-    '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:6px">Perfil del equipo</div>'+radarSVG(dims)+'</div>'+
+    rvSec('perfil','Perfil del equipo','<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:6px">Perfil del equipo</div>'+radarSVG(dims)+'</div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:14px">Perfil vs la liga</div>'+bar+
-      '<div class="zone-sub" style="margin-top:8px">Barra = posición en la liga (más llena = mejor). Gris = neutro (ritmo / volumen). El valor real va a la derecha.</div></div></div>'+
+      '<div class="zone-sub" style="margin-top:8px">Barra = posición en la liga (más llena = mejor). Gris = neutro (ritmo / volumen). El valor real va a la derecha.</div></div></div>')+
     ffSec+
-    '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#34c769">Fortalezas</div>'+(strong.length?strong.map(s=>'<div class="rv-item">✔ '+s+'</div>').join(''):'<div class="zone-sub">Sin fortalezas marcadas.</div>')+'</div>'+
-      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#f05050">Debilidades</div>'+(weak.length?weak.map(s=>'<div class="rv-item">✘ '+s+'</div>').join(''):'<div class="zone-sub">Sin debilidades marcadas.</div>')+'</div></div>'+
-    '<div class="sec">Jugadores a vigilar</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'+watch+'</div>'+
-    '<div class="sec">Volumen de tiro y rebote (reparto del equipo)</div>'+
+    rvSec('fd','Fortalezas y debilidades','<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#34c769">Fortalezas</div>'+(strong.length?strong.map(s=>'<div class="rv-item">✔ '+s+'</div>').join(''):'<div class="zone-sub">Sin fortalezas marcadas.</div>')+'</div>'+
+      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:10px;color:#f05050">Debilidades</div>'+(weak.length?weak.map(s=>'<div class="rv-item">✘ '+s+'</div>').join(''):'<div class="zone-sub">Sin debilidades marcadas.</div>')+'</div></div>')+
+    rvSec('watch','Jugadores a vigilar','<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">'+watch+'</div>')+
+    rvSec('vol','Volumen de tiro y rebote (reparto del equipo)',
     '<div class="ficha-grid">'+
-      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Tiros tomados por jugador</div>'+rivalShareBars(rivalTeam,'fga','#34c769','#5fd98a')+'</div>'+
-      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Rebote ofensivo por jugador</div>'+rivalShareBars(rivalTeam,'ro','#f97316','#fb923c')+'</div>'+
-    '</div>'+
-    '<div class="sec">Claves del partido</div><div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>'+
-    '<div class="sec">Cuándo tira · momento de la posesión</div>'+
+      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Tiros tomados por jugador</div>'+rivalShareBars(rivalTeam,'fga',rvA,rvA)+'</div>'+
+      '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Rebote ofensivo por jugador</div>'+rivalShareBars(rivalTeam,'ro',rvA,rvA)+'</div>'+
+    '</div>')+
+    rvSec('claves','Claves del partido','<div class="court-box">'+claves.map(c=>'<div class="rv-item">🔑 '+c+'</div>').join('')+'</div>')+
+    rvSec('tramo','Cuándo tira · momento de la posesión',
     help('¿Para qué sirve esto?','Te dice <b>en qué momento de la posesión</b> suele tirar el rival: si juega rápido (primeros 8"), si arma su ataque (segundos 8") o si llega forzado al final (últimos 8"). Útil para saber si conviene correr con ellos o frenarlos, y cuándo aprietan más la defensa.')+
-    tramoPanelFor(rivalTeam)+
-    '<div class="sec">Cómo nos anotó este rival</div><div class="court-box">'+defSec+'</div>'+
+    tramoPanelFor(rivalTeam))+
+    rvSec('def','Cómo nos anotó este rival','<div class="court-box">'+defSec+'</div>')+
     clutchSec+
     '</div>';
 }
