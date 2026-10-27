@@ -988,6 +988,7 @@ body.v-placas #controls{display:none!important}
 details.rv-sec>summary{cursor:pointer;list-style:none;user-select:none}details.rv-sec>summary::-webkit-details-marker{display:none}
 details.rv-sec>summary.sec::after{order:1}.rv-chev{order:2;font-size:13px;color:var(--rv-acc,var(--text-2));transition:transform .15s}
 details.rv-sec:not([open])>summary .rv-chev{transform:rotate(-90deg)}details.rv-sec:not([open])>summary{opacity:.75}
+.rv-pdf .rv-blk{margin:0 0 6px}.rv-pdf .sec{margin:14px 0 10px}.rv-pdf .rv-head{margin:0}.rv-pdf .ficha-grid{grid-template-columns:1fr 1fr}
 </style>
 </head>
 <body>
@@ -4147,21 +4148,47 @@ function printScoutSheet(){
 }
 async function downloadRivalPDF(){
   const btn=document.getElementById('rivalPdfBtn');if(!btn)return;const old=btn.textContent;btn.textContent='Generando…';btn.disabled=true;
+  let wrap=null;
   try{
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    const node=document.getElementById('rival-report');
-    const canvas=await html2canvas(node,{backgroundColor:'#08090d',scale:2,useCORS:true});
-    const jsPDF=window.jspdf.jsPDF;
-    const pdf=new jsPDF('p','pt','a4');
-    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-    const imgW=pw,imgH=canvas.height*pw/canvas.width;
-    const img=canvas.toDataURL('image/png');
-    let left=imgH,pos=0;
-    pdf.addImage(img,'PNG',0,pos,imgW,imgH);left-=ph;
-    while(left>0){pos-=ph;pdf.addPage();pdf.addImage(img,'PNG',0,pos,imgW,imgH);left-=ph;}
+    if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+    const BG='#08090d',view=document.getElementById('view-rival'),src=document.getElementById('rival-report');
+    // copia limpia del informe, con ancho fijo y fuera de la pantalla (así no se corta ni se superpone nada)
+    wrap=document.createElement('div');wrap.className='rv-pdf';
+    wrap.style.cssText='position:fixed;left:-12000px;top:0;width:1120px;padding:0 4px;background:'+BG+';z-index:-1';
+    const cl=src.cloneNode(true);cl.removeAttribute('id');wrap.appendChild(cl);view.appendChild(wrap);
+    cl.querySelectorAll('details.help').forEach(d=>d.remove());
+    // lo contraído no sale; lo abierto se pasa a bloques normales (html2canvas no entiende <details>)
+    cl.querySelectorAll('details.rv-sec').forEach(d=>{if(!d.open){d.remove();return;}
+      const box=document.createElement('div');box.className='rv-blk';
+      const h=document.createElement('div');h.className='sec';const sm=d.querySelector(':scope>summary');const ch=sm.querySelector('.rv-chev');if(ch)ch.remove();h.innerHTML=sm.innerHTML;
+      box.appendChild(h);const body=d.querySelector(':scope>.rv-body');while(body.firstChild)box.appendChild(body.firstChild);d.replaceWith(box);});
+    const head=cl.querySelector('.rv-head');if(head)head.classList.add('rv-blk');
+    await new Promise(r=>setTimeout(r,60));
+    const blocks=[...cl.children].filter(e=>e.classList.contains('rv-blk')&&e.offsetHeight>0);
+    const jsPDF=window.jspdf.jsPDF;const pdf=new jsPDF('p','pt','a4');
+    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),M=18,W=pw-2*M,GAP=8;
+    const paint=()=>{pdf.setFillColor(8,9,13);pdf.rect(0,0,pw,ph,'F');};
+    paint();let y=M;
+    for(const el of blocks){
+      const cv=await html2canvas(el,{backgroundColor:BG,scale:2,useCORS:true,windowWidth:1200});
+      const k=W/cv.width,hPt=cv.height*k;
+      if(hPt<=ph-2*M){ // entra en una hoja: si no entra en lo que queda, pasa a la siguiente
+        if(y+hPt>ph-M&&y>M){pdf.addPage();paint();y=M;}
+        pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',M,y,W,hPt);y+=hPt+GAP;
+      }else{ // bloque más largo que una hoja: se corta en partes
+        let off=0;const sliceMax=Math.floor((ph-2*M)/k);
+        if(y>M){pdf.addPage();paint();y=M;}
+        while(off<cv.height){const hpx=Math.min(sliceMax,cv.height-off);const c2=document.createElement('canvas');c2.width=cv.width;c2.height=hpx;
+          const x2=c2.getContext('2d');x2.fillStyle=BG;x2.fillRect(0,0,c2.width,hpx);x2.drawImage(cv,0,off,cv.width,hpx,0,0,cv.width,hpx);
+          pdf.addImage(c2.toDataURL('image/jpeg',0.92),'JPEG',M,y,W,hpx*k);off+=hpx;y+=hpx*k+GAP;
+          if(off<cv.height){pdf.addPage();paint();y=M;}}
+      }
+    }
     pdf.save('Informe_'+String(rivalTeam).replace(/\s+/g,'_')+'.pdf');
   }catch(e){alert('No se pudo generar el PDF: '+(e.message||e));}
+  if(wrap)wrap.remove();
   btn.textContent=old;btn.disabled=false;
 }
 
