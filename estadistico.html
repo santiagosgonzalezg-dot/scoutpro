@@ -3219,9 +3219,13 @@ const SYN_SITS=[
   ['Catch and Shoot Guarded','Catch & Shoot · Guarded','tiro',['guarded']],
   ['Catch and Shoot','Catch & Shoot','tiro',['catch and shoot','catch & shoot']],
   ['At Rim','At Rim','tiro',['at rim']],
-  ['Long 3 pts','Long 3 Pts','tiro',['long 3 pts','long (3 point']],
-  ['Short to 17','Short to 17','tiro',['short to 17']],
+  ['Long 3 pts','Long 3 Pts','dist',['long 3 pts','long (3 point']],
+  ['Short to 17','Short to 17','dist',['short to 17']],
   ['Jump Shot','Jump Shot','tiro',['jump shot']],
+  ['Early Jumper','Early Jumper','tiro',['early jumper']],
+  ['Runner','Runner','tiro',['runner']],
+  ['Hook','Hook','tiro',['hook']],
+  ['Medium 17 to 3','Medium 17 to < 3 Pts','dist',['medium 17']],
   ['Miscellaneous','Varios','otro',['miscellaneous']]
 ];
 const SYN_SIT={};SYN_SITS.forEach(x=>SYN_SIT[x[0]]=x[1]);
@@ -3379,12 +3383,22 @@ function synPPG(r,p){if(!r)return null;return r.fuente==='cap'?synTotPoss(r)/Mat
 function synPlayTypes(team,p){const out=[];SYN_PT.forEach(s=>{const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0)out.push({k:s,sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
 // Tipos de tiro (archivos de Shot Attempts / Catch and Shoot)
 const SYN_SHOTMIN=5; // mínimo de posesiones para elegir el mejor / peor tiro
-function synShotPool(list){return list.filter(x=>x.r.ppp!=null&&synTotPoss(x.r)>=SYN_SHOTMIN&&x.k!=='Jump Shot');}
+function synShotPool(list){return list.filter(x=>x.r.ppp!=null&&synTotPoss(x.r)>=SYN_SHOTMIN);}
 function synBestShot(list){return synShotPool(list).sort((a,b)=>b.r.ppp-a.r.ppp)[0]||null;}
 function synWorstShot(list){const ok=synShotPool(list);if(ok.length<2)return null;const w=ok.sort((a,b)=>a.r.ppp-b.r.ppp)[0];const b=synBestShot(list);return b&&b.k===w.k?null:w;}
-function synShotTypes(team,p){const L=[['Long 3 pts','Long 3 Pts'],['Jump Shots off the Dribble','Dribble Jumper'],['Catch and Shoot Unguarded','Catch & Shoot · Unguarded'],['Catch and Shoot Guarded','Catch & Shoot · Guarded'],['Catch and Shoot','Catch & Shoot'],['At Rim','At Rim'],['Jump Shot','Jump Shot'],['Short to 17','Short to 17']];
-  const out=[];L.forEach(([k,l])=>{if(k==='Catch and Shoot'&&out.some(x=>/^Catch/.test(x.k)))return;if(k==='Jump Shot'&&out.some(x=>x.k==='Jump Shots off the Dribble'||/^Catch/.test(x.k)))return;
-    const r=synFor(team,p,k,'off');if(r&&((+r.poss||0)>0))out.push({k,sit:l,r});});return out;}
+// SHOT TYPES de Synergy, todos del mismo nivel y sin superponerse: Catch and Shoot / Dribble Jumper / Early Jumper (adentro de Jump Shot), Runner, Hook, At Rim.
+// Si la captura no trae abierto Jump Shot, se usa Jump Shot entero. Guarded / Unguarded van como detalle de Catch and Shoot.
+function synShotTypes(team,p){const g=k=>{const r=synFor(team,p,k,'off');return r&&(+r.poss||0)>0?r:null;};const out=[];
+  const cs=g('Catch and Shoot'),cu=g('Catch and Shoot Unguarded'),cg=g('Catch and Shoot Guarded'),dj=g('Jump Shots off the Dribble'),ej=g('Early Jumper');
+  if(cs)out.push({k:'Catch and Shoot',sit:'Catch and Shoot',r:cs,subs:[cu&&{l:'Unguarded',r:cu},cg&&{l:'Guarded',r:cg}].filter(Boolean)});
+  else{if(cu)out.push({k:'Catch and Shoot Unguarded',sit:'C&S · Unguarded',r:cu});if(cg)out.push({k:'Catch and Shoot Guarded',sit:'C&S · Guarded',r:cg});}
+  if(dj)out.push({k:'Jump Shots off the Dribble',sit:'Dribble Jumper',r:dj});
+  if(ej)out.push({k:'Early Jumper',sit:'Early Jumper',r:ej});
+  if(!cs&&!cu&&!cg&&!dj&&!ej){const js=g('Jump Shot');if(js)out.push({k:'Jump Shot',sit:'Jump Shot',r:js});}
+  [['Runner','Runner'],['Hook','Hook'],['At Rim','At Rim']].forEach(([k,l])=>{const r=g(k);if(r)out.push({k,sit:l,r});});
+  return out;}
+// SHOT DISTANCES (solo tiros en suspensión): se muestran aparte, no compiten con los tipos de tiro
+function synShotDist(team,p){return [['Short to 17','Short to 17'],['Medium 17 to 3','Medium 17-3P'],['Long 3 pts','Long 3 Pts']].map(([k,l])=>{const r=synFor(team,p,k,'off');return r&&(+r.poss||0)>0?{k,sit:l,r}:null;}).filter(Boolean);}
 // Tendencias sugeridas a partir de Synergy (hasta 3, de la más a la menos importante)
 function synTendencias(team,p){
   const T=[],ov=synFor(team,p,'Overall','off')||{};const tot=ov.situacion?synTotPoss(ov):0,ppg=ov.situacion?synPPG(ov,p):null;
@@ -3463,8 +3477,8 @@ function plDraw(cv,k){
   if(plOn('prom'))tiles.push(['PTS',(p.pts/g).toFixed(1)],['REB',(p.reb/g).toFixed(1)],['AST',(p.ast/g).toFixed(1)],['MIN',(p.min/g).toFixed(1)]);
   if(plOn('tiro'))tiles.push(['eFG%',Math.round(S.efg)+'%'],['TRIPLES',(p.tpa?Math.round(p.tpm/p.tpa*100):0)+'%',p.tpm+'/'+p.tpa],['LIBRES',(p.fta?Math.round(p.ftm/p.fta*100):0)+'%',p.ftm+'/'+p.fta]);
   if(plOn('uso'))tiles.push(['USO',S.usg!=null?S.usg+'%':'—']);
-  const STL=plOn('st')?synShotTypes(plTeam,p):[];
-  const colW=(plOn('carta')||STL.length)?880:1780;let ty=top;
+  const STL=plOn('st')?synShotTypes(plTeam,p):[],SDL=plOn('st')?synShotDist(plTeam,p):[];
+  const colW=(plOn('carta')||STL.length||SDL.length)?880:1780;let ty=top;
   if(tiles.length){const per=colW<1000?4:8,tw=(colW-(per-1)*16)/per,th=120;
     tiles.forEach((t,i)=>{const r=Math.floor(i/per),c=i%per,x=70+c*(tw+16),y=ty+r*(th+16);plRR(ctx,x,y,tw,th,16);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
       ctx.fillStyle=sub;ctx.font='700 22px '+PL_FD;ctx.textAlign='center';ctx.fillText(t[0],x+tw/2,y+34);ctx.fillStyle=txt;ctx.font='800 56px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+(t[2]?86:94));
@@ -3505,32 +3519,35 @@ function plDraw(cv,k){
     const cw=STL.length?480:850;
     const sh=fichaShots(p);plCourt(ctx,sh,1000,top,cw,bottom-top-26,txt,acc);
     ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % por zona',1000+cw,bottom);ctx.textAlign='left';
-    if(STL.length){usedSyn=true;const BS=synBestShot(STL),WS=synWorstShot(STL);if(STL.length>4){const keep=STL.filter(x=>x===BS||x===WS);STL.splice(0,STL.length,...STL.filter(x=>!keep.includes(x)).slice(0,4-keep.length).concat(keep).sort((a,b)=>STL.indexOf(a)-STL.indexOf(b)));}const x0=1510,w=340,n=STL.length,gap=12,hh=Math.min(130,Math.floor((bottom-top-36-(n-1)*gap)/n));
-      ctx.font='700 22px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',x0,top+18);
-      STL.forEach((x,i)=>{const y=top+30+i*(hh+gap),r=x.r,tp=synTotPoss(r),few=tp<SYN_MINP;plRR(ctx,x0,y,w,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
-        ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillRect(x0,y+10,5,hh-20);
-        const best=BS&&BS.k===x.k,worst=WS&&WS.k===x.k;ctx.font='700 22px '+PL_FB;ctx.fillStyle=best?acc:worst?'#f05050':txt;ctx.fillText((best?'★ ':worst?'▼ ':'')+x.sit,x0+20,y+30);
-        if(best||worst){ctx.lineWidth=3;ctx.strokeStyle=best?acc:'#f05050';plRR(ctx,x0,y,w,hh,14);ctx.stroke();}ctx.fillStyle=txt;
-        ctx.font='800 '+Math.min(46,Math.round(hh*0.42))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':(+r.ppp).toFixed(2),x0+20,y+hh-16);
-        ctx.font='600 19px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';
-        ctx.fillText((r.ppp!=null?(+r.ppp).toFixed(2)+' PPP · ':'')+tp+' pos',x0+w-16,y+hh-42);
-        ctx.fillText(r.pct_time!=null?Math.round(r.pct_time)+'% de sus pos.':'',x0+w-16,y+hh-16);ctx.textAlign='left';});}
-  } else if(STL.length){usedSyn=true;STL.splice(6);const BS=synBestShot(STL),WS=synWorstShot(STL);
-    const x0=1000,W=850,gap=14,cols=2,n=STL.length,rws=Math.ceil(n/cols),cw=(W-gap)/cols,hh=Math.min(150,Math.floor((bottom-top-36-(rws-1)*gap)/rws));
-    ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',x0,top+20);ctx.font='500 18px '+PL_FB;ctx.textAlign='right';ctx.fillText('% de acierto · puntos por posesión · posesiones',x0+W,top+20);ctx.textAlign='left';
-    STL.forEach((x,i)=>{const r=x.r,tp=synTotPoss(r),few=tp<SYN_MINP,cx=x0+(i%cols)*(cw+gap),y=top+34+Math.floor(i/cols)*(hh+gap);
-      plRR(ctx,cx,y,cw,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillRect(cx,y+12,6,hh-24);
-      ctx.font='700 26px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(x.sit,cx+24,y+38);
-      if(WS&&WS.k===x.k){ctx.lineWidth=4;ctx.strokeStyle='#f05050';plRR(ctx,cx,y,cw,hh,14);ctx.stroke();ctx.font='800 22px '+PL_FD;const bt='▼ PEOR TIRO';const bw=ctx.measureText(bt).width+22;plRR(ctx,cx+cw-bw-14,y+14,bw,32,16);ctx.fillStyle='#f05050';ctx.fill();ctx.fillStyle='#fff';ctx.fillText(bt,cx+cw-bw-3,y+37);ctx.fillStyle=txt;}
-      if(BS&&BS.k===x.k){ctx.lineWidth=4;ctx.strokeStyle=acc;plRR(ctx,cx,y,cw,hh,14);ctx.stroke();ctx.font='800 22px '+PL_FD;const bt='★ MEJOR TIRO';const bw=ctx.measureText(bt).width+22;plRR(ctx,cx+cw-bw-14,y+14,bw,32,16);ctx.fillStyle=acc;ctx.fill();ctx.fillStyle=plLum(acc)>0.6?'#111':'#fff';ctx.fillText(bt,cx+cw-bw-3,y+37);}
-      ctx.fillStyle=txt;ctx.font='800 '+Math.min(64,Math.round(hh*0.45))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':'—',cx+24,y+hh-20);
-      ctx.font='700 24px '+PL_FD;ctx.textAlign='right';ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillText(r.ppp!=null?(+r.ppp).toFixed(2)+' PPP':'',cx+cw-18,y+hh-50);
-      ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.fillText(tp+' pos'+(r.pct_time!=null?' · '+Math.round(r.pct_time)+'% de su juego':''),cx+cw-18,y+hh-20);ctx.textAlign='left';});}
+    if(STL.length){usedSyn=true;const BS=synBestShot(STL),WS=synWorstShot(STL);plShotTypes(ctx,STL,BS,WS,{x0:1510,y0:top,w:340,h:bottom-top-10,cols:1,max:4,small:true},txt,sub,acc,SDL);}
+  } else if(STL.length||SDL.length){usedSyn=true;const BS=synBestShot(STL),WS=synWorstShot(STL);plShotTypes(ctx,STL,BS,WS,{x0:1000,y0:top,w:850,h:bottom-top-10,cols:2,max:4,small:false},txt,sub,acc,SDL);}
   if(tend.length){const x=70,y=812,w=1780,h=178;plRR(ctx,x,y,w,h,18);ctx.fillStyle=plHex(acc,0.14);ctx.fill();ctx.fillStyle=acc;ctx.fillRect(x,y,8,h);
     ctx.font='800 26px '+PL_FD;ctx.fillStyle=acc;ctx.fillText('TENDENCIAS',x+30,y+40);ctx.font='600 32px '+PL_FB;
     tend.slice(0,3).forEach((t,i)=>{const yy=y+84+i*42;ctx.fillStyle=acc;ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();ctx.fillStyle=txt;
       let tt=t;while(ctx.measureText(tt).width>w-110&&tt.length>4)tt=tt.slice(0,-1);ctx.fillText(tt===t?t:tt+'…',x+64,yy);});}
   plFooter(ctx,txt,acc,'Scouting · '+plTeam,(plVs?'vs '+plVs+'  ·  ':'')+'Datos: planillas FIBA LiveStats'+(usedSyn?' + Synergy':''));
+}
+function plShotTypes(ctx,STL,BS,WS,o,txt,sub,acc,SDL){
+  let L=STL.slice();if(L.length>o.max){const keep=[BS,WS].filter(Boolean);L=L.filter(x=>!keep.includes(x)).sort((a,b)=>synTotPoss(b.r)-synTotPoss(a.r)).slice(0,o.max-keep.length).concat(keep).sort((a,b)=>STL.indexOf(a)-STL.indexOf(b));}
+  const distH=SDL.length?(o.small?34:96):0,gap=o.small?12:14,cols=o.cols,n=L.length,rws=Math.max(1,Math.ceil(n/cols)),cw=(o.w-(cols-1)*gap)/cols;
+  const hh=n?Math.min(o.small?130:150,Math.floor((o.h-34-distH-(rws-1)*gap)/rws)):0;
+  ctx.font='700 '+(o.small?22:24)+'px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT TYPES',o.x0,o.y0+20);
+  if(!o.small){ctx.font='500 18px '+PL_FB;ctx.textAlign='right';ctx.fillText('% de acierto · puntos por posesión · posesiones',o.x0+o.w,o.y0+20);ctx.textAlign='left';}
+  L.forEach((x,i)=>{const r=x.r,tp=synTotPoss(r),few=tp<SYN_MINP,cx=o.x0+(i%cols)*(cw+gap),y=o.y0+32+Math.floor(i/cols)*(hh+gap),best=BS&&BS.k===x.k,worst=WS&&WS.k===x.k;
+    plRR(ctx,cx,y,cw,hh,14);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillRect(cx,y+12,6,hh-24);
+    if(best||worst){ctx.lineWidth=o.small?3:4;ctx.strokeStyle=best?acc:'#f05050';plRR(ctx,cx,y,cw,hh,14);ctx.stroke();}
+    const fs=o.small?22:26;ctx.font='700 '+fs+'px '+PL_FB;ctx.fillStyle=o.small&&(best||worst)?(best?acc:'#f05050'):txt;ctx.fillText((o.small&&best?'★ ':o.small&&worst?'▼ ':'')+x.sit,cx+22,y+(o.small?30:38));
+    if(!o.small&&(best||worst)){ctx.font='800 22px '+PL_FD;const bt=best?'★ MEJOR TIRO':'▼ PEOR TIRO';const bw=ctx.measureText(bt).width+22;plRR(ctx,cx+cw-bw-14,y+14,bw,32,16);ctx.fillStyle=best?acc:'#f05050';ctx.fill();ctx.fillStyle=best&&plLum(acc)>0.6?'#111':'#fff';ctx.fillText(bt,cx+cw-bw-3,y+37);}
+    ctx.fillStyle=txt;ctx.font='800 '+Math.min(o.small?46:64,Math.round(hh*0.42))+'px '+PL_FD;ctx.fillText(r.fg_pct!=null?Math.round(r.fg_pct)+'%':'—',cx+22,y+hh-(x.subs&&x.subs.length&&!o.small?44:16));
+    ctx.textAlign='right';ctx.font='700 '+(o.small?19:24)+'px '+PL_FD;ctx.fillStyle=!few&&r.ppp!=null?pppColor(r.ppp):sub;ctx.fillText(r.ppp!=null?(+r.ppp).toFixed(2)+' PPP':'',cx+cw-16,y+hh-(o.small?42:(x.subs&&x.subs.length?74:50)));
+    ctx.font='600 '+(o.small?18:20)+'px '+PL_FB;ctx.fillStyle=sub;ctx.fillText(tp+' pos'+(r.pct_time!=null?' · '+Math.round(r.pct_time)+'% de su juego':''),cx+cw-16,y+hh-(o.small?16:(x.subs&&x.subs.length?44:20)));ctx.textAlign='left';
+    if(x.subs&&x.subs.length&&!o.small){ctx.font='600 19px '+PL_FB;ctx.fillStyle=sub;ctx.fillText(x.subs.map(u=>u.l+' '+(u.r.fg_pct!=null?Math.round(u.r.fg_pct)+'%':'—')+' ('+synTotPoss(u.r)+')').join('   ·   '),cx+22,y+hh-14);}});
+  if(SDL.length){const y=o.y0+32+(n?rws*(hh+gap):0);
+    if(o.small){ctx.font='600 18px '+PL_FB;ctx.fillStyle=sub;let t='Distancias: '+SDL.map(d=>d.sit+' '+(d.r.fg_pct!=null?Math.round(d.r.fg_pct)+'%':'—')+' ('+synTotPoss(d.r)+')').join(' · ');while(ctx.measureText(t).width>o.w&&t.length>8)t=t.slice(0,-1);ctx.fillText(t,o.x0,y+18);}
+    else{ctx.font='700 20px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SHOT DISTANCES (JUMPERS)',o.x0,y+16);const dw=(o.w-(SDL.length-1)*gap)/SDL.length;
+      SDL.forEach((d,i)=>{const dx=o.x0+i*(dw+gap),dy=y+26;plRR(ctx,dx,dy,dw,58,12);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
+        ctx.font='600 18px '+PL_FB;ctx.fillStyle=sub;ctx.fillText(d.sit,dx+14,dy+22);ctx.font='800 28px '+PL_FD;ctx.fillStyle=txt;ctx.fillText(d.r.fg_pct!=null?Math.round(d.r.fg_pct)+'%':'—',dx+14,dy+50);
+        ctx.textAlign='right';ctx.font='600 17px '+PL_FB;ctx.fillStyle=sub;ctx.fillText((d.r.ppp!=null?(+d.r.ppp).toFixed(2)+' PPP · ':'')+synTotPoss(d.r)+' pos',dx+dw-12,dy+48);ctx.textAlign='left';});}}
 }
 function plDrawCover(ctx,base,acc,txt,sub){
   const team=plTeam;plLogo(ctx,team,1560,120,280);
