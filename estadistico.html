@@ -768,7 +768,8 @@ table.t tr:hover td{background:var(--bg-hover)}
 .court-box{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-3)}
 .pl-man{margin:8px 0 2px;padding:8px 10px;border:1px solid var(--border-light);border-radius:10px}.pl-man-h{font-size:12px;font-weight:700;margin-bottom:6px}.pl-man-h span{font-weight:400;color:var(--text-3);margin-left:6px}
 .pl-man-i{display:block;width:100%;margin:4px 0;padding:7px 9px;font-size:13px;border-radius:8px;border:1px solid var(--border-light);background:var(--bg-raised,rgba(255,255,255,.04));color:inherit}
-.pl-man-a{margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5}.pl-man-a span{display:block}
+.pl-man-a{margin-top:6px;font-size:11px;color:var(--text-3);line-height:1.5}.pl-man-a span{display:flex;gap:6px;align-items:flex-start;margin:3px 0}.pl-man-a span.on{color:var(--text-2)}.pl-man-a span.off{text-decoration:line-through;opacity:.6}.pl-man-a i{font-style:normal;color:var(--text-3)}
+.pl-man-a button{flex:0 0 auto;width:20px;height:20px;line-height:18px;border-radius:50%;border:1px solid var(--border-light);background:transparent;color:inherit;cursor:pointer;font-size:11px;padding:0}
 .syn-st summary{cursor:pointer;font-size:12px;color:var(--text-2)}.syn-chk{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px}.syn-chk span{font-size:11px;white-space:nowrap}.syn-chk .ok{color:var(--positive)}.syn-chk .no{color:var(--text-3)}
 .syn-prev{border:1px solid var(--pl-acc,var(--border-light));border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--pl-acc-soft,transparent)}.syn-ph{font-size:12px;margin-bottom:8px}.syn-t{width:100%;border-collapse:collapse;font-size:12px}.syn-t th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);padding:4px}.syn-t td{padding:4px;border-top:1px solid var(--border-light)}.syn-t td:first-child{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.syn-t select{font-size:12px;padding:3px}.syn-t tr.bad td{color:var(--negative)}.syn-drop{outline:2px dashed var(--pl-acc,#f97316);outline-offset:4px;border-radius:8px}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:14px;margin-top:12px}.pl-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:10px;display:grid;gap:8px;align-content:start}.pl-card canvas{width:100%;height:auto;aspect-ratio:16/9;border-radius:8px;display:block}.pl-card.off canvas{opacity:.35;filter:grayscale(.8)}.pl-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.pl-inc{display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:12px;cursor:pointer}.pl-ed summary{cursor:pointer;color:var(--text-2);font-size:12px;padding:4px 0}.pl-f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:6px 0}.pl-ed label{display:grid;gap:3px;font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}.pl-t{margin-bottom:6px}.pl-ed input{font:500 13px var(--font-ui);padding:7px 9px;border:1px solid var(--border-light);border-radius:7px;background:var(--bg-panel);color:var(--text);width:100%;box-sizing:border-box}.pl-mods{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:8px 14px;margin-top:10px}.pl-mods summary{cursor:pointer;font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pl-tg{font:600 12px var(--font-ui);border:1px solid var(--border-light);background:transparent;color:var(--text-2);border-radius:999px;padding:7px 12px;cursor:pointer}.pl-tg.on{background:var(--pl-acc,var(--offense));border-color:var(--pl-acc,var(--offense));color:var(--pl-acc-fg,#fff)}#view-placas .sim-btn:hover{border-color:var(--pl-acc,var(--offense))}#view-placas #plPdfBtn{border-color:var(--pl-acc,var(--offense));color:var(--pl-acc,var(--offense));background:var(--pl-acc-soft,transparent)}#view-placas .pl-inc input{accent-color:var(--pl-acc,var(--offense))}#view-placas .pl-mods summary::marker{color:var(--pl-acc,var(--offense))}.pl-col{width:44px;height:32px;padding:2px;border:1px solid var(--border-light);border-radius:7px;background:transparent;cursor:pointer}
@@ -968,6 +969,13 @@ body.v-placas #controls{display:none!important}
 .wf-bar i{display:block;height:100%;border-radius:3px}
 .wf-foot{font-family:var(--font-mono);font-size:9.5px;line-height:1.7;color:var(--text-3);margin-top:var(--sp-3)}
 .wf-empty{font-family:var(--font-mono);font-size:11px;color:var(--text-2);padding:14px 4px}
+.syn-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.syn-tile{background:var(--bg-2,#161b25);border-radius:10px;padding:12px;text-align:center}.syn-tile b{display:block;font-size:24px;font-family:var(--font-mono)}.syn-tile span{font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+.syn-ptr{margin-bottom:6px}.syn-ptr .brk-row{margin-bottom:2px}.syn-who{font-size:11.5px;color:var(--text-3,#8891a0);padding-left:162px;display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}.syn-us{color:var(--text-2);margin-left:auto}
+.syn-pill{font-size:10px;font-weight:800;padding:1px 6px;border-radius:8px;margin-left:4px;white-space:nowrap}.syn-pill.g{background:#34c76933;color:#34c769}.syn-pill.r{background:#f9731633;color:#f97316}
+.syn-shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.syn-shot{border:1px solid;border-left-width:4px;border-radius:9px;padding:10px 12px}
+.syn-shot-n{font-size:12.5px;font-weight:700}.syn-shot-v{font-size:22px;font-weight:800;font-family:var(--font-mono);margin:2px 0}.syn-shot-s{font-size:11px;color:var(--text-2)}
+@media(max-width:640px){.syn-who{padding-left:0}.syn-ptr .brk-row{flex-wrap:wrap;gap:4px 10px}.syn-ptr .brk-name{width:100%}.syn-ptr .brk-track{flex:1 1 100%}.syn-ptr .brk-row{min-width:0}.syn-ptr{min-width:0;overflow:hidden}.syn-ptr .brk-val{width:auto!important;text-align:left}.syn-scroll{overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -3087,11 +3095,13 @@ function renderPlacas(){
   const pls=plPlayers(plTeam).slice(0,14);
   const cards=['__cover__'].concat(pls.map(p=>plPkey(plTeam,p))).map((k,i)=>{
     const isCov=k==='__cover__';const p=isCov?null:pls[i-1];const d=isCov?{}:(PLS.players[k]||{});const t=d.t||['','',''];
-    let au=[];if(!isCov&&plOn('synt')){try{au=synTendencias(plTeam,p);}catch(_){}}
+    let au=[];if(!isCov&&plOn('synt')){try{au=synTendencias(plTeam,p,99);}catch(_){}}
+    const hid=d.hide||[],nMan=t.filter(x=>String(x||'').trim()).length;let shown=0;
     const inc=!PLS.excl[k];
     const ed=isCov?'':'<div class="pl-man"><div class="pl-man-h">✍️ Tendencias manuales <span>se ven primero en la placa (con ◆); las automáticas completan hasta 4 renglones</span></div>'+
       [0,1,2].map(j=>'<input class="pl-man-i" maxlength="110" value="'+escAttr(t[j]||'')+'" placeholder="'+escAttr(['Ej.: Busca la mano derecha en la penetración','Ej.: Defenderlo con ayuda temprana en el poste','Ej.: Pierde pelotas ante presión'][j])+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)">').join('')+
-      (au.length?'<div class="pl-man-a">Automáticas de Synergy: '+au.map(x=>'<span>● '+escAttr(x)+'</span>').join('')+'</div>':'')+'</div>'+
+      (au.length?'<div class="pl-man-a">Automáticas de Synergy (tocá ✕ para sacar una de la placa):'+au.map(x=>{const key=tendKey(x),off=hid.includes(key);const enPlaca=!off&&(nMan+(++shown)<=4);
+        return '<span class="'+(off?'off':enPlaca?'on':'')+'"><button onclick="plHideT(\''+escAttr(k)+'\',\''+escAttr(key)+'\','+(off?'false':'true')+')" title="'+(off?'Volver a mostrar':'Sacar de la placa')+'">'+(off?'↺':'✕')+'</button> '+escAttr(x)+(enPlaca?' <i>· en la placa</i>':off?' <i>· oculta</i>':'')+'</span>';}).join('')+'</div>':'')+'</div>'+
       '<details class="pl-ed"><summary>✏️ Altura, peso y posición</summary><div class="pl-f">'+
       '<label>Altura<input value="'+escAttr(d.alt||'')+'" placeholder="1.98 m" oninput="plSet(\''+escAttr(k)+'\',\'alt\',this.value)"></label>'+
       '<label>Peso<input value="'+escAttr(d.peso||'')+'" placeholder="95 kg" oninput="plSet(\''+escAttr(k)+'\',\'peso\',this.value)"></label>'+
@@ -3271,6 +3281,12 @@ function synCapSit(label){const raw=String(label||'').toLowerCase().replace(/\s+
   if(/including passes|defense commits|traps|hard double|half court|out of bounds|after time|against|press|short clock|last 4/.test(raw))return '';
   for(const x of SYN_SITS){if(x[0]==='Overall')continue;if(x[3].some(a=>a==='cut'?/\bcuts?\b/.test(t):t.includes(a)))return x[0];}
   return '';}
+const SYN_SPECIAL=[['Overall Half Court','Half Court','Juego posicionado'],['Out of Bounds (End)','OOB End','Saques de fondo'],['Out of Bounds (Side)','OOB Side','Saques de costado'],['After Time Outs','ATO','Después de tiempo muerto'],
+  ['Last 4 Sec','Last 4 Sec','Últimos 4" de posesión'],['Against Man','vs Man','Contra hombre'],['Against Zone','vs Zone','Contra zona'],['Press','vs Press','Contra presión']];
+function synTeamSit(label,kind){const raw=String(label||'').toLowerCase().replace(/\s+/g,' ').trim();
+  if(raw==='all possessions'||raw==='overall')return 'Overall';
+  if(kind==='General'){if(raw==='transition')return 'Transition';const sp=SYN_SPECIAL.find(x=>raw.startsWith(x[0].toLowerCase()));return sp?sp[1]:'';}
+  return synCapSit(label);}
 function synParseCap(txt,fname){
   const L=String(txt).split(/\r?\n/),get=k=>{const l=L.find(x=>x.startsWith(k+'\t'));return l?l.slice(k.length+1).trim():'';};
   const url=get('#URL'),head=get('#HEAD'),end=L.findIndex(x=>x.startsWith('#ROWS'));
@@ -3285,23 +3301,26 @@ function synParseCap(txt,fname){
     if(/^STAT$/i.test(first)){cur='';continue;}
     const g=h=>{const j=ix(h);return j<0?null:r[j];};
     const pm=first.match(/^#(\d+)\s*(.+)$/);
-    if(!pm){curRaw=first;cur=synCapSit(first);if(cur&&kind==='General'&&cur!=='Overall'){unk.add(first);cur='';}if(!cur)unk.add(first);else{sits.add(cur);
-        if(cur==='Overall')recs.push({tipo:'team',team_syn:head,nombre:head,equipo:eq,num:null,situacion:'Overall',gp:1,poss:num(g('POSS')),pct_time:100,pts:num(g('PTS')),ppp:num(g('PPP')),fg_pct:num(g('FG%')),efg:num(g('EFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('SCORE%')),fg3_pct:num(g('3 FG%')),fg3_rate:num(g('3PA/FGA')),fuente:'cap'});}
+    if(!pm){curRaw=first;const ts=synTeamSit(first,kind);cur=synCapSit(first);if(cur&&kind==='General'&&cur!=='Overall')cur='';if(!cur&&!ts)unk.add(first);
+      // totales del EQUIPO en cada situación (se usan en la pestaña Rival)
+      if(ts&&!recs.some(x=>x.tipo==='team'&&x.situacion===ts)){sits.add(ts);recs.push({tipo:'team',team_syn:head,nombre:head,equipo:eq,num:null,situacion:ts,gp:1,poss:num(g('POSS')),pct_time:ts==='Overall'?100:num(g('%TIME')),pts:num(g('PTS')),ppp:num(g('PPP')!=null?g('PPP'):g('PPS')),fg_pct:num(g('FG%')),efg:num(g('EFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('SCORE%')),fg3_pct:num(g('3 FG%')),fg3_rate:num(g('3PA/FGA')),fuente:'cap'});}
+      if(cur)sits.add(cur);
       continue;}
     if(!cur)continue;
     recs.push({team_syn:head,nombre:pm[2].trim(),equipo:eq,num:pm[1],situacion:cur,gp:1,poss:num(g('POSS')),pct_time:num(g('%TIME')),pts:num(g('PTS')),ppp:num(g('PPP')!=null?g('PPP'):g('PPS')),
       fg_pct:num(g('FG%')),efg:num(g('EFG%')),to_pct:num(g('TO%')),ft_rate:num(g('%FT')),score_pct:num(g('SCORE%')),fg3_pct:num(g('3 FG%')),fg3_rate:num(g('3PA/FGA')),fuente:'cap'});}
   meta.sits=[...sits];meta.unk=[...unk];
   // En esta pantalla %TIME es la parte del EQUIPO en esa jugada; para la placa interesa cuánto de SU juego es cada jugada
-  const tot={};recs.forEach(r=>{const isPt=SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous';if(isPt)tot[r.nombre]=(tot[r.nombre]||0)+(+r.poss||0);});
-  recs.forEach(r=>{r.raw={team_pct_time:r.pct_time};
+  const tot={};recs.forEach(r=>{const isPt=SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous';if(isPt&&r.tipo!=='team')tot[r.nombre]=(tot[r.nombre]||0)+(+r.poss||0);});
+  recs.forEach(r=>{r.raw={team_pct_time:r.pct_time};if(r.tipo==='team')return;
     if(r.situacion==='Overall'){r.pct_time=100;return;}
     if(SYN_PT.includes(r.situacion)||r.situacion==='Miscellaneous'){const t=tot[r.nombre];r.pct_time=t?Math.round((+r.poss||0)/t*1000)/10:null;}
     else{const ov=recs.find(x=>x.situacion==='Overall'&&x.tipo!=='team'&&x.nombre===r.nombre)||SYNDB.find(x=>x.situacion==='Overall'&&x.lado==='off'&&x.tipo==='player'&&x.team_syn===r.team_syn&&synNorm(x.nombre)===synNorm(r.nombre));
       const t=ov?(+ov.poss||0)*(+ov.gp||0):0;r.pct_time=t?Math.round((+r.poss||0)/t*1000)/10:null;}});
   const nPl=recs.filter(r=>r.tipo!=='team').length;
   meta.gameBreak=!nPl&&/PER GAME\s*\n?\s*BREAKDOWN/.test(txt);
-  return {meta,recs,skipped:0,ok:nPl>0,cap:true,team_syn:head,equipo:eq};
+  meta.nPl=nPl;meta.nTeam=recs.length-nPl;
+  return {meta,recs,skipped:0,ok:recs.length>0,cap:true,team_syn:head,equipo:eq};
 }
 // lee CSV o Excel (Synergy exporta los dos)
 async function synReadFile(f){
@@ -3330,7 +3349,7 @@ function synPrevRender(){
         return '<tr'+(!P.ok||!P.equipo?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">📥 '+escAttr(P.team_syn||P.name)+'</td><td>'+escAttr(P.meta.kind)+' · '+P.meta.sits.length+' situaciones'+(P.meta.unk.length?' <span style="color:var(--text-3)">(se ignoran: '+escAttr(P.meta.unk.join(', '))+')</span>':'')+'</td>'+
         '<td>'+(P.equipo?escAttr(P.equipo):'<select onchange="SYN_PEND['+i+'].equipo=this.value;SYN_PEND['+i+'].recs.forEach(r=>r.equipo=this.value);synPrevRender()">'+opt('',tOpts)+'</select>')+'</td>'+
         '<td><select onchange="SYN_PEND['+i+'].meta.lado=this.value">'+opt(P.meta.lado,[['off','Ataque'],['def','Defensa']])+'</select></td>'+
-        '<td>'+(P.dup?'Repetido: se usa la captura más nueva':!P.ok?(P.meta&&P.meta.gameBreak?'⚠ Está en «Game Breakdown» (solo totales del equipo). En Synergy activá «Player Breakdown» y volvé a capturar.':'⚠ no encontré jugadores en la tabla'):new Set(P.recs.filter(r=>r.tipo!=='team').map(r=>r.nombre)).size+' jugadores')+'</td></tr>';}
+        '<td>'+(P.dup?'Repetido: se usa la captura más nueva':!P.ok?'⚠ no encontré la tabla':!P.meta.nPl?'Solo totales del equipo (sirve para Rival). Para las placas capturá también con «Player Breakdown».':new Set(P.recs.filter(r=>r.tipo!=='team').map(r=>r.nombre)).size+' jugadores + totales del equipo')+'</td></tr>';}
       const skip=P.meta.situacion==='__skip'||P.dup,bad=!skip&&(!P.ok||!P.recs.length||!P.meta.situacion);return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.situacion=this.value;synMarkDup();synPrevRender()">'+opt(P.meta.situacion,sitOpts)+'</select></td>'+
       '<td><select onchange="SYN_PEND['+i+'].meta.tipo=this.value">'+opt(P.meta.tipo,[['player','Jugadores'],['team','Equipos']])+'</select></td>'+
@@ -3404,7 +3423,7 @@ function synShotTypes(team,p){const g=k=>{const r=synFor(team,p,k,'off');return 
 // SHOT DISTANCES (solo tiros en suspensión): se muestran aparte, no compiten con los tipos de tiro
 function synShotDist(team,p){return [['Short to 17','Short to 17'],['Medium 17 to 3','Medium 17-3P'],['Long 3 pts','Long 3 Pts']].map(([k,l])=>{const r=synFor(team,p,k,'off');return r&&(+r.poss||0)>0?{k,sit:l,r}:null;}).filter(Boolean);}
 // Tendencias sugeridas a partir de Synergy (hasta 3, de la más a la menos importante)
-function synTendencias(team,p){
+function synTendencias(team,p,max){
   const T=[],ov=synFor(team,p,'Overall','off')||{};const tot=ov.situacion?synTotPoss(ov):0,ppg=ov.situacion?synPPG(ov,p):null;
   const pt=synPlayTypes(team,p).filter(x=>(+x.r.poss||0)*(+x.r.gp||0)>=4);
   if(pt[0]&&pt[0].r.pct_time>=20)T.push([9,'Jugada principal: '+pt[0].sit.toLowerCase()+', '+Math.round(pt[0].r.pct_time)+'% de su juego, '+(+pt[0].r.ppp).toFixed(2)+' PPP'+' ('+synTotPoss(pt[0].r)+' pos.)']);
@@ -3428,13 +3447,17 @@ function synTendencias(team,p){
     else T.push([7,'Tirador: '+Math.round(r3*100)+'% de sus tiros son triples'+(ov.fg3_pct!=null?' ('+Math.round(ov.fg3_pct)+'% de acierto)':'')+' — salir fuerte al tiro']);}
   else if(ov.fg3_rate!=null&&r3<=0.12&&tot>=15)T.push([7,'Casi no tira de 3 ('+Math.round(r3*100)+'% de sus tiros) — se le puede ir por debajo y cerrar la pintura']);
   if(ov.efg!=null&&+ov.efg>=58&&tot>=15&&!T.some(t=>/Muy eficiente/.test(t[1])))T.push([6,'Muy buen tirador de campo: eFG '+Math.round(ov.efg)+'%']);
-  return T.sort((a,b)=>b[0]-a[0]).map(x=>x[1]).filter((t,i,a)=>a.indexOf(t)===i).slice(0,3);
+  return T.sort((a,b)=>b[0]-a[0]).map(x=>x[1]).filter((t,i,a)=>a.indexOf(t)===i).slice(0,max||3);
 }
 // completa las tendencias vacías (o todas si force) con lo que sugiere Synergy
 // tendencias que van en la placa: las escritas a mano y, en los renglones vacíos, las de Synergy
+// cada tendencia automática se identifica por su tipo (lo que va antes de los dos puntos), así sigue oculta aunque cambien los números
+function tendKey(t){return String(t).split(/[:(\d]/)[0].trim().toLowerCase();}
+function plHideT(k,key,on){const d=(PLS.players[k]=PLS.players[k]||{});d.hide=(d.hide||[]).filter(x=>x!==key);if(on)d.hide.push(key);plSave();renderPlacas();}
 function plTend(team,p,d){const man=(d&&d.t||[]).map(x=>String(x||'').trim()).filter(Boolean).map(t=>({t,man:true}));
   if(!plOn('synt'))return man.slice(0,4);
-  let auto=[];try{auto=synTendencias(team,p);}catch(_){}
+  let auto=[];try{auto=synTendencias(team,p,99);}catch(_){}
+  const hid=(d&&d.hide)||[];auto=auto.filter(a=>!hid.includes(tendKey(a)));
   return man.concat(auto.filter(a=>!man.some(m=>m.t===a)).map(t=>({t,man:false}))).slice(0,4);}
 function plSugerir(k,force){const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);if(!p)return 0;const sug=synTendencias(plTeam,p);if(!sug.length)return 0;
   const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||['','',''];let n=0;
@@ -3775,6 +3798,84 @@ function tramoPanelFor(team){
     '<div class="tramo-bar"><div class="tramo-fill" style="width:'+share+'%;background:'+tCol[x.k]+'"></div></div></div>';}).join('')+'</div>'+
     '<div class="zone-sub" style="margin-top:8px">Primeros 8" = juego rápido / transición · Segundos = ataque normal · Últimos = relojito / forzado. '+(useReal?('Conteos estimados sobre los '+realFGA+' tiros '+scope+', repartidos según la muestra con momento registrado ('+totT+').'):'Sale de los '+totT+' tiros con momento registrado.')+'</div>';
 }
+
+// ── SYNERGY DEL EQUIPO (pestaña Rival) ──
+// fila del equipo en esa situación; si no hay totales del equipo, se suman sus jugadores (captura)
+function synTeamRow(team,sit,lado){lado=lado||'off';
+  const t=synLatest(SYNDB.filter(r=>r.tipo==='team'&&r.lado===lado&&r.situacion===sit&&sameTeam(r.equipo,team)));if(t.length)return t[0];
+  if(sit==='Overall'||SYN_SPECIAL.some(x=>x[1]===sit))return null;
+  const pl=synLatest(SYNDB.filter(r=>r.tipo==='player'&&r.lado===lado&&r.situacion===sit&&sameTeam(r.equipo,team)));if(!pl.length)return null;
+  const poss=pl.reduce((a,r)=>a+synTotPoss(r),0),pts=pl.reduce((a,r)=>a+(+r.pts||0)*((r.fuente==='cap')?1:(+r.gp||1)),0);
+  return {situacion:sit,poss,gp:1,pts,ppp:poss?Math.round(pts/poss*1000)/1000:null,agg:true,fuente:'cap'};}
+function synHasTeam(team){return SYNDB.some(r=>sameTeam(r.equipo,team)&&r.lado==='off');}
+// quién ejecuta esa jugada (los que más posesiones tienen)
+function synWho(team,sit,n){return synLatest(SYNDB.filter(r=>r.tipo==='player'&&r.lado==='off'&&r.situacion===sit&&sameTeam(r.equipo,team)))
+  .map(r=>({r,p:synTotPoss(r)})).filter(x=>x.p>0).sort((a,b)=>b.p-a.p).slice(0,n||3);}
+function synShortName(r){const w=String(r.nombre||'').trim().split(/\s+/);return (r.num!=null&&r.num!==''?'#'+r.num+' ':'')+(w.length>1?w[0][0]+'. '+w.slice(1).join(' '):w[0]);}
+function synTeamPT(team){const L=SYN_PT.map(k=>({k,sit:synSitL(k),r:synTeamRow(team,k)})).filter(x=>x.r&&synTotPoss(x.r)>0);
+  const tot=L.reduce((a,x)=>a+synTotPoss(x.r),0);L.forEach(x=>x.sh=!x.r.agg&&x.r.pct_time!=null?+x.r.pct_time:tot?Math.round(synTotPoss(x.r)/tot*1000)/10:0);return L.sort((a,b)=>synTotPoss(b.r)-synTotPoss(a.r));}
+function synTeamShots(team){const g=k=>{const r=synTeamRow(team,k);return r&&synTotPoss(r)>0?r:null;};const out=[];
+  const cu=g('Catch and Shoot Unguarded'),cg=g('Catch and Shoot Guarded'),cs=g('Catch and Shoot'),dj=g('Jump Shots off the Dribble'),ej=g('Early Jumper');
+  if(cu||cg){if(cu)out.push({k:'Catch and Shoot Unguarded',sit:'C&S Unguarded',r:cu});if(cg)out.push({k:'Catch and Shoot Guarded',sit:'C&S Guarded',r:cg});}else if(cs)out.push({k:'Catch and Shoot',sit:'Catch and Shoot',r:cs});
+  if(dj)out.push({k:'Jump Shots off the Dribble',sit:'Dribble Jumper',r:dj});if(ej)out.push({k:'Early Jumper',sit:'Early Jumper',r:ej});
+  if(!cu&&!cg&&!cs&&!dj&&!ej){const j=g('Jump Shot');if(j)out.push({k:'Jump Shot',sit:'Jump Shot',r:j});}
+  ['At Rim','Runner','Hook'].forEach(k=>{const r=g(k);if(r)out.push({k,sit:k,r});});
+  const tot=out.reduce((a,x)=>a+synTotPoss(x.r),0);out.forEach(x=>x.sh=tot?Math.round(synTotPoss(x.r)/tot*1000)/10:0);return out.sort((a,b)=>synTotPoss(b.r)-synTotPoss(a.r));}
+function synTeamDist(team){const L=[['Short to 17','Short to 17'],['Medium 17 to 3','Medium 17-3P'],['Long 3 pts','Long 3 Pts']].map(([k,l])=>({k,sit:l,r:synTeamRow(team,k)})).filter(x=>x.r&&synTotPoss(x.r)>0);
+  const tot=L.reduce((a,x)=>a+synTotPoss(x.r),0);L.forEach(x=>x.sh=tot?Math.round(synTotPoss(x.r)/tot*1000)/10:0);return L;}
+function synBestWorst(L,min){const ok=L.filter(x=>x.r.ppp!=null&&synTotPoss(x.r)>=min).sort((a,b)=>b.r.ppp-a.r.ppp);
+  return {best:ok[0]||null,worst:ok.length>=2?ok[ok.length-1]:null};}
+const f2=v=>v==null||!isFinite(+v)?'–':(+v).toFixed(2),f1p=v=>v==null||!isFinite(+v)?'–':Math.round(+v)+'%';
+// claves para el partido sacadas de Synergy
+function synClaves(team){const C=[],ov=synTeamRow(team,'Overall'),PT=synTeamPT(team),bw=synBestWorst(PT,SYN_MINP),T=k=>synTeamRow(team,k);
+  if(PT[0]){const w=synWho(team,PT[0].k,2);C.push('Su jugada principal es <b>'+PT[0].sit+'</b> ('+Math.round(PT[0].sh)+'% de sus posesiones, '+f2(PT[0].r.ppp)+' pts/pos)'+(w.length?': la ejecutan sobre todo '+w.map(x=>synShortName(x.r)).join(' y '):'')+'.');}
+  if(bw.best&&bw.best.r.ppp>=1&&bw.best.k!=='Transition'&&(!PT[0]||bw.best.k!==PT[0].k))C.push('Lo que mejor les sale es <b>'+bw.best.sit+'</b> ('+f2(bw.best.r.ppp)+' pts/pos): quitáselo.');
+  if(bw.worst&&bw.worst.r.ppp<0.8)C.push('Lo que peor les sale es <b>'+bw.worst.sit+'</b> ('+f2(bw.worst.r.ppp)+' pts/pos): llevalos a jugar eso.');
+  const tr=T('Transition'),ovp=ov?synTotPoss(ov):0;
+  if(tr&&ovp&&synTotPoss(tr)/ovp>=0.15&&tr.ppp>=1)C.push('Son peligrosos corriendo: '+Math.round(synTotPoss(tr)/ovp*100)+'% de sus posesiones en transición a '+f2(tr.ppp)+' pts/pos. Volvé rápido a defender.');
+  const hc=T('Half Court');if(hc&&tr&&hc.ppp!=null&&tr.ppp!=null&&tr.ppp-hc.ppp>=0.25)C.push('En ataque posicionado bajan mucho ('+f2(hc.ppp)+' pts/pos): obligalos a jugar 5 contra 5.');
+  const pr=T('vs Press');if(pr&&synTotPoss(pr)>=8&&pr.ppp!=null)C.push(pr.ppp>=1?'Contra presión anotan bien ('+f2(pr.ppp)+' pts/pos): no conviene presionarlos toda la cancha.':'Contra presión sufren ('+f2(pr.ppp)+' pts/pos'+(pr.to_pct!=null?', '+Math.round(pr.to_pct)+'% pérdidas':'')+'): presionalos.');
+  const zn=T('vs Zone');if(zn&&synTotPoss(zn)<5)C.push('Casi no enfrentaron zona ('+synTotPoss(zn)+' pos.): es una opción para sorprenderlos.');else if(zn&&synTotPoss(zn)>=10&&zn.ppp<0.85)C.push('Contra zona les cuesta ('+f2(zn.ppp)+' pts/pos): probala.');
+  const ato=T('ATO');if(ato&&synTotPoss(ato)>=8&&ato.ppp>=1)C.push('Después de tiempo muerto anotan '+f2(ato.ppp)+' pts/pos: atención a las jugadas que dibuja el técnico.');
+  const l4=T('Last 4 Sec');if(l4&&synTotPoss(l4)>=6&&l4.ppp<0.7)C.push('Cuando se les acaba la posesión rinden poco ('+f2(l4.ppp)+' pts/pos): defensa larga, que lleguen al final del reloj.');
+  if(ov&&ov.to_pct>=15)C.push('Pierden la pelota en el '+Math.round(ov.to_pct)+'% de sus posesiones: presioná la pelota.');
+  const S=synTeamShots(team),cu=S.find(x=>x.k==='Catch and Shoot Unguarded');if(cu&&synTotPoss(cu.r)>=8&&cu.r.ppp>=1.1)C.push('Liberados recibiendo meten ('+f2(cu.r.ppp)+' pts/pos): cerrá a los tiradores, nada de ayudas largas.');
+  return C.slice(0,7);}
+function synRivalSec(team,ours){
+  if(!synHasTeam(team))return '<div class="sec">Synergy</div><div class="court-box"><div class="zone-sub">Todavía no hay datos de Synergy de '+team+'. Capturá el equipo con el botón 📥 (pestañas Overall, Play Types y Shot Types) y subilo en Placas.</div></div>';
+  const ov=synTeamRow(team,'Overall'),gm=(leagueTeamStats().find(s=>s.team===team)||{a:{}}).a.pj||0,PT=synTeamPT(team),bw=synBestWorst(PT,SYN_MINP);
+  const oPT=ours?synTeamPT(ours):[],oRow=k=>oPT.find(x=>x.k===k);
+  const tile=(v,l)=>'<div class="syn-tile"><b>'+v+'</b><span>'+l+'</span></div>';
+  const tiles=ov?'<div class="syn-tiles">'+tile(f2(ov.ppp),'Pts por posesión')+tile(gm?(synTotPoss(ov)/gm).toFixed(1):synTotPoss(ov),gm?'Posesiones / partido':'Posesiones')+tile(f1p(ov.efg),'eFG%')+tile(f1p(ov.to_pct),'Pérdidas')+tile(f1p(ov.score_pct),'Anotan')+tile(f1p(ov.ft_rate),'Van a libres')+'</div>':
+    '<div class="zone-sub">Falta la captura de la pestaña Overall para ver los totales del equipo.</div>';
+  const mx=Math.max(1,...PT.map(x=>x.sh));
+  const ptRows=PT.map(x=>{const n=synTotPoss(x.r),few=n<SYN_MINP,col=few?'#8891a0':pppColor(x.r.ppp),w=synWho(team,x.k,3),o=oRow(x.k),
+      tag=bw.best&&bw.best.k===x.k?' <span class="syn-pill g">★ mejor</span>':bw.worst&&bw.worst.k===x.k?' <span class="syn-pill r">▼ peor</span>':'';
+    return '<div class="syn-ptr"><div class="brk-row"><span class="brk-name">'+x.sit+tag+'</span><span class="brk-track"><span class="brk-fill" style="width:'+Math.round(x.sh/mx*100)+'%;background:'+col+'"></span></span>'+
+      '<span class="brk-val" style="width:170px"><b>'+Math.round(x.sh)+'%</b> · '+n+' pos · <b style="color:'+col+'">'+f2(x.r.ppp)+'</b></span></div>'+
+      '<div class="syn-who">'+(w.length?'Quién: '+w.map(y=>synShortName(y.r)+' ('+y.p+')').join(' · '):'')+(o?'<span class="syn-us">Nosotros: '+Math.round(o.sh)+'% · '+f2(o.r.ppp)+'</span>':'')+'</div></div>';}).join('');
+  const SP=[['Transition','Transición'],['Half Court','Juego posicionado'],['ATO','Después de tiempo muerto'],['OOB End','Saques de fondo'],['OOB Side','Saques de costado'],['Last 4 Sec','Últimos 4" de posesión'],['vs Man','Contra hombre'],['vs Zone','Contra zona'],['vs Press','Contra presión']]
+    .map(([k,l])=>({k,l,r:synTeamRow(team,k)})).filter(x=>x.r);
+  const ovp=ov?synTotPoss(ov):0;
+  const spTab=SP.length?'<div class="syn-scroll"><table class="bs-table"><thead><tr><th class="l">Situación</th><th>Pos.</th><th>% del total</th><th>Pts/pos</th><th>eFG%</th><th>Pérd.</th></tr></thead><tbody>'+
+    SP.map(x=>{const n=synTotPoss(x.r),few=n<SYN_MINP;return '<tr><td class="l">'+x.l+'</td><td>'+n+'</td><td>'+(ovp&&!/^vs /.test(x.k)?Math.round(n/ovp*100)+'%':x.r.pct_time!=null?Math.round(x.r.pct_time)+'%':'–')+'</td><td style="font-weight:700;color:'+(few||x.r.ppp==null?'#8891a0':pppColor(x.r.ppp))+'">'+f2(x.r.ppp)+'</td><td>'+f1p(x.r.efg)+'</td><td>'+f1p(x.r.to_pct)+'</td></tr>';}).join('')+
+    '</tbody></table></div><div class="zone-sub" style="margin-top:6px">«Contra hombre / zona / presión» se mide sobre el juego posicionado. Gris = menos de '+SYN_MINP+' posesiones (poca muestra).</div>':
+    '<div class="zone-sub">Para ver transición, tiempos muertos, saques y defensas, capturá la pestaña <b>Overall</b> del equipo con <b>Game Breakdown</b>.</div>';
+  const ST=synTeamShots(team),SD=synTeamDist(team),sbw=synBestWorst(ST,SYN_SHOTMIN);
+  const shotTiles=L=>L.map(x=>{const n=synTotPoss(x.r),few=n<SYN_SHOTMIN,col=few?'#8891a0':pppColor(x.r.ppp),
+      tag=sbw.best&&sbw.best.k===x.k?'★ ':sbw.worst&&sbw.worst.k===x.k?'▼ ':'';
+    return '<div class="syn-shot" style="border-color:'+col+'"><div class="syn-shot-n">'+tag+x.sit+'</div><div class="syn-shot-v" style="color:'+col+'">'+f2(x.r.ppp)+'</div><div class="syn-shot-s">'+Math.round(x.sh)+'% · '+n+' tiros'+(x.r.fg_pct!=null?' · '+Math.round(x.r.fg_pct)+'% FG':'')+'</div></div>';}).join('');
+  const shots=ST.length?'<div class="syn-shots">'+shotTiles(ST)+'</div>'+(SD.length?'<div class="zone-lbl" style="margin:12px 0 8px">Shot distances (jumpers)</div><div class="syn-shots">'+shotTiles(SD)+'</div>':'')+
+    '<div class="zone-sub" style="margin-top:6px">'+(sbw.best?'★ Mejor tiro: <b>'+sbw.best.sit+'</b> ('+f2(sbw.best.r.ppp)+'). ':'')+(sbw.worst?'▼ Peor tiro: <b>'+sbw.worst.sit+'</b> ('+f2(sbw.worst.r.ppp)+'). ':'')+'Mínimo '+SYN_SHOTMIN+' tiros para elegir mejor/peor.</div>':
+    '<div class="zone-sub">Falta la captura de la pestaña <b>Shot Types</b> (con «Jump Shot» y «Catch and Shoot» abiertos).</div>';
+  return '<div class="sec">Synergy · cómo ataca</div>'+
+    help('¿Qué es esto?','Sale de las capturas de Synergy de este equipo. <b>Pts/pos</b> = puntos por posesión: más de 1.10 es muy bueno (verde), menos de 0.80 es malo (naranja). <b>%</b> = qué parte de sus posesiones termina en esa jugada. «Quién» = los jugadores que más la usan (posesiones). Mejor/peor: mínimo '+SYN_MINP+' posesiones.')+
+    '<div class="court-box">'+tiles+'</div>'+
+    '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Play types · cómo terminan sus posesiones</div>'+(ptRows||'<div class="zone-sub">Falta la captura de la pestaña <b>Play Types</b>.</div>')+'</div>'+
+    '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Situaciones especiales</div>'+spTab+'</div></div>'+
+    '<div class="court-box"><div class="zone-lbl" style="margin-bottom:12px">Shot types · qué tiros toman</div>'+shots+'</div>'+
+    '<div class="zone-sub" style="margin:4px 0 0">Cómo defienden: cuando captures el equipo en Synergy con <b>Defense</b>, va a aparecer acá.</div>';
+}
 function renderRival(){
   const el=document.getElementById('view-rival');
   if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
@@ -3815,6 +3916,7 @@ function renderRival(){
   if(R('astTo',true)>=65)claves.push('Cortá las líneas de pase: mueven muy bien la pelota.');
   if(R('pace',true)>=65)claves.push('Controlá el ritmo: les gusta correr.');
   if(R('pace',true)<=35)claves.push('Te van a frenar el ritmo: generá ventajas temprano.');
+  const synC=synClaves(rivalTeam);claves.unshift(...synC);
   if(!claves.length)claves.push('Equipo parejo sin un patrón marcado: jugá tu partido y ajustá sobre la marcha.');
   const tRb=topShare(rivalTeam,'ro');
   if(tRb&&tRb.share>=30)claves.unshift((tRb.num?'#'+tRb.num+' ':'')+tRb.name+' concentra el '+tRb.share+'% del rebote ofensivo del equipo: bloqueálo en el tiro.');
@@ -3904,6 +4006,7 @@ function renderRival(){
         '<div style="margin-top:9px"><span class="fh-tag">'+estiloTxt+'</span></div>'+
         '<div class="fh-team" style="text-transform:none;font-size:13.5px;letter-spacing:0;color:#cfd5e3;line-height:1.55;margin-top:10px">'+resumen+'</div>'+
       '</div></div>'+
+    synRivalSec(rivalTeam,myTeam&&synHasTeam(myTeam)?myTeam:null)+
     '<div class="ficha-grid"><div class="court-box"><div class="zone-lbl" style="margin-bottom:6px">Perfil del equipo</div>'+radarSVG(dims)+'</div>'+
     '<div class="court-box"><div class="zone-lbl" style="margin-bottom:14px">Perfil vs la liga</div>'+bar+
       '<div class="zone-sub" style="margin-top:8px">Barra = posición en la liga (más llena = mejor). Gris = neutro (ritmo / volumen). El valor real va a la derecha.</div></div></div>'+
