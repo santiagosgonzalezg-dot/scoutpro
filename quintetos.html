@@ -1061,14 +1061,36 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
   for(const p of starters)currentMap.set(p.pid,{num:p.num,name:p.name,pid:p.pid});
 
   const segs=[];
-  let segStart='P'+quarter+' '+startLabel;
-  let segStats=emptyStats();
-  const pendingQueue=[];
   const currentArr=()=>Array.from(currentMap.values());
+  const keyOf=arr=>arr.map(p=>p.pid).sort().join('||');
+  let segStart='P'+quarter+' '+startLabel;
+  let segPlayers=currentArr();
+  let segStats=emptyStats();
+  // Los cambios se juntan: FIBA anota cada cambio por separado (sale uno, entra otro, sale otro…),
+  // pero si se hacen juntos en la misma pausa es UN solo cambio de quinteto. Antes cada línea
+  // cerraba un quinteto y aparecían quintetos de 0 minutos que nunca jugaron juntos.
+  let inBatch=false,batchTime=null,batchOut=[],batchIn=[];
   const isOnCourt=(ev)=>currentMap.has(ev.pid)||!!findFuzzy(ev,currentArr());
-  const resolveOutPid=(outEv)=>{if(currentMap.has(outEv.pid))return outEv.pid;const f=findFuzzy(outEv,currentArr());return f?f.pid:null;};
+  const resolvePid=(ev)=>{if(currentMap.has(ev.pid))return ev.pid;const f=findFuzzy(ev,currentArr());return f?f.pid:null;};
+  const statsEmpty=st=>Object.values(st).every(v=>!v);
+  const closeSeg=(endTime,next)=>{
+    // un tramo de 0 segundos sin ninguna jugada no es un quinteto real: se descarta
+    if(!(parseTime(segStart)-parseTime(endTime)<=0&&statsEmpty(segStats)))
+      segs.push({startTime:segStart,endTime,players:segPlayers,subOut:next.out,subIn:next.in,stats:{...segStats}});
+    segStart=endTime;segStats=emptyStats();
+  };
+  const flushBatch=()=>{
+    if(!inBatch)return;inBatch=false;
+    // si quedaron más de 5 (falta una salida en el dato), salen los que ya estaban y no volvieron a entrar
+    if(currentMap.size>5){const ins=new Set(batchIn.map(e=>e.pid));for(const p of currentArr()){if(currentMap.size<=5)break;if(!ins.has(p.pid))currentMap.delete(p.pid);}}
+    const now=currentArr();
+    if(keyOf(now)!==keyOf(segPlayers)){closeSeg(batchTime,{out:batchOut[0]||null,in:batchIn[0]||null});segPlayers=now;}
+    batchOut=[];batchIn=[];
+  };
 
   for(const ev of events){
+    const isSub=ev.type==='subOut'||ev.type==='subIn';
+    if(!isSub)flushBatch();
     if(ev.teamReb){
       // Rebote de equipo: lo suma el quinteto propio que está en cancha
       if(ev.teamReb===myTeamNo){ if(ev.type in segStats)segStats[ev.type]++; }
@@ -1083,39 +1105,18 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
     }
     const isMine=myPids.has(ev.pid);
     const isOpp=oppPids.has(ev.pid);
-    const onCourt=isOnCourt(ev);
 
-    if(ev.type==='subOut'){
-      if(isMine||(onCourt&&!isOpp))pendingQueue.push({ev});
+    if(isSub){
+      if(isOpp)continue;                       // cambios del rival: no tocan este quinteto
+      if(!isMine&&!isOnCourt(ev))continue;
+      if(!inBatch){inBatch=true;batchOut=[];batchIn=[];}
+      batchTime=ev.time;
+      if(ev.type==='subOut'){const pid=resolvePid(ev);if(pid){currentMap.delete(pid);batchOut.push(ev);}}
+      else if(!currentMap.has(ev.pid)){currentMap.set(ev.pid,{num:ev.num,name:ev.name,pid:ev.pid});batchIn.push(ev);}
+      continue;
     }
-    else if(ev.type==='subIn'){
-      if(isOpp)continue;
-      if(!pendingQueue.length){
-        if(currentMap.has(ev.pid))continue;
-        if(currentMap.size>=5){
-          const arr=currentArr();
-          const victim=arr.find(p=>!myPids.has(p.pid))||arr[arr.length-1];
-          segs.push({startTime:segStart,endTime:ev.time,players:currentArr(),subOut:victim,subIn:ev,stats:{...segStats}});
-          currentMap.delete(victim.pid);
-          currentMap.set(ev.pid,{num:ev.num,name:ev.name,pid:ev.pid});
-          segStart=ev.time;segStats=emptyStats();
-        } else {
-          currentMap.set(ev.pid,{num:ev.num,name:ev.name,pid:ev.pid});
-        }
-        continue;
-      }
-      let matchIdx=-1;
-      for(let i=0;i<pendingQueue.length;i++){if(resolveOutPid(pendingQueue[i].ev)!==null){matchIdx=i;break;}}
-      if(matchIdx===-1)continue;
-      const {ev:outEv}=pendingQueue.splice(matchIdx,1)[0];
-      const outPid=resolveOutPid(outEv);
-      if(currentMap.has(ev.pid)&&ev.pid!==outPid)continue;
-      segs.push({startTime:segStart,endTime:ev.time,players:currentArr(),subOut:outEv,subIn:ev,stats:{...segStats}});
-      currentMap.delete(outPid);
-      if(!currentMap.has(ev.pid))currentMap.set(ev.pid,{num:ev.num,name:ev.name,pid:ev.pid});
-      segStart=ev.time;segStats=emptyStats();
-    }
-    else if(ev.type!=='other'){
+    if(ev.type!=='other'){
+      const onCourt=isOnCourt(ev);
       if((isMine||onCourt)&&!isOpp){if(ev.type in segStats)segStats[ev.type]++;}
       if(isOpp){
         if(ev.type==='pt2conv')segStats.oppPt2conv++;
@@ -1129,7 +1130,8 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
       }
     }
   }
-  segs.push({startTime:segStart,endTime:'P'+quarter+' 00:00',players:currentArr(),subOut:null,subIn:null,stats:{...segStats}});
+  flushBatch();
+  segs.push({startTime:segStart,endTime:'P'+quarter+' 00:00',players:segPlayers,subOut:null,subIn:null,stats:{...segStats}});
   return segs;
 }
 function findFuzzy(ev,arr){return arr.find(p=>fuzzyMatch(p,ev))||null;}
@@ -1204,18 +1206,25 @@ async function loadMatch(){
   if(!proxy){setStatus('err','Falta la dirección del proxy.');return;}
   const id=m[1];
   const code=(raw.match(/\/u\/([A-Za-z0-9_-]+)\//)||[])[1]||'';
-  const url=proxy+(proxy.includes('?')?'&':'?')+'matchId='+id+(code?'&code='+encodeURIComponent(code):'');
+  // '_=' + hora: así nunca se usa una copia vieja guardada (si cargaste al entretiempo, ahora trae lo nuevo)
+  const url=proxy+(proxy.includes('?')?'&':'?')+'matchId='+id+(code?'&code='+encodeURIComponent(code):'')+'&_='+Date.now();
   const btn=document.getElementById('goBtn');btn.disabled=true;
   setStatus('load','Buscando el partido '+id+'…');
   try{
-    const res=await fetch(url);
+    const res=await fetch(url,{cache:'no-store'});
     if(!res.ok)throw new Error('El proxy respondió '+res.status);
     const data=await res.json();
     if(data.error)throw new Error(data.error);
     if(!data.tm||!data.pbp)throw new Error('La respuesta no tiene el formato esperado.');
     ingest(data);
     renderAll();
-    setStatus('ok','Partido cargado: '+S.teams[1].name+' '+ (data.tm['1'].score) +' — '+(data.tm['2'].score)+' '+S.teams[2].name);
+    // hasta dónde llegan los datos de FIBA (para saber si está completo)
+    const last=(data.pbp||[]).reduce((b,e)=>(!b||(+e.period||0)>(+b.period||0)||((+e.period||0)===(+b.period||0)&&String(e.gt||'')<String(b.gt||'')))?e:b,null);
+    const perL=pe=>pe>4?'suplementario '+(pe-4):pe+'º cuarto';
+    const fin=last&&+last.period>=4&&String(last.gt||'')==='00:00';
+    const hora=new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+    setStatus('ok','Partido cargado: '+S.teams[1].name+' '+ (data.tm['1'].score) +' — '+(data.tm['2'].score)+' '+S.teams[2].name+
+      (last?' · datos hasta '+perL(+last.period)+' '+(last.gt||'')+(fin?' (final)':' (en juego: volvé a cargar al terminar)'):'')+' · descargado '+hora);
   }catch(err){
     setStatus('err','No se pudo cargar: '+err.message);
   }finally{ btn.disabled=false; }
