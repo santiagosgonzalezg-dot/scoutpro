@@ -54,6 +54,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .btn-go:disabled{opacity:.5;cursor:wait}
 .status{margin-top:10px;font-family:var(--font-mono);font-size:11px;display:none}
 .status.show{display:block}
+.lucheck{margin-top:8px;font-size:12.5px;line-height:1.5;border-radius:9px;padding:9px 12px;display:none}.lucheck.ok{display:block;background:rgba(52,199,105,.10);border:1px solid rgba(52,199,105,.35);color:var(--text)}.lucheck.bad{display:block;background:rgba(240,80,80,.10);border:1px solid rgba(240,80,80,.4);color:var(--text)}.lucheck ul{margin:4px 0 0 18px;padding:0}
 .status.err{color:var(--negative)} .status.ok{color:var(--positive)} .status.load{color:var(--text-2)}
 .hint{font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-top:8px;line-height:1.6}
 
@@ -849,6 +850,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
       <button class="btn-go" id="goBtn" onclick="loadMatch()">Cargar partido</button>
     </div>
     <div class="status" id="status"></div>
+    <div class="lucheck" id="luCheck"></div>
     <div class="hint">Pegá el número del partido (o el link entero) y tocá «Cargar partido». Arma los quintetos solo, sin Excel.</div>
   </div>
 
@@ -1235,6 +1237,33 @@ async function loadMatch(){
 // ════════════════════════════════════════════════════════════════
 function pchip(p,t){return '<span class="pchip"><span class="pn">'+(p.num||'·')+'</span>'+p.name+'</span>';}
 
+// CONTROL: los minutos de cada jugador según los quintetos tienen que dar lo mismo que la planilla de FIBA.
+// Si un quinteto estuviera mal armado (un jugador "en cancha" que ya había salido), sus minutos no coincidirían.
+function luCheck(){
+  const fmt=m=>{const t=Math.round(m*60);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
+  const bad=[],info=[];let maxDiff=0,zeros=0,nLu=0,wrongSize=0;
+  for(const t of [1,2]){
+    const segMin={};let teamMin=0;
+    for(const q of S.periods){for(const seg of S.results[q]['lineups'+t]){const m=segMinutes(seg);teamMin+=m;if(seg.players.length!==5)wrongSize++;
+      if(m===0&&Object.values(seg.stats).every(v=>!v))zeros++;for(const p of seg.players)segMin[p.pid]=(segMin[p.pid]||0)+m;}}
+    const lus=Object.values(buildConsolidatedData(S.results)[t]).filter(r=>Math.round((r.totalMins||0)*60)>=1);nLu+=lus.length;
+    info.push(lus.length+' de '+S.teams[t].name);
+    const pl=(S.data.tm[String(t)]||{}).pl||{};
+    for(const pno of Object.keys(pl)){const p=pl[pno];const num=String(p.shirtNumber||'').trim();const rec=S.teams[t].byNum[num];if(!rec)continue;
+      const fiba=parseMinStr(p.sMinutes),mine=segMin[rec.pid]||0,d=Math.abs(fiba-mine);if(fiba===0&&mine===0)continue;
+      if(d>maxDiff)maxDiff=d;
+      if(d>0.5)bad.push(S.teams[t].name+' · #'+num+' '+rec.name+': quintetos '+fmt(mine)+' · planilla FIBA '+fmt(fiba));}
+  }
+  const el=document.getElementById('luCheck');if(!el)return;
+  if(!bad.length&&!wrongSize&&!zeros){
+    el.className='lucheck ok';
+    el.innerHTML='✅ <b>Quintetos controlados.</b> Los minutos de cada jugador según los quintetos coinciden con la planilla oficial de FIBA'+(maxDiff>0?' (diferencia máxima '+fmt(maxDiff)+')':'')+'. Quintetos: '+info.join(', ')+'. Ninguno de 0 minutos.';
+  }else{
+    el.className='lucheck bad';
+    el.innerHTML='⚠ <b>Revisar quintetos.</b> '+(bad.length?'Estos jugadores no coinciden con la planilla de FIBA (puede faltar un cambio en el dato de FIBA):<ul>'+bad.slice(0,12).map(b=>'<li>'+b+'</li>').join('')+'</ul>':'')+
+      (wrongSize?'<div>'+wrongSize+' tramo(s) con más o menos de 5 jugadores.</div>':'')+(zeros?'<div>'+zeros+' tramo(s) de 0 minutos sin jugadas.</div>':'');
+  }
+}
 function renderAll(){
   document.getElementById('tabs').classList.add('show');
   document.getElementById('homeBtn').classList.add('show');
@@ -1250,6 +1279,7 @@ function renderAll(){
   renderComparar();
   renderPorCuarto();
   renderConsolidado();
+  try{luCheck();}catch(e){}
   document.getElementById('tbMeta').textContent=S.teams[1].name+' vs '+S.teams[2].name;
   const pg=document.getElementById('pgTeam');
   if(pg)pg.innerHTML='<option value="1">'+S.teams[1].name+'</option><option value="2">'+S.teams[2].name+'</option>';
