@@ -865,6 +865,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
         <input id="mgSearch" placeholder="Buscar equipo, fase o jornada…" oninput="mgRender()">
         <select id="mgLigaF" onchange="mgRender()"><option value="">Todas las ligas</option></select>
         <button class="mg-btn" onclick="mgLoad()">↻ Actualizar</button>
+        <button class="mg-btn" id="mgRedoBtn" onclick="mgRedo()" title="Recalcula los quintetos de los partidos de esta lista con el cálculo corregido">🔄 Rehacer quintetos</button>
       </div>
       <div class="mg-list" id="mgList"><div class="mg-empty">Cargando…</div></div>
       <div class="mg-msg" id="mgMsg"></div>
@@ -1092,7 +1093,7 @@ function buildLineups(events,starters,myPids,oppPids,quarter,startMin,myTeamNo){
 
   for(const ev of events){
     const isSub=ev.type==='subOut'||ev.type==='subIn';
-    if(!isSub)flushBatch();
+    if(!isSub||(inBatch&&ev.time!==batchTime))flushBatch();   // otra jugada u otro momento del reloj = cambio terminado
     if(ev.teamReb){
       // Rebote de equipo: lo suma el quinteto propio que está en cancha
       if(ev.teamReb===myTeamNo){ if(ev.type in segStats)segStats[ev.type]++; }
@@ -1239,8 +1240,9 @@ function pchip(p,t){return '<span class="pchip"><span class="pn">'+(p.num||'·')
 
 // CONTROL: los minutos de cada jugador según los quintetos tienen que dar lo mismo que la planilla de FIBA.
 // Si un quinteto estuviera mal armado (un jugador "en cancha" que ya había salido), sus minutos no coincidirían.
-function luCheck(){
-  const fmt=m=>{const t=Math.round(m*60);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');};
+function luFmt(m){const t=Math.round(m*60);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0');}
+function luValidate(){
+  const fmt=luFmt;
   const bad=[],info=[];let maxDiff=0,zeros=0,nLu=0,wrongSize=0;
   for(const t of [1,2]){
     const segMin={};let teamMin=0;
@@ -1254,6 +1256,10 @@ function luCheck(){
       if(d>maxDiff)maxDiff=d;
       if(d>0.5)bad.push(S.teams[t].name+' · #'+num+' '+rec.name+': quintetos '+fmt(mine)+' · planilla FIBA '+fmt(fiba));}
   }
+  return {bad,info,maxDiff,zeros,wrongSize,okAll:!bad.length&&!wrongSize&&!zeros};
+}
+function luCheck(){
+  const fmt=luFmt;const {bad,info,maxDiff,zeros,wrongSize}=luValidate();
   const el=document.getElementById('luCheck');if(!el)return;
   if(!bad.length&&!wrongSize&&!zeros){
     el.className='lucheck ok';
@@ -1292,6 +1298,26 @@ const SB_CFG={url:'https://jqudeomgafqilqmqcqzg.supabase.co',key:'eyJhbGciOiJIUz
 let _sb=null;
 function getSB(){ if(_sb)return _sb; if(window.supabase&&window.supabase.createClient)_sb=window.supabase.createClient(SB_CFG.url,SB_CFG.key); return _sb; }
 function saveStatusMsg(type,msg){const el=document.getElementById('saveStatus');el.className='save-status '+type;el.textContent=msg;}
+function quintetoRows(matchId,fecha,fase,jornada,ligaSel){
+  const acc=buildConsolidatedData(S.results);
+  const rows=[];
+  for(const team of [1,2]){
+    const rival=S.teams[team===1?2:1].name;
+    for(const r of Object.values(acc[team])){
+      const m=calcMetrics(r);
+      rows.push({match_id:matchId,fecha,fase,jornada,liga:ligaSel,
+        equipo:S.teams[team].name,rival,es_local:team===1,
+        jugadores:r.players.map(p=>({num:p.num,name:p.name})),
+        jugadores_key:r.players.map(p=>p.pid).sort().join('||'),
+        cuartos:r.quarters.slice().sort().join(','),
+        minutos:+m.mins.toFixed(2),pts_favor:m.ptsA,pts_contra:m.ptsR,diff:m.diff,
+        pos:m.posProp,pos_riv:m.posRiv,ef_off:m.efOff,ef_def:m.efDefRaw,
+        pt2c:m.pt2c,pt2i:m.pt2i,pt3c:m.pt3c,pt3i:m.pt3i,tlc:m.tlc,tli:m.tli,
+        ast:m.ast,rob:m.rob,per:m.per,reb_def:m.rebDef,reb_off:m.rebOff});
+    }
+  }
+  return rows;
+}
 async function saveMatch(){
   if(!S.results){saveStatusMsg('err','Cargá un partido primero.');return;}
   const client=getSB();
@@ -1312,24 +1338,9 @@ async function saveMatch(){
       .filter(Boolean).join('_').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
     matchId='m-'+(base||('sinid-'+Date.now()));
   }
-  const acc=buildConsolidatedData(S.results);
-  const rows=[];
-  for(const team of [1,2]){
-    const rival=S.teams[team===1?2:1].name;
-    for(const r of Object.values(acc[team])){
-      const m=calcMetrics(r);
-      rows.push({match_id:matchId,fecha,fase,jornada,liga:ligaSel,
-        equipo:S.teams[team].name,rival,es_local:team===1,
-        jugadores:r.players.map(p=>({num:p.num,name:p.name})),
-        jugadores_key:r.players.map(p=>p.pid).sort().join('||'),
-        cuartos:r.quarters.slice().sort().join(','),
-        minutos:+m.mins.toFixed(2),pts_favor:m.ptsA,pts_contra:m.ptsR,diff:m.diff,
-        pos:m.posProp,pos_riv:m.posRiv,ef_off:m.efOff,ef_def:m.efDefRaw,
-        pt2c:m.pt2c,pt2i:m.pt2i,pt3c:m.pt3c,pt3i:m.pt3i,tlc:m.tlc,tli:m.tli,
-        ast:m.ast,rob:m.rob,per:m.per,reb_def:m.rebDef,reb_off:m.rebOff});
-    }
-  }
+  const rows=quintetoRows(matchId,fecha,fase,jornada,ligaSel);
   const btn=document.getElementById('saveBtn');btn.disabled=true;
+
   saveStatusMsg('load','Guardando…');
   const fails=[];   // bloques que NO se pudieron guardar (para avisar honestamente)
   try{
@@ -2297,14 +2308,57 @@ async function mgLoad(){
   }catch(e){ list.innerHTML='<div class="mg-empty">No se pudo leer la lista: '+mgEsc(e.message||e)+'</div>'; }
 }
 
-function mgRender(){
+function mgFiltered(){
   const q=(document.getElementById('mgSearch').value||'').toLowerCase().trim();
   const lf=document.getElementById('mgLigaF').value;
-  const items=MG.list.filter(g=>{
+  return MG.list.filter(g=>{
     if(lf&&g.liga!==lf)return false;
     if(!q)return true;
     return [g.local,g.visit,g.fase,g.jornada,mgLigaName(g.liga),g.fecha].join(' ').toLowerCase().includes(q);
   });
+}
+// Rehace SOLO los quintetos de los partidos de la lista (los que estén filtrados), con el cálculo nuevo.
+// Vuelve a bajar cada partido de FIBA; jugadores, tiros, cuartos y jugadas no se tocan.
+async function mgRedo(){
+  if(!MG.loaded)await mgLoad();
+  const items=mgFiltered().filter(g=>/^\d{5,}$/.test(String(g.id)));
+  if(!items.length){mgMsg('err','No hay partidos en la lista para rehacer.');return;}
+  if(!confirm('¿Rehacer los quintetos de '+items.length+' partido'+(items.length===1?'':'s')+'?\n\nSe vuelven a bajar de FIBA y se recalculan solo los quintetos. Fecha, fase, jornada y liga quedan igual. Jugadores, tiros, cuartos y jugadas no se tocan.'))return;
+  const client=getSB();if(!client){mgMsg('err','No se pudo conectar a la base.');return;}
+  const proxy=document.getElementById('proxyUrl').value.trim().replace(/\/+$/,'');
+  const btn=document.getElementById('mgRedoBtn');if(btn)btn.disabled=true;
+  const keep={};Object.keys(S).forEach(k=>keep[k]=S[k]);   // lo que tengas abierto en pantalla no se pierde
+  const ok=[],warn=[],fail=[];
+  for(let i=0;i<items.length;i++){const g=items[i],lbl=(g.local||'?')+' vs '+(g.visit||'?');
+    mgMsg('load','Rehaciendo '+(i+1)+' de '+items.length+': '+lbl+'…');
+    try{
+      const res=await fetch(proxy+(proxy.includes('?')?'&':'?')+'matchId='+g.id+'&_='+Date.now(),{cache:'no-store'});
+      if(!res.ok)throw new Error('FIBA respondió '+res.status);
+      const data=await res.json();if(data.error)throw new Error(data.error);if(!data.tm||!data.pbp)throw new Error('dato incompleto');
+      ingest(data);
+      // se mantienen los nombres con que estaba guardado (así sigue cruzando con jugadores, tiros, etc.)
+      if(g.local)S.teams[1].name=g.local;if(g.visit)S.teams[2].name=g.visit;
+      const v=luValidate();
+      const rows=quintetoRows(String(g.id),g.fecha||null,g.fase||null,g.jornada||null,g.liga||null);
+      if(!rows.length)throw new Error('no se armaron quintetos');
+      const del=await client.from('quintetos_log').delete().eq('match_id',String(g.id));if(del.error)throw del.error;
+      const ins=await client.from('quintetos_log').insert(rows);if(ins.error)throw ins.error;
+      (v.okAll?ok:warn).push(lbl+(v.okAll?'':' ('+v.bad.length+' jugador'+(v.bad.length===1?'':'es')+' no coincide'+(v.bad.length===1?'':'n')+' con FIBA)'));
+    }catch(e){fail.push(lbl+': '+(e.message||e));}
+    await new Promise(r=>setTimeout(r,250));
+  }
+  Object.keys(S).forEach(k=>{if(!(k in keep))delete S[k];});Object.assign(S,keep);
+  if(btn)btn.disabled=false;
+  const el=document.getElementById('mgMsg');el.className='mg-msg '+(fail.length||warn.length?'err':'ok');
+  el.innerHTML='✅ '+ok.length+' partido'+(ok.length===1?'':'s')+' rehecho'+(ok.length===1?'':'s')+' y controlado'+(ok.length===1?'':'s')+' contra la planilla de FIBA.'+
+    (warn.length?'<br>⚠ Guardados pero para revisar: '+warn.map(mgEsc).join(' · '):'')+
+    (fail.length?'<br>✖ No se pudieron rehacer (quedan como estaban): '+fail.map(mgEsc).join(' · '):'');
+}
+function mgRender(){
+  const q=(document.getElementById('mgSearch').value||'').toLowerCase().trim();
+  const lf=document.getElementById('mgLigaF').value;
+  const items=mgFiltered();
+  const rb=document.getElementById('mgRedoBtn');if(rb)rb.textContent='🔄 Rehacer quintetos ('+items.length+')';
   document.getElementById('mgCount').textContent=MG.loaded?('('+MG.list.length+')'):'';
   const list=document.getElementById('mgList');
   if(!items.length){ list.innerHTML='<div class="mg-empty">'+(MG.list.length?'Ningún partido coincide con la búsqueda.':'Todavía no hay partidos guardados.')+'</div>'; return; }
