@@ -1572,19 +1572,33 @@ function reportSeason(){
   const meta='<b>'+esc(team)+'</b><br>'+nm+' partido'+(nm===1?'':'s')+' · '+esc(fmtD(D.matches[0].fecha))+' al '+esc(fmtD(D.matches[nm-1].fecha));
   const mTot=(m,mk)=>{let p2=0,m2=0;Object.values(m.cells).forEach(c=>{if(c[mk]){p2+=c[mk].p;m2+=c[mk].m;}});return {p:p2,m:m2};};
   const byGame='<table><thead><tr><th class="l">Fecha</th><th class="l">Rival</th>'+D.inds.map(mm=>'<th>'+esc(fullL(mm))+'</th>').join('')+'<th>Kills</th><th>Kills cortados</th><th>Def. logradas</th></tr></thead><tbody>'+D.matches.slice().reverse().map(m=>'<tr><td class="l">'+esc(fmtD(m.fecha))+'</td><td class="l">'+(m.local===false?'@ ':'vs ')+esc(m.rival)+'</td>'+D.inds.map(mm=>{const t=mTot(m,mm.k);return '<td>'+(mm.pm?t.p+'✓ '+t.m+'✗':(t.p-t.m))+'</td>';}).join('')+'<td class="u">'+m.kills+'</td><td class="neg">'+m.def_rotas+'</td><td>'+(m.pctDef!=null?'<b>'+m.pctDef+'%</b>':m.def_tot)+'</td></tr>').join('')+'</tbody></table>';
-  const pages=chunks.map((ch,pi)=>'<div class="page">'+repHead('ESFUERZO · ACUMULADO DE LA TEMPORADA',meta,col)+
-    (pi===0?('<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">'+(lg?'<img src="'+esc(lg)+'" style="width:52px;height:52px;object-fit:contain">':'')+
-      '<div style="flex:1">'+kpiPdf(mk=>{let p2=0,m2=0;D.players.forEach(po=>{const c=po.met[mk];if(c){p2+=c.p;m2+=c.m;}});return {p:p2,m:m2};},D.inds,tK,tR,seasonPct(D).pct!=null?seasonPct(D).d:tD,'<div><b>'+nm+'</b><span>Partidos</span></div>',null,Object.assign(seasonPct(D),{solo:true})).replace('margin-bottom:10px','margin:0')+'</div></div>'+
-      '<div class="sec">Los 3 mejores de la temporada (acciones por partido)</div><div class="rk" style="grid-template-columns:1fr">'+rankBoxes(R.best,'▲ Los 3 que más aportan',true,p=>f1(p.avg)+' por partido',team,p=>breakdown(p.met,D.inds,false)+' · '+p.pj+' PJ')+'</div>'+
-      (sLead.length?'<div class="sec">Líderes de la temporada</div>'+leadersPdf(sLead,team,true):'')):'')+
-    '<div class="sec">Por jugador · total y promedio por partido'+(chunks.length>1?' ('+(pi+1)+'/'+chunks.length+')':'')+'</div><div class="card"><table><thead>'+head+'</thead><tbody>'+ch.map(rowH).join('')+'</tbody></table>'+
-    '<div class="note">Total = suma de la temporada. Prom. = total ÷ partidos jugados.'+(COV()?' En close out, buenos − malos.':'')+' Acciones = suma de todo lo que hizo el jugador. Ranking: entran los que jugaron al menos '+R.minPj+' de '+nm+' partidos.</div></div>'+
-    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+' · Página '+(pi+1)+'/'+(chunks.length+1)+'</div></div>').join('')+
+  // ── RANKING COMPLETO (todos los jugadores) ──
+  const elig=pls.filter(po=>po.pj>=R.minPj),fuera=pls.filter(po=>po.pj<R.minPj);
+  const medal=i=>i<3?['🥇','🥈','🥉'][i]:(i+1)+'°';
+  const rkRow=(po,i)=>{const ph=photo(team,po.p.num,true);return '<tr><td class="rkp">'+(i==null?'—':medal(i))+'</td><td class="l nm"><span style="display:inline-flex;align-items:center;gap:6px">'+(ph?'<img class="av" style="width:18px;height:18px" src="'+esc(ph)+'">':'')+esc(plName(po.p))+'</span></td><td>'+po.pj+'</td><td class="u" style="font-size:12px">'+f1(po.avg)+'</td><td class="u">'+fmtNet(po.units)+'</td><td class="l sm">'+esc(breakdown(po.met,D.inds,false))+'</td></tr>';};
+  const rkHead='<table><thead><tr><th>#</th><th class="l">Jugador</th><th>PJ</th><th>Acciones por partido</th><th>Total</th><th class="l">Detalle</th></tr></thead><tbody>';
+  const rkAll=elig.map((po,i)=>({po,i})).concat(fuera.map(po=>({po,i:null})));
+  const rkPer=17,rkChunks=[];for(let i=0;i<rkAll.length;i+=rkPer)rkChunks.push(rkAll.slice(i,i+rkPer));if(!rkChunks.length)rkChunks.push([]);
+  const rkTable=(ch,ci)=>rkHead+ch.map((x,k)=>(x.i==null&&(k===0?(ci===0||rkChunks[ci-1].slice(-1)[0].i!=null):ch[k-1].i!=null)?'<tr><td colspan="6" class="l sm" style="padding-top:8px;color:#8a909c">Jugaron menos de '+R.minPj+' de los '+nm+' partidos (fuera del ranking, solo de referencia):</td></tr>':'')+rkRow(x.po,x.i)).join('')+'</tbody></table>';
+  const kpiTop='<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">'+(lg?'<img src="'+esc(lg)+'" style="width:52px;height:52px;object-fit:contain">':'')+
+      '<div style="flex:1">'+kpiPdf(mk=>{let p2=0,m2=0;D.players.forEach(po=>{const c=po.met[mk];if(c){p2+=c.p;m2+=c.m;}});return {p:p2,m:m2};},D.inds,tK,tR,seasonPct(D).pct!=null?seasonPct(D).d:tD,'<div><b>'+nm+'</b><span>Partidos</span></div>',null,Object.assign(seasonPct(D),{solo:true})).replace('margin-bottom:10px','margin:0')+'</div></div>';
+  const rkPages=rkChunks.map((ch,ci)=>'<div class="page">'+repHead('ESFUERZO · ACUMULADO DE LA TEMPORADA',meta,col)+(ci===0?kpiTop:'')+
+    '<div class="sec">Ranking de la temporada · acciones por partido'+(rkChunks.length>1?' ('+(ci+1)+'/'+rkChunks.length+')':'')+'</div><div class="card">'+rkTable(ch,ci)+
+    (ci===rkChunks.length-1?'<div class="note">Ordenado por acciones de esfuerzo por partido (la suma de '+esc(actList())+(COV()?'; el close out malo resta 1':'')+'). Entran en el ranking los que jugaron al menos '+R.minPj+' de los '+nm+' partidos.</div>':'')+'</div>'+
+    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+'</div></div>');
+  // ── DETALLE POR ACCIÓN (mismo orden del ranking) ──
+  const detPages=chunks.map((ch,pi)=>'<div class="page">'+repHead('ESFUERZO · ACUMULADO DE LA TEMPORADA',meta,col)+
+    (pi===0&&sLead.length?'<div class="sec">Líderes de la temporada</div>'+leadersPdf(sLead,team,true):'')+
+    '<div class="sec">Por jugador · total y promedio por acción'+(chunks.length>1?' ('+(pi+1)+'/'+chunks.length+')':'')+'</div><div class="card"><table><thead>'+head+'</thead><tbody>'+ch.map(rowH).join('')+'</tbody></table>'+
+    '<div class="note">Total = suma de la temporada. Prom. = total ÷ partidos jugados.'+(COV()?' En close out, buenos − malos.':'')+' Acciones = suma de todo lo que hizo el jugador.</div></div>'+
+    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+'</div></div>');
+  const pages=rkPages.join('')+detPages.join('')+
     '<div class="page">'+repHead('ESFUERZO · ACUMULADO DE LA TEMPORADA',meta,col)+
     '<div class="sec">Rachas y menciones</div><div class="card mn">'+mencionesPdf(ST)+'</div>'+
     '<div class="sec">Partido a partido</div><div class="card">'+byGame+'</div>'+glosario(D)+
-    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+' · Página '+(chunks.length+1)+'/'+(chunks.length+1)+'</div></div>';
-  const html='<!doctype html><html><head><meta charset="utf-8"><style>'+repCss(col,true)+'</style></head><body>'+pages+'</body></html>';
+    '<div class="ft">ScoutPRO · Esfuerzo · Acumulado '+esc(team)+'</div></div>';
+  let pgN=0;const totP=(pages.match(/<div class="page">/g)||[]).length;
+  const html='<!doctype html><html><head><meta charset="utf-8"><style>'+repCss(col,true)+'.rkp{width:34px;font-size:12px;font-weight:700}</style></head><body>'+pages.replace(/(ScoutPRO · Esfuerzo · Acumulado [^<]*)<\/div><\/div>/g,(m0,t)=>t+' · Página '+(++pgN)+'/'+totP+'</div></div>')+'</body></html>';
   const safe=s=>String(s||'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'');
   esfPdf(html,'Esfuerzo_acumulado_'+safe(team)+'.pdf','l','btnRepA');
 }
@@ -1645,8 +1659,7 @@ function renderEvaluar(){
   const teamTot=mk=>{let p=0,m=0;D0.players.forEach(po=>{const c=po.met[mk];if(c){p+=c.p;m+=c.m;}});return {p,m};};
   const fx=v=>perG?(v/pj).toFixed(1):String(v);
   const SP=seasonPct(D0);
-  const kpis=kpiActions(m=>{const t=teamTot(m.k);return perG?{p:+(t.p/pj).toFixed(1),m:+(t.m/pj).toFixed(1)}:t;},fx(totKills),fx(totRotas),fx(totDef),
-    '<div class="kpi"><div class="v" style="color:var(--positive)">'+(SP.pct==null?'—':SP.pct+'%')+'</div><div class="k">% Defensas logradas</div></div>'+
+  const kpis=kpiActions(m=>{const t=teamTot(m.k);return perG?{p:+(t.p/pj).toFixed(1),m:+(t.m/pj).toFixed(1)}:t;},fx(totKills),fx(totRotas),SP.pct!=null?'<span style="color:var(--positive)">'+SP.pct+'%</span>':fx(totDef),
     '<div class="kpi"><div class="v">'+mrows.length+'</div><div class="k">Partidos</div></div>')+(perG?'<div class="zone-sub" style="margin:-8px 0 10px">Promedio por partido.</div>':'');
 
   // ── HISTÓRICO POR JUGADOR ──
@@ -1719,9 +1732,9 @@ function renderEvaluar(){
   // ── colectivas partido a partido ──
   const maxI=Math.max(1,...mrows.map(r=>Math.abs(r.idx)));
   const tablaM='<div class="board"><div class="board-title">'+esc(evTeam)+' — partido a partido</div><div class="tblwrap"><table class="t"><thead><tr>'+
-    '<th class="l">Fecha</th><th class="l">Rival</th><th>Kills</th><th>Def. logradas</th><th>Pos. rival</th><th>% def. logradas</th><th>Kills cortados</th><th>Acciones</th><th>Total (acciones + kills)</th></tr></thead><tbody>'+
+    '<th class="l">Fecha</th><th class="l">Rival</th><th>Kills</th><th>Def. logradas</th><th>Kills cortados</th><th>Acciones</th><th>Total (acciones + kills)</th></tr></thead><tbody>'+
     mrows.map(r=>'<tr><td class="l">'+esc(fmtD(r.fecha))+'</td><td class="l"><span class="tcell">'+badge(r.rival,20)+esc(r.rival)+'</span>'+(r.local===false?' <span style="color:var(--text-3)">(V)</span>':'')+'</td>'+
-      '<td style="color:var(--defense);font-weight:600">'+r.kills+'</td><td>'+r.def_tot+'</td>'+(()=>{const dm=D0.matches.find(x=>x.key===r.mid);return '<td>'+(dm&&dm.posRiv!=null?Math.round(dm.posRiv):'—')+'</td><td style="font-weight:700;color:var(--positive)">'+(dm&&dm.pctDef!=null?dm.pctDef+'%':'—')+'</td>';})()+'<td style="color:var(--negative)">'+r.def_rotas+'</td>'+
+      '<td style="color:var(--defense);font-weight:600">'+r.kills+'</td>'+(()=>{const dm=D0.matches.find(x=>x.key===r.mid);return dm&&dm.pctDef!=null?'<td style="font-weight:700;color:var(--positive)">'+dm.pctDef+'%</td>':'<td>'+r.def_tot+'</td>';})()+'<td style="color:var(--negative)">'+r.def_rotas+'</td>'+
       '<td>'+fmtNet(r.indNet)+'</td>'+
       '<td style="color:var(--offense);font-weight:600">'+fmtNet(r.idx)+'<span class="bar-wrap"><span class="bar" style="width:'+Math.round(Math.abs(r.idx)/maxI*100)+'%"></span></span></td></tr>').join('')+
     '</tbody></table></div></div>';
