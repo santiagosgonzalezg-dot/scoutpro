@@ -989,6 +989,10 @@ details.rv-sec>summary{cursor:pointer;list-style:none;user-select:none}details.r
 details.rv-sec>summary.sec::after{order:1}.rv-chev{order:2;font-size:13px;color:var(--rv-acc,var(--text-2));transition:transform .15s}
 details.rv-sec:not([open])>summary .rv-chev{transform:rotate(-90deg)}details.rv-sec:not([open])>summary{opacity:.75}
 .rv-pdf .rv-blk{margin:0 0 6px}.rv-pdf .sec{margin:14px 0 10px}.rv-pdf .rv-head{margin:0}.rv-pdf .ficha-grid{grid-template-columns:1fr 1fr}
+.pl-man.dim .pl-man-i{opacity:.45}.pl-man-r{display:flex;gap:6px;align-items:center}.pl-man-r .pl-man-i{flex:1}
+.pl-man-x{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:1px solid var(--border-light);background:transparent;color:var(--text-3);cursor:pointer}.pl-man-x:hover{color:var(--negative);border-color:var(--negative)}
+.pl-man-add{margin-top:4px;font:600 12px var(--font-ui);padding:6px 10px;border-radius:8px;border:1px dashed var(--pl-acc,var(--offense));background:transparent;color:var(--pl-acc,var(--offense));cursor:pointer}
+.pl-tsec{margin-top:10px}.pl-tsec-h{font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tsec-h span{display:block;font-family:var(--font-ui);font-weight:400;font-size:12px;color:var(--text-3);letter-spacing:0;margin-top:2px}
 </style>
 </head>
 <body>
@@ -1293,8 +1297,16 @@ function leagueLineups(){
   if(f.length<5)f=lus;
   return f;
 }
+// Puntos de contraataque por equipo (jugadas guardadas desde Quintetos con el origen de cada punto)
+function fastBreakStats(team){
+  const mine=(PBP||[]).filter(r=>r.origen!=null&&r.origen!==''&&(sameTeam(r.equipo,team)||sameTeam(r.rival,team)));
+  const ms=new Set(mine.map(r=>r.match_id));if(!ms.size)return null;
+  let f=0,c=0;mine.forEach(r=>{if(r.origen!=='Contraataque')return;if(sameTeam(r.equipo,team))f+=+r.pts||0;else c+=+r.pts||0;});
+  return {pj:ms.size,favor:f/ms.size,contra:c/ms.size,tf:f,tc:c};
+}
 function renderDashboard(){
   const teams=leagueTeamStats();
+  teams.forEach(t=>{t.fb=fastBreakStats(t.team);});
   const el=document.getElementById('view-dashboard');
   if(!teams.length){el.innerHTML='<div class="empty">Sin datos para mostrar.</div>';return;}
   const cols=[
@@ -1312,10 +1324,15 @@ function renderDashboard(){
     {key:'3v',label:'3VOL',sortable:true,val:r=>r.a.threeVol,cell:r=>r.a.threeVol+'%'},
     {key:'ap',label:'AST/POS',sortable:true,val:r=>r.a.astPos,cell:r=>r.a.astPos.toFixed(2)},
     {key:'at',label:'AST/PÉR',sortable:true,val:r=>r.a.astTo,cell:r=>r.a.astTo.toFixed(2)},
+    {key:'fbf',label:'C.A ANOT.',sortable:true,val:r=>r.fb?r.fb.favor:-1e9,cell:r=>r.fb?r.fb.favor.toFixed(1):'—'},
+    {key:'fbc',label:'C.A REC',sortable:true,val:r=>r.fb?r.fb.contra:-1e9,cell:r=>r.fb?r.fb.contra.toFixed(1):'—'},
     {key:'diff',label:'+/-',sortable:true,val:r=>r.a.diff,cell:r=>sgn(r.a.diff),color:r=>dc(r.a.diff)},
   ];
   if(!sortState['ligaTeams'])sortState['ligaTeams']={key:'net',dir:-1};
-  const rankTable=sortableTable('view-dashboard','Ranking de equipos',cols,teams,'ligaTeams');
+  const fbN=teams.filter(t=>t.fb).length,fbPart=teams.some(t=>t.fb&&t.fb.pj<t.a.pj);
+  const rankTable=sortableTable('view-dashboard','Ranking de equipos',cols,teams,'ligaTeams')+
+    '<div class="zone-sub" style="margin:-6px 0 14px">C.A ANOT. = puntos de contraataque que anota por partido · C.A REC = puntos de contraataque que recibe por partido (según lo que marca la mesa de control de FIBA como <i>fast break</i>).'+
+    (!fbN?' <b>Todavía no hay partidos con este dato:</b> en Quintetos → Partidos cargados tocá «🔄 Rehacer quintetos» para completarlo.':fbPart?' Algunos equipos tienen el dato solo en parte de sus partidos: tocá «🔄 Rehacer quintetos» en Quintetos para completarlo.':'')+'</div>';
 
   const lus=leagueLineups();
   const best=lus.slice().sort((a,b)=>b.net-a.net).slice(0,5);
@@ -3083,9 +3100,11 @@ function plSave(){try{localStorage.setItem(PL_KEY,JSON.stringify(PLS));}catch(_)
 let plTeam='',plVs='',plTok=0;
 const PL_MODS=[
   ['foto','Foto del jugador',1],['fisico','Altura / peso / posición',1],['prom','Promedios (PTS, REB, AST, MIN)',1],['tiro','Tiro (eFG%, triples, libres)',1],
-  ['uso','Uso y rol',1],['pt','Play types (Synergy)',1],['st','Shot types (Synergy)',1],['syn','Synergy (general)',1],['synt','Tendencias automáticas (Synergy)',1],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1]
+  ['uso','Uso y rol',1],['pt','Play types (Synergy)',1],['st','Shot types (Synergy)',1],['syn','Synergy (general)',1],['synt','Tendencias automáticas (ScoutPro)',1],['carta','Carta de tiro por zonas',1],['tend','Tendencias (texto)',1],['tman','Tendencias manuales',1]
 ];
-const PL_ESSENTIAL=['foto','fisico','prom','carta','tend'];
+const PL_TMAX=6;          // renglones de tendencias que entran en la placa
+const PL_TEND_KEYS=['tend','synt','tman'];
+const PL_ESSENTIAL=['foto','fisico','prom','carta','tend','tman'];
 function plOn(k){return PLS.mods[k]!=null?!!PLS.mods[k]:!!(PL_MODS.find(m=>m[0]===k)||[0,0,0])[2];}
 function plColors(team){return clubColorsDB(team)||PLS.colors[teamKey(team)]||['#121722','#f97316'];}
 function plPkey(team,p){return teamKey(team)+'|'+String(p.num);}
@@ -3104,16 +3123,19 @@ function renderPlacas(){
   el.style.setProperty('--pl-acc',c2);el.style.setProperty('--pl-acc-fg',plLum(c2)>0.6?'#111':'#fff');el.style.setProperty('--pl-acc-soft',plHex(c2,0.14));
   const others=[...new Set(DATA.map(r=>r.equipo))].filter(t=>!sameTeam(t,plTeam)).sort();
   if(plVs&&!others.some(t=>sameTeam(t,plVs)))plVs='';
-  const modBtns=PL_MODS.map(m=>'<button class="pl-tg'+(plOn(m[0])?' on':'')+'" onclick="plToggle(\''+m[0]+'\')">'+m[1]+'</button>').join('');
+  const modBtns=PL_MODS.filter(m=>!PL_TEND_KEYS.includes(m[0])).map(m=>'<button class="pl-tg'+(plOn(m[0])?' on':'')+'" onclick="plToggle(\''+m[0]+'\')">'+m[1]+'</button>').join('');
   const pls=plPlayers(plTeam).slice(0,14);
   const cards=['__cover__'].concat(pls.map(p=>plPkey(plTeam,p))).map((k,i)=>{
     const isCov=k==='__cover__';const p=isCov?null:pls[i-1];const d=isCov?{}:(PLS.players[k]||{});const t=d.t||['','',''];
     let au=[];if(!isCov&&plOn('synt')){try{au=synTendencias(plTeam,p,99);}catch(_){}}
-    const hid=d.hide||[],nMan=t.filter(x=>String(x||'').trim()).length;let shown=0;
+    const manOn=plOn('tman'),hid=d.hide||[],nMan=manOn?t.filter(x=>String(x||'').trim()).length:0;let shown=0;
+    const tl=(d.t||[]).slice();while(tl.length>1&&!String(tl[tl.length-1]||'').trim()&&!String(tl[tl.length-2]||'').trim())tl.pop();if(!tl.length)tl.push('');
     const inc=!PLS.excl[k];
-    const ed=isCov?'':'<div class="pl-man"><div class="pl-man-h">✍️ Tendencias manuales <span>se ven primero en la placa (con ◆); las automáticas completan hasta 4 renglones</span></div>'+
-      [0,1,2].map(j=>'<input class="pl-man-i" maxlength="110" value="'+escAttr(t[j]||'')+'" placeholder="'+escAttr(['Ej.: Busca la mano derecha en la penetración','Ej.: Defenderlo con ayuda temprana en el poste','Ej.: Pierde pelotas ante presión'][j])+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)">').join('')+
-      (au.length?'<div class="pl-man-a">Automáticas de Synergy (tocá ✕ para sacar una de la placa):'+au.map(x=>{const key=tendKey(x),off=hid.includes(key);const enPlaca=!off&&(nMan+(++shown)<=4);
+    const PH=['Ej.: Busca la mano derecha en la penetración','Ej.: Defenderlo con ayuda temprana en el poste','Ej.: Pierde pelotas ante presión','Ej.: Tira mejor desde la esquina izquierda','Ej.: Se apura en el último minuto','Ej.: Cerrarle la línea de pase al pívot'];
+    const ed=isCov?'':'<div class="pl-man'+(manOn?'':' dim')+'"><div class="pl-man-h">✍️ Tendencias manuales <span>'+(manOn?'van primero en la placa (con ◆)':'ocultas en la placa: prendé «Manuales» arriba')+'</span></div>'+
+      tl.map((v,j)=>'<div class="pl-man-r"><input class="pl-man-i" maxlength="110" value="'+escAttr(v||'')+'" placeholder="'+escAttr(PH[j%PH.length])+'" oninput="plSetT(\''+escAttr(k)+'\','+j+',this.value)">'+(tl.length>1||String(v||'').trim()?'<button class="pl-man-x" title="Borrar esta tendencia" onclick="plDelT(\''+escAttr(k)+'\','+j+')">✕</button>':'')+'</div>').join('')+
+      (tl.length<PL_TMAX?'<button class="pl-man-add" onclick="plAddT(\''+escAttr(k)+'\')">➕ Agregar tendencia</button>':'<div class="pl-man-a">Máximo '+PL_TMAX+' tendencias (es lo que entra en la placa).</div>')+
+      (!plOn('synt')?'':au.length?'<div class="pl-man-a">Automáticas de ScoutPro (tocá ✕ para sacar una de la placa):'+au.map(x=>{const key=tendKey(x),off=hid.includes(key);const enPlaca=!off&&(nMan+(++shown)<=PL_TMAX);
         return '<span class="'+(off?'off':enPlaca?'on':'')+'"><button onclick="plHideT(\''+escAttr(k)+'\',\''+escAttr(key)+'\','+(off?'false':'true')+')" title="'+(off?'Volver a mostrar':'Sacar de la placa')+'">'+(off?'↺':'✕')+'</button> '+escAttr(x)+(enPlaca?' <i>· en la placa</i>':off?' <i>· oculta</i>':'')+'</span>';}).join('')+'</div>':'')+'</div>'+
       '<details class="pl-ed"><summary>✏️ Altura, peso y posición</summary><div class="pl-f">'+
       '<label>Altura<input value="'+escAttr(d.alt||'')+'" placeholder="1.98 m" oninput="plSet(\''+escAttr(k)+'\',\'alt\',this.value)"></label>'+
@@ -3138,6 +3160,9 @@ function renderPlacas(){
       '<details class="syn-st" style="flex-basis:100%"><summary>Qué hay cargado</summary><div id="synMsg" class="zone-sub" style="margin:6px 0 0">'+synStatus()+'</div></details></div><div id="synPrev"></div>'+
     '<details class="pl-mods" open><summary>Qué mostrar en las placas</summary><div class="pl-tgs">'+modBtns+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="sim-btn" onclick="plPreset(\'all\')">Todo</button><button class="sim-btn" onclick="plPreset(\'ess\')">Lo fundamental</button></div></details>'+
+    '<div class="pl-mods pl-tsec"><div class="pl-tsec-h">Tendencias en la placa <span>Podés usar las dos juntas: primero van las manuales (◆) y después las automáticas (●), hasta '+PL_TMAX+' renglones.</span></div><div class="pl-tgs">'+
+      '<button class="pl-tg'+(plOn('tman')?' on':'')+'" onclick="plTendToggle(\'tman\')">✍️ Manuales</button>'+
+      '<button class="pl-tg'+(plOn('synt')?' on':'')+'" onclick="plTendToggle(\'synt\')">🤖 Automáticas (ScoutPro)</button></div></div>'+
     '<div class="pl-grid">'+cards+'</div>';
   synBindDrop();plDrawAll();
 }
@@ -3178,7 +3203,11 @@ async function plResetColors(){delete PLS.colors[teamKey(plTeam)];plSave();
   renderPlacas();}
 function plIncl(k,v){if(v)delete PLS.excl[k];else PLS.excl[k]=1;plSave();const c=document.querySelector('#view-placas canvas[data-k="'+CSS.escape(k)+'"]');if(c)c.parentNode.classList.toggle('off',!v);}
 function plSet(k,f,v){(PLS.players[k]=PLS.players[k]||{})[f]=v;plSave();plRedrawOne(k);}
-function plSetT(k,j,v){const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||['','',''];d.t[j]=v;plSave();plRedrawOne(k);}
+function plSetT(k,j,v){const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||[''];d.t[j]=v;plSave();plRedrawOne(k);}
+function plAddT(k){const d=(PLS.players[k]=PLS.players[k]||{});d.t=(d.t||[]).filter(x=>String(x||'').trim());if(d.t.length>=PL_TMAX)return;d.t.push('');plSave();renderPlacas();
+  setTimeout(()=>{const c=document.querySelector('canvas[data-k="'+CSS.escape(k)+'"]');const ins=c&&c.closest('.pl-card').querySelectorAll('.pl-man-i');if(ins&&ins.length)ins[ins.length-1].focus();},30);}
+function plDelT(k,j){const d=(PLS.players[k]=PLS.players[k]||{});d.t=(d.t||[]);d.t.splice(j,1);plSave();renderPlacas();}
+function plTendToggle(k){PLS.mods[k]=!plOn(k);PLS.mods.tend=plOn('tman')||plOn('synt');plSave();renderPlacas();}
 function plRedrawOne(k){clearTimeout(plRedrawOne._t);plRedrawOne._t=setTimeout(()=>{const c=document.querySelector('#view-placas canvas[data-k="'+CSS.escape(k)+'"]');if(c)plDraw(c,k);},150);}
 function plDrawAll(){const tok=++plTok;const cs=[...document.querySelectorAll('#view-placas canvas[data-k]')];
   (async()=>{try{if(document.fonts&&document.fonts.ready)await document.fonts.ready;}catch(_){}
@@ -3467,11 +3496,11 @@ function synTendencias(team,p,max){
 // cada tendencia automática se identifica por su tipo (lo que va antes de los dos puntos), así sigue oculta aunque cambien los números
 function tendKey(t){return String(t).split(/[:(\d]/)[0].trim().toLowerCase();}
 function plHideT(k,key,on){const d=(PLS.players[k]=PLS.players[k]||{});d.hide=(d.hide||[]).filter(x=>x!==key);if(on)d.hide.push(key);plSave();renderPlacas();}
-function plTend(team,p,d){const man=(d&&d.t||[]).map(x=>String(x||'').trim()).filter(Boolean).map(t=>({t,man:true}));
-  if(!plOn('synt'))return man.slice(0,4);
+function plTend(team,p,d){const man=plOn('tman')?(d&&d.t||[]).map(x=>String(x||'').trim()).filter(Boolean).map(t=>({t,man:true})):[];
+  if(!plOn('synt'))return man.slice(0,PL_TMAX);
   let auto=[];try{auto=synTendencias(team,p,99);}catch(_){}
   const hid=(d&&d.hide)||[];auto=auto.filter(a=>!hid.includes(tendKey(a)));
-  return man.concat(auto.filter(a=>!man.some(m=>m.t===a)).map(t=>({t,man:false}))).slice(0,4);}
+  return man.concat(auto.filter(a=>!man.some(m=>m.t===a)).map(t=>({t,man:false}))).slice(0,PL_TMAX);}
 function plSugerir(k,force){const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);if(!p)return 0;const sug=synTendencias(plTeam,p);if(!sug.length)return 0;
   const d=(PLS.players[k]=PLS.players[k]||{});d.t=d.t||['','',''];let n=0;
   if(force){d.t=[sug[0]||'',sug[1]||'',sug[2]||''];n=sug.length;}else{let j=0;for(let i=0;i<3&&j<sug.length;i++){if(!String(d.t[i]||'').trim()){while(j<sug.length&&d.t.includes(sug[j]))j++;if(j<sug.length){d.t[i]=sug[j++];n++;}}}}
@@ -3510,8 +3539,9 @@ function plDraw(cv,k){
   if(plOn('fisico')&&(d.alt||d.peso)){ctx.font='700 42px '+PL_FD;ctx.fillStyle=txt;ctx.fillText([d.alt,d.peso].filter(Boolean).join('   ·   '),nx,262);}
   if(plOn('uso')){const tag=S.rol.toUpperCase();ctx.font='800 30px '+PL_FD;const w=ctx.measureText(tag).width+44;plRR(ctx,1850-w,222,w,54,27);ctx.fillStyle=acc;ctx.fill();ctx.fillStyle=plLum(acc)>0.6?'#111':'#fff';ctx.fillText(tag,1872-w,260);}
   // tendencias (franja inferior de ancho completo)
-  const tend=plOn('tend')?plTend(plTeam,p,d):[];
-  const top=310,bottom=tend.length?790:985;
+  const tend=(plOn('tman')||plOn('synt'))?plTend(plTeam,p,d):[];
+  const nTL=Math.min(PL_TMAX,tend.length),tExtra=Math.max(0,nTL-4)*34;   // con más de 4 renglones la caja crece hacia arriba
+  const top=310,bottom=tend.length?790-tExtra:985;
   // columna izquierda: tarjetas
   const tiles=[];
   if(plOn('prom'))tiles.push(['PTS',(p.pts/g).toFixed(1)],['REB',(p.reb/g).toFixed(1)],['AST',(p.ast/g).toFixed(1)],['MIN',(p.min/g).toFixed(1)]);
@@ -3561,10 +3591,10 @@ function plDraw(cv,k){
     ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % por zona',1000+cw,bottom);ctx.textAlign='left';
     if(STL.length){usedSyn=true;const BS=synBestShot(STL),WS=synWorstShot(STL);plShotTypes(ctx,STL,BS,WS,{x0:1510,y0:top,w:340,h:bottom-top-10,cols:1,max:4,small:true},txt,sub,acc,SDL);}
   } else if(STL.length||SDL.length){usedSyn=true;const BS=synBestShot(STL),WS=synWorstShot(STL);plShotTypes(ctx,STL,BS,WS,{x0:1000,y0:top,w:850,h:bottom-top-10,cols:2,max:4,small:false},txt,sub,acc,SDL);}
-  if(tend.length){const x=70,y=812,w=1780,h=178;plRR(ctx,x,y,w,h,18);ctx.fillStyle=plHex(acc,0.14);ctx.fill();ctx.fillStyle=acc;ctx.fillRect(x,y,8,h);
+  if(tend.length){const x=70,y=812-tExtra,w=1780,h=178+tExtra;plRR(ctx,x,y,w,h,18);ctx.fillStyle=plHex(acc,0.14);ctx.fill();ctx.fillStyle=acc;ctx.fillRect(x,y,8,h);
     ctx.font='800 26px '+PL_FD;ctx.fillStyle=acc;ctx.fillText('TENDENCIAS',x+30,y+40);ctx.font='600 32px '+PL_FB;
-    const nT=Math.min(4,tend.length),lh=nT>3?33:42;ctx.font='600 '+(nT>3?28:32)+'px '+PL_FB;
-    tend.slice(0,4).forEach((o,i)=>{const t=o.t,yy=y+(nT>3?76:84)+i*lh;ctx.fillStyle=acc;if(o.man){ctx.save();ctx.translate(x+42,yy-11);ctx.rotate(Math.PI/4);ctx.fillRect(-6,-6,12,12);ctx.restore();}else{ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();}ctx.fillStyle=txt;
+    const nT=nTL,lh=nT>3?33:42;ctx.font='600 '+(nT>3?28:32)+'px '+PL_FB;
+    tend.slice(0,nT).forEach((o,i)=>{const t=o.t,yy=y+(nT>3?76:84)+i*lh;ctx.fillStyle=acc;if(o.man){ctx.save();ctx.translate(x+42,yy-11);ctx.rotate(Math.PI/4);ctx.fillRect(-6,-6,12,12);ctx.restore();}else{ctx.beginPath();ctx.arc(x+42,yy-11,7,0,2*Math.PI);ctx.fill();}ctx.fillStyle=txt;
       let tt=t;while(ctx.measureText(tt).width>w-110&&tt.length>4)tt=tt.slice(0,-1);ctx.fillText(tt===t?t:tt+'…',x+64,yy);});}
   plFooter(ctx,txt,acc,'Scouting · '+plTeam,(plVs?'vs '+plVs+'  ·  ':'')+'Datos: planillas FIBA LiveStats'+(usedSyn?' + Synergy':''));
 }
