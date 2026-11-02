@@ -1298,6 +1298,8 @@ function leagueLineups(){
   return f;
 }
 // Puntos de contraataque por equipo (jugadas guardadas desde Quintetos con el origen de cada punto)
+function fastBreakMatch(team,mid){const r=(PBP||[]).filter(x=>x.match_id===mid&&x.origen!=null&&x.origen!=='');if(!r.length)return null;
+  let f=0,c=0;r.forEach(x=>{if(x.origen!=='Contraataque')return;if(sameTeam(x.equipo,team))f+=+x.pts||0;else if(sameTeam(x.rival,team))c+=+x.pts||0;});return {f,c};}
 function fastBreakStats(team){
   const mine=(PBP||[]).filter(r=>r.origen!=null&&r.origen!==''&&(sameTeam(r.equipo,team)||sameTeam(r.rival,team)));
   const ms=new Set(mine.map(r=>r.match_id));if(!ms.size)return null;
@@ -1386,7 +1388,8 @@ function renderEquipo(){
     '<div class="kpis">'+
     kpi(a.pj,'Partidos')+kpi(pp(a.efOff),'EF. OFENSIVA','acc')+kpi(pp(a.efDef),'EF. DEFENSIVA','def')+
     kpi(sgn(a.diff),'+/- TOTAL',a.diff>=0?'pos':'neg')+kpi(sgn(Math.round(ppg*10)/10),'+/- X PARTIDO',ppg>=0?'pos':'neg')+
-    '</div>';
+    (()=>{const fb=fastBreakStats(team);return fb?kpi(fb.favor.toFixed(1),'C.A ANOT. X PARTIDO','pos')+kpi(fb.contra.toFixed(1),'C.A REC X PARTIDO','neg'):kpi('—','C.A ANOT. X PARTIDO')+kpi('—','C.A REC X PARTIDO');})()+
+    '</div>'+(()=>{const fb=fastBreakStats(team);return fb&&fb.pj<a.pj?'<div class="zone-sub" style="margin:-6px 0 10px">Contraataque: calculado con '+fb.pj+' de '+a.pj+' partidos (los demás todavía no tienen el dato: «🔄 Rehacer quintetos» en Quintetos).</div>':!fb?'<div class="zone-sub" style="margin:-6px 0 10px">Contraataque (C.A): todavía sin datos. En Quintetos → Partidos cargados tocá «🔄 Rehacer quintetos».</div>':'';})();
   // top quintetos
   const groups={};
   for(const r of rows){const k=r.jugadores_key||pkeyArr(r.jugadores);(groups[k]=groups[k]||{players:r.jugadores,rows:[]}).rows.push(r);}
@@ -1489,9 +1492,9 @@ function partidoAPartidoBlock(team){
       '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(d>=0?mid-hh-4:mid+hh+12).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text)">'+(d>0?'+':'')+d+'</text>'+
       '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(d>=0?mid+13:mid-6).toFixed(1)+'" text-anchor="middle" font-size="9" fill="var(--text-3)">'+lab+'</text></g>';});
   const rows=G.slice().reverse().map(g=>{const o=g.o,p=g.p;const ppa=o.pos?o.ptsF/o.pos:0,ppd=p.pos?p.ptsF/p.pos:0;
-    return '<tr><td class="l">'+(g.fecha||'').slice(5).replace('-','/')+'</td><td class="l">'+(g.local?'vs ':'@ ')+(g.rival||'')+'</td><td style="color:'+dc(g.diff)+';font-weight:700">'+(g.win?'G ':'P ')+g.pts+'-'+g.rec+'</td><td>'+ppa.toFixed(2)+'</td><td>'+ppd.toFixed(2)+'</td><td>'+(o.efg||0).toFixed(1)+'%</td><td>'+o.per+'</td><td>'+(o.ro+o.rd)+'</td><td>'+o.ast+'</td></tr>';}).join('');
+    return '<tr><td class="l">'+(g.fecha||'').slice(5).replace('-','/')+'</td><td class="l">'+(g.local?'vs ':'@ ')+(g.rival||'')+'</td><td style="color:'+dc(g.diff)+';font-weight:700">'+(g.win?'G ':'P ')+g.pts+'-'+g.rec+'</td><td>'+ppa.toFixed(2)+'</td><td>'+ppd.toFixed(2)+'</td><td>'+(o.efg||0).toFixed(1)+'%</td><td>'+o.per+'</td><td>'+(o.ro+o.rd)+'</td><td>'+o.ast+'</td>'+(()=>{const fb=fastBreakMatch(team,g.mid);return fb?'<td style="color:var(--positive);font-weight:700">'+fb.f+'</td><td style="color:var(--negative);font-weight:700">'+fb.c+'</td>':'<td style="color:var(--text-3)">—</td><td style="color:var(--text-3)">—</td>';})()+'</tr>';}).join('');
   return '<div class="sec">Partido a partido</div><div class="court-box"><div style="overflow-x:auto"><svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" style="display:block;margin:0 auto;max-width:none" role="img" aria-label="Diferencia de puntos por partido">'+svg+'</svg></div>'+
-    '<div style="overflow-x:auto;margin-top:10px"><table class="bs-table"><thead><tr><th class="l">Día</th><th class="l">Rival</th><th>Res.</th><th>PPP at.</th><th>PPP def.</th><th>eFG%</th><th>Pérd.</th><th>Reb.</th><th>Ast.</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    '<div style="overflow-x:auto;margin-top:10px"><table class="bs-table"><thead><tr><th class="l">Día</th><th class="l">Rival</th><th>Res.</th><th>PPP at.</th><th>PPP def.</th><th>eFG%</th><th>Pérd.</th><th>Reb.</th><th>Ast.</th><th title="Puntos de contraataque que anotamos">C.A anot.</th><th title="Puntos de contraataque que recibimos">C.A rec.</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div class="zone-sub" style="margin-top:6px">Barras: diferencia final de cada partido, en orden cronológico (pasá el dedo o el mouse para ver el resultado). PPP = puntos por posesión.</div></div>';
 }
 function tramosBlock(team){
