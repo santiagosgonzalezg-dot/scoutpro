@@ -2329,7 +2329,7 @@ async function mgRedo(only){
   if(!MG.loaded)await mgLoad();
   const items=(only||mgFiltered()).filter(g=>/^\d{5,}$/.test(String(g.id)));
   if(!items.length){mgMsg('err','No hay partidos en la lista para rehacer.');return;}
-  if(!confirm('¿Rehacer los quintetos de '+items.length+' partido'+(items.length===1?'':'s')+'?\n\nSe vuelven a bajar de FIBA y se recalculan solo los quintetos. Fecha, fase, jornada y liga quedan igual. Jugadores, tiros, cuartos y jugadas no se tocan.'))return;
+  if(!confirm('¿Rehacer los quintetos de '+items.length+' partido'+(items.length===1?'':'s')+'?\n\nSe vuelven a bajar de FIBA y se recalculan los quintetos y las jugadas (momento de la posesión, asistencias). Fecha, fase, jornada y liga quedan igual. Jugadores, tiros y cuartos no se tocan.'))return;
   const client=getSB();if(!client){mgMsg('err','No se pudo conectar a la base.');return;}
   const proxy=document.getElementById('proxyUrl').value.trim().replace(/\/+$/,'');
   const btn=document.getElementById('mgRedoBtn');if(btn)btn.disabled=true;
@@ -2349,6 +2349,8 @@ async function mgRedo(only){
       if(!rows.length)throw new Error('no se armaron quintetos');
       const del=await client.from('quintetos_log').delete().eq('match_id',String(g.id));if(del.error)throw del.error;
       const ins=await client.from('quintetos_log').insert(rows);if(ins.error)throw ins.error;
+      // también las jugadas (momento de la posesión, asistencias y origen del punto)
+      try{const pb=buildPbpRows(String(g.id),g.fecha||null,g.fase||null,g.jornada||null);if(pb.length){const pd=await client.from('pbp_log').delete().eq('match_id',String(g.id));if(!pd.error)await client.from('pbp_log').insert(pb);}}catch(_){}
       (v.okAll?ok:warn).push(lbl+(v.okAll?'':' ('+v.bad.length+' jugador'+(v.bad.length===1?'':'es')+' no coincide'+(v.bad.length===1?'':'n')+' con FIBA)'));
     }catch(e){fail.push(lbl+': '+(e.message||e));}
     await new Promise(r=>setTimeout(r,250));
