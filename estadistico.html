@@ -1167,8 +1167,8 @@ async function loadData(){
     catch(_){ QUARTERS=[]; }
     try{ const cl=await fetchAll(c,'clubes'); const fo=await fetchAll(c,'fotos_jugadores'); setClubAssets(cl.data||[],fo.data||[]); setTimeout(()=>{backfillClubAssets();},1500); }
     catch(_){ setClubAssets([],[]); }
-    try{ const sy=await fetchAll(c,'synergy_stats'); SYNDB=sy.data||[]; }
-    catch(_){ SYNDB=[]; }
+    try{ const sy=await fetchAll(c,'synergy_stats'); const _all=sy.data||[]; SYNEXT=_all.filter(r=>r.fuente==='ext'); SYNDB=_all.filter(r=>r.fuente!=='ext'); }
+    catch(_){ SYNDB=[]; SYNEXT=[]; }
     try{ const dr=await fetchAll(c,'defensa_log'); DEF=dr.data||[]; }
     catch(_){ DEF=[]; }
     try{ const pr=await fetchAll(c,'pbp_log'); PBP=pr.data||[]; }
@@ -3110,10 +3110,14 @@ const PL_TEND_KEYS=['tend','synt','tman'];
 const PL_ESSENTIAL=['foto','fisico','prom','carta','tend','tman'];
 function plOn(k){return PLS.mods[k]!=null?!!PLS.mods[k]:!!(PL_MODS.find(m=>m[0]===k)||[0,0,0])[2];}
 function plColors(team){return clubColorsDB(team)||PLS.colors[teamKey(team)]||['#121722','#f97316'];}
-function plPkey(team,p){return teamKey(team)+'|'+String(p.num);}
+function plPkey(team,p){return teamKey(team)+'|'+String(p.key||p.num);}
 function plPlayers(team){
-  return playersAgg().filter(p=>sameTeam(p.equipo,team)&&p.g>0).map(p=>({...p,mpg:p.min/p.g})).sort((a,b)=>b.mpg-a.mpg);
+  return playersAgg().filter(p=>sameTeam(p.equipo,team)&&p.g>0).map(p=>({...p,mpg:p.min/p.g})).sort((a,b)=>b.mpg-a.mpg).concat(plRefs(team));
 }
+// refuerzos cargados desde la sección «Refuerzo» (sin planillas en el equipo: solo datos de Synergy de su liga anterior)
+function plRefs(team){const by={};SYNEXT.filter(r=>sameTeam(r.equipo,team)).forEach(r=>{(by[r.nombre]=by[r.nombre]||[]).push(r);});
+  return Object.keys(by).sort().map(n=>{const rs=by[n],f=rs[0],gp=Math.max(0,...rs.map(r=>+(r.raw&&r.raw.gp_origen)||0));
+    return {ext:true,key:'ref-'+synNorm(n).replace(/ /g,'-'),nombre:n,num:(f.num!=null&&String(f.num)!=='')?String(f.num):'?',equipo:team,origen:(f.raw&&f.raw.origen)||'',g:gp,min:0,mpg:0,pts:0,reb:0,ast:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,rob:0,tap:0};});}
 function plTeams(){const _tk={};(RAWP&&RAWP.length?RAWP:playersAgg()).forEach(p=>{const k=teamKey(p.equipo);if(!_tk[k]||String(p.equipo).length>String(_tk[k]).length)_tk[k]=p.equipo;});return Object.values(_tk).sort();}
 function renderPlacas(){
   const el=document.getElementById('view-placas');if(!el)return;
@@ -3127,7 +3131,7 @@ function renderPlacas(){
   const others=[...new Set(DATA.map(r=>r.equipo))].filter(t=>!sameTeam(t,plTeam)).sort();
   if(plVs&&!others.some(t=>sameTeam(t,plVs)))plVs='';
   const modBtns=PL_MODS.filter(m=>!PL_TEND_KEYS.includes(m[0])).map(m=>'<button class="pl-tg'+(plOn(m[0])?' on':'')+'" onclick="plToggle(\''+m[0]+'\')">'+m[1]+'</button>').join('');
-  const pls=plPlayers(plTeam).slice(0,14);
+  const _pa=plPlayers(plTeam),pls=_pa.filter(p=>!p.ext).slice(0,14).concat(_pa.filter(p=>p.ext));
   const cards=['__cover__'].concat(pls.map(p=>plPkey(plTeam,p))).map((k,i)=>{
     const isCov=k==='__cover__';const p=isCov?null:pls[i-1];const d=isCov?{}:(PLS.players[k]||{});const t=d.t||['','',''];
     let au=[];if(!isCov&&plOn('synt')){try{au=synTendencias(plTeam,p,99);}catch(_){}}
@@ -3161,13 +3165,19 @@ function renderPlacas(){
       '<span class="zone-sub" style="margin:0">o arrastrá los archivos o la carpeta acá</span>'+
       '<span id="synOk" class="zone-sub" style="margin:0;color:var(--positive)"></span>'+
       '<details class="syn-st" style="flex-basis:100%"><summary>Qué hay cargado</summary><div id="synMsg" class="zone-sub" style="margin:6px 0 0">'+synStatus()+'</div></details></div><div id="synPrev"></div>'+
+    '<div id="synZoneX" class="tiros-ctl" style="flex-wrap:wrap;gap:8px;margin-top:6px;padding:6px 4px;border-top:1px dashed var(--border-light)"><span class="zone-lbl">🆕 Refuerzo</span>'+
+      '<label class="sim-btn" style="cursor:pointer">📥 Cargar archivos<input type="file" accept=".csv,.xls,.xlsx,.txt" multiple style="display:none" onchange="synImportX([...this.files]);this.value=\'\'"></label>'+
+      '<label class="sim-btn" style="cursor:pointer">📁 Cargar carpeta<input type="file" webkitdirectory directory multiple style="display:none" onchange="synImportX([...this.files]);this.value=\'\'"></label>'+
+      '<span class="zone-sub" style="margin:0">Extranjero que llega y todavía no jugó con '+escAttr(plTeam)+': capturas de ScoutPro (📥) hechas dentro de SU página en Synergy: Overall, Shot Types y Play Types. O arrastrá los archivos acá.</span>'+
+      '<span id="synOkX" class="zone-sub" style="margin:0;color:var(--positive)"></span>'+
+      '<div id="synRefList" style="flex-basis:100%;display:flex;flex-direction:column;gap:4px">'+synRefList()+'</div></div><div id="synPrevX"></div>'+
     '<details class="pl-mods" open><summary>Qué mostrar en las placas</summary><div class="pl-tgs">'+modBtns+'</div>'+
     '<div style="display:flex;gap:8px;margin-top:8px"><button class="sim-btn" onclick="plPreset(\'all\')">Todo</button><button class="sim-btn" onclick="plPreset(\'ess\')">Lo fundamental</button></div></details>'+
     '<div class="pl-mods pl-tsec"><div class="pl-tsec-h">Tendencias en la placa <span>Podés usar las dos juntas: primero van las manuales (◆) y después las automáticas (●), hasta '+PL_TMAX+' renglones.</span></div><div class="pl-tgs">'+
       '<button class="pl-tg'+(plOn('tman')?' on':'')+'" onclick="plTendToggle(\'tman\')">✍️ Manuales</button>'+
       '<button class="pl-tg'+(plOn('synt')?' on':'')+'" onclick="plTendToggle(\'synt\')">🤖 Automáticas (ScoutPro)</button></div></div>'+
     '<div class="pl-grid">'+cards+'</div>';
-  synBindDrop();plDrawAll();
+  synBindDrop();synBindDropX();plDrawAll();
 }
 async function synDropFiles(dt){const out=[];const walk=async(en)=>{if(!en)return;if(en.isFile){await new Promise(r=>en.file(f=>{out.push(f);r();},()=>r()));}
     else if(en.isDirectory){const rd=en.createReader();let batch;do{batch=await new Promise(r=>rd.readEntries(r,()=>r([])));for(const e of batch)await walk(e);}while(batch.length);}};
@@ -3256,6 +3266,7 @@ function plCourt(ctx,shots,X,Y,W,H,txt,acc){
 }
 // ════════ SYNERGY (CSV exportados de Leaderboards → tabla synergy_stats) ════════
 let SYNDB=[];
+let SYNEXT=[];   // refuerzos: jugadores que vienen de otra liga y todavía no jugaron en el equipo (fuente='ext'); no entran en rankings ni totales del equipo
 // equipos de Synergy → nombre en ScoutPro (Liga Uruguaya)
 const SYN_TEAMS={'CLUB SOCIAL LARRANAGA':'LARRAÑAGA','NACIONAL DE FUTBOL MONTEVIDEO':'NACIONAL','CLUB ATLETICO AGUADA':'AGUADA','CLUB ATLETICO ATENAS (URUGUAY)':'ATENAS','CLUB BIGUA DE VILLA BIARRITZ':'BIGUA',
   'DEFENSOR SPORTING':'D SPORTING','CLUB ATLETICO GOES':'GOES','HEBRAICA Y MACABI':'HEBRAICA Y MACABI','MALVIN MONTEVIDEO':'MALVIN','CLUB ATLETICO PENAROL MONTEVIDEO':'PEÑAROL','UNION ATLETICA':'UNION ATLETICA',
@@ -3379,7 +3390,7 @@ async function synImport(files){
   const box=document.getElementById('synPrev');SYN_PEND=[];
   files=[...files].filter(f=>/\.(csv|xlsx?|txt)$/i.test(f.name)&&!/^\./.test(f.name)).sort((a,b)=>(a.lastModified||0)-(b.lastModified||0));
   if(!files.length){const ok=document.getElementById('synOk');if(ok){ok.style.color='var(--negative)';ok.textContent='No encontré archivos CSV o Excel en lo que elegiste.';}return;}
-  for(const f of files){try{const tx=await synReadFile(f);const P=/^#SCOUTPRO-SYNERGY/.test(tx)?synParseCap(tx,f.name):synParse(tx,f.name);SYN_PEND.push({name:f.name,...P});}catch(e){SYN_PEND.push({name:f.name,meta:synMeta(f.name),recs:[],skipped:0,ok:false,err:e.message||String(e)});}}
+  for(const f of files){try{const tx=await synReadFile(f);if(/^#URL\t.*\/basketball\/players\//m.test(tx)){SYN_PEND.push({name:f.name,meta:{...synMeta(f.name),situacion:'__skip'},recs:[],skipped:0,ok:false,err:'Es una captura de la página de un jugador: cargala en la sección «Refuerzo» (más abajo).'});continue;}const P=/^#SCOUTPRO-SYNERGY/.test(tx)?synParseCap(tx,f.name):synParse(tx,f.name);SYN_PEND.push({name:f.name,...P});}catch(e){SYN_PEND.push({name:f.name,meta:synMeta(f.name),recs:[],skipped:0,ok:false,err:e.message||String(e)});}}
   synMarkDup();synPrevRender();if(box)box.scrollIntoView({block:'nearest'});
 }
 // si hay dos archivos de la misma jugada, se usa el más nuevo
@@ -3414,14 +3425,14 @@ async function synSave(){
       if(P.cap){say('Guardando captura de '+P.equipo+'…');
         const recs=P.recs.map(r=>({...r,equipo:P.equipo,temporada:m.temporada,lado:m.lado,tipo:r.tipo||'player'}));
         for(const st of m.sits){for(const tp of ['player','team']){if(!recs.some(r=>r.situacion===st&&r.tipo===tp))continue;
-          const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',st).eq('lado',m.lado).eq('team_syn',P.team_syn).eq('tipo',tp);if(del.error)throw new Error(del.error.message);}}
+          const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',st).eq('lado',m.lado).eq('team_syn',P.team_syn).eq('tipo',tp).neq('fuente','ext');if(del.error)throw new Error(del.error.message);}}
         for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
         SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.lado===m.lado&&r.team_syn===P.team_syn&&recs.some(x=>x.situacion===r.situacion&&x.tipo===r.tipo))).concat(recs);n++;continue;}
       say('Guardando '+synSitL(m.situacion)+'…');
       // los equipos que tienen captura completa no se pisan con el Leaderboard (que trae menos jugadores)
       const capT=new Set(SYNDB.filter(r=>r.fuente==='cap'&&r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo).map(r=>r.team_syn));
       const recs=P.recs.filter(r=>!capT.has(r.team_syn)).map(r=>({...r,temporada:m.temporada,situacion:m.situacion,lado:m.lado,tipo:m.tipo,fuente:'lb'}));
-      const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',m.situacion).eq('lado',m.lado).eq('tipo',m.tipo).neq('fuente','cap');
+      const del=await c.from('synergy_stats').delete().eq('temporada',m.temporada).eq('situacion',m.situacion).eq('lado',m.lado).eq('tipo',m.tipo).neq('fuente','cap').neq('fuente','ext');
       if(del.error)throw new Error(del.error.message);
       for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
       SYNDB=SYNDB.filter(r=>!(r.temporada===m.temporada&&r.situacion===m.situacion&&r.lado===m.lado&&r.tipo===m.tipo&&r.fuente!=='cap')).concat(recs);n++;}
@@ -3430,11 +3441,156 @@ async function synSave(){
     plDrawAll();
   }catch(e){say('No se pudo guardar: '+(e.message||e),true);}
 }
+// ════════ REFUERZO: extranjero que llega y todavía no jugó con el equipo ════════
+// Se cargan los archivos de SU página en Synergy (Overall, Shot Types, Play Types). Se guardan en synergy_stats con fuente='ext'
+// y quedan aparte: no entran en percentiles, rankings ni totales del equipo. La placa sale como «Refuerzo» del equipo elegido.
+let SYN_PENDX=[],SYNX_INFO={nombre:'',num:'',origen:'',equipo:''};
+const SYNX_COLS={poss:['poss','possessions'],pct:['%time','% time','time%','time %'],pts:['pts','points'],ppp:['ppp','pps'],fg:['fg%','fg %'],efg:['efg%','efg %'],to:['to%','to %','tov%'],ft:['%ft','% ft'],score:['score%','score %'],fg3:['3 fg%','3fg%','3p fg%'],fg3r:['3pa/fga'],gp:['gp','games','games played']};
+function synXKind(fname){const n=String(fname||'').toLowerCase().replace(/[_\-]+/g,' ');return /shot ?types?/.test(n)?'shot':/play ?types?/.test(n)?'play':/overall|general/.test(n)?'overall':'';}
+function synXKindL(k){return k==='shot'?'Shot types':k==='play'?'Play types':k==='overall'?'Overall':'?';}
+// captura de ScoutPro hecha DENTRO de la página del jugador (Overall / Shot Types / Play Types): cada fila es una jugada del jugador
+function synParseExtCap(txt,fname){
+  const L=String(txt).split(/\r?\n/),get=k=>{const l=L.find(x=>x.startsWith(k+'\t'));return l?l.slice(k.length+1).trim():'';};
+  const url=get('#URL'),head=get('#HEAD'),end=L.findIndex(x=>x.startsWith('#ROWS'));
+  const kind=/shottypes|shot-types/i.test(url)?'shot':/playtypes|play-types/i.test(url)?'play':'overall';
+  const base={name:fname,kind,recs:[],unk:[],ok:false,skip:false,gp:0,nombre:'',num:'',origen:'',cap:true,ign:0};
+  if(!/\/players\//i.test(url))return {...base,err:'Es una captura de equipo. Acá van las capturas hechas dentro de la página del jugador.'};
+  // texto de la página: «Nombre #número», liga y partidos
+  const T=(end<0?[]:L.slice(end+1)).map(x=>x.trim());
+  const pm=T.map(x=>x.match(/^(.+?)\s+#(\d+)$/)).find(Boolean),gi=T.findIndex(x=>/^Games:$/i.test(x));
+  const gp=gi>=0?(+(T.slice(gi+1).find(x=>x!=='')||0)||0):0,ss=T.map(x=>x.match(/^(\d{4}-\d{4})\s+.+?\s-\s(.+)$/)).find(Boolean);
+  const origen=head+(ss?' · '+ss[2]+' '+ss[1]:'');
+  const allowed=kind==='overall'?['Overall']:kind==='play'?SYN_PT.concat(['Miscellaneous']):SYN_SITS.filter(x=>x[2]==='tiro'||x[2]==='dist').map(x=>x[0]);
+  const num=v=>{if(v==null)return null;const x=String(v).replace('%','').replace(',','.').trim();if(x===''||x==='-')return null;const n=+x;return isFinite(n)?n:null;};
+  const recs=[],seen={};let H=null,ign=0;
+  const st=L.findIndex(x=>/^STAT\t/.test(x));
+  for(let i=st<0?L.length:st;i<(end<0?L.length:end);i++){const r=L[i].split('\t'),first=(r[0]||'').trim();
+    if(!first)break;                                   // la fila vacía abre el registro de partidos: ahí termina lo que sirve
+    if(first==='STAT'){H=r.map(h=>h.trim().toLowerCase());continue;}
+    if(!H)continue;
+    const g=h=>{const j=H.indexOf(h);return j<0?null:num(r[j]);};
+    const sit=kind==='overall'?(/^(all possessions|overall)$/i.test(first)?'Overall':''):synCapSit(first);
+    // solo jugadas de primer nivel: las filas anidadas (Dribble Jumper dentro de Transition, etc.) no se guardan
+    if(!sit||!allowed.includes(sit)||seen[sit]){ign++;continue;}
+    seen[sit]=1;
+    recs.push({situacion:sit,poss:g('poss'),pct_time:g('%time'),pts:g('pts'),ppp:g('ppp')!=null?g('ppp'):g('pps'),fg_pct:g('fg%'),efg:g('efg%'),to_pct:g('to%'),ft_rate:g('%ft'),score_pct:g('score%'),fg3_pct:g('3 fg%'),fg3_rate:g('3pa/fga')});}
+  return {...base,recs,gp,nombre:pm?pm[1].trim():'',num:pm?pm[2]:'',origen,ign,ok:recs.length>0,err:recs.length?'':'No encontré las jugadas en la captura.'};
+}
+function synParseExt(txt,fname){
+  if(/^#SCOUTPRO-SYNERGY/.test(txt))return synParseExtCap(txt,fname);
+  return synParseExtCsv(txt,fname);
+}
+function synParseExtCsv(txt,fname){
+  const base={name:fname,kind:synXKind(fname),recs:[],unk:[],ok:false,skip:false,gp:0,nombre:'',num:'',origen:''};
+  let rows=synCsv(String(txt).replace(/^\uFEFF/,''));if(rows.length&&/^sep=/i.test(rows[0][0]))rows=rows.slice(1);
+  const hi=rows.findIndex(r=>r.some(c=>/^\s*(ppp|pps)\s*$/i.test(c))&&r.some(c=>/^\s*(poss|possessions)\s*$/i.test(c)));
+  if(hi<0)return {...base,err:'No encontré la tabla (columnas Poss y PPP).'};
+  const H=rows[hi].map(h=>String(h==null?'':h).trim().toLowerCase()),col=k=>H.findIndex(h=>SYNX_COLS[k].includes(h));
+  const ci={};Object.keys(SYNX_COLS).forEach(k=>ci[k]=col(k));
+  let li=H.findIndex(h=>/^(play ?type|shot ?type|type|situation|stat|category|name)$/.test(h));if(li<0)li=H.findIndex(h=>h!==''&&!Object.values(ci).includes(H.indexOf(h)));if(li<0)li=0;
+  const pi=H.indexOf('player'),ti=H.indexOf('team');
+  const num=v=>{if(v==null)return null;const x=String(v).replace('%','').replace(',','.').trim();if(x===''||x==='-')return null;const n=+x;return isFinite(n)?n:null;};
+  const g=(r,k)=>ci[k]<0?null:num(r[ci[k]]);
+  // nombre y club de origen: columnas Player/Team, líneas previas a la tabla («Player: …») o el nombre del archivo
+  let nombre='',origen='';const pre=rows.slice(0,hi).map(r=>r.filter(Boolean).join(', ')).join(' | ');
+  const mm=pre.match(/(?:player|jugador|name)\s*[:,]\s*([^,;|\t]+)/i);if(mm)nombre=mm[1].trim();
+  const mt=pre.match(/(?:team|equipo|club)\s*[:,]\s*([^,;|\t]+)/i);if(mt)origen=mt[1].trim();
+  if(!nombre){const parts=String(fname).replace(/\.(csv|xlsx?|txt)$/i,'').replace(/^[0-9a-f]{8}-/i,'').replace(/_/g,' ').split(/\s+-\s+/).map(x=>x.trim()).filter(Boolean);
+    if(parts.length>=2&&!/^\d{4}/.test(parts[0])&&!/overall|shot|play|team|player|general/i.test(parts[0]))nombre=parts[0];}
+  const data=rows.slice(hi+1).filter(r=>r.some(c=>String(c==null?'':c).trim()!==''));
+  const recs=[],unk=[],seen={};let gp=0;
+  data.forEach(r=>{const lab=String(r[li]==null?'':r[li]).trim();if(pi>=0&&!nombre&&r[pi])nombre=String(r[pi]).trim();if(ti>=0&&!origen&&r[ti])origen=String(r[ti]).trim();
+    let sit=lab?synCapSit(lab):'';
+    if(!sit&&(base.kind==='overall'||(data.length===1&&!base.kind)))sit='Overall';
+    if(!sit){if(lab)unk.push(lab);return;}
+    if(seen[sit])return;seen[sit]=1;const gg=g(r,'gp');if(gg&&gg>gp)gp=gg;
+    recs.push({situacion:sit,poss:g(r,'poss'),pct_time:g(r,'pct'),pts:g(r,'pts'),ppp:g(r,'ppp'),fg_pct:g(r,'fg'),efg:g(r,'efg'),to_pct:g(r,'to'),ft_rate:g(r,'ft'),score_pct:g(r,'score'),fg3_pct:g(r,'fg3'),fg3_rate:g(r,'fg3r')});});
+  const kind=base.kind||(recs.some(x=>SYN_PT.includes(x.situacion))?'play':recs.some(x=>x.situacion!=='Overall')?'shot':'overall');
+  return {...base,kind,recs,unk,gp,nombre,origen,ok:recs.length>0,err:recs.length?'':'No reconocí ninguna jugada en las filas.'};
+}
+async function synImportX(files){
+  files=[...files].filter(f=>/\.(csv|xlsx?|txt)$/i.test(f.name)&&!/^\./.test(f.name)).sort((a,b)=>(a.lastModified||0)-(b.lastModified||0));
+  const ok=document.getElementById('synOkX');if(ok)ok.textContent='';
+  if(!files.length){if(ok){ok.style.color='var(--negative)';ok.textContent='No encontré archivos CSV o Excel en lo que elegiste.';}return;}
+  SYN_PENDX=[];
+  for(const f of files){try{SYN_PENDX.push(synParseExt(await synReadFile(f),f.name));}catch(e){SYN_PENDX.push({name:f.name,kind:synXKind(f.name),recs:[],unk:[],ok:false,skip:false,gp:0,nombre:'',num:'',origen:'',err:e.message||String(e)});}}
+  const dest=Object.values(SYN_TEAMS).find(t=>sameTeam(t,plTeam))||plTeam;
+  const first=SYN_PENDX.find(P=>P.nombre)||{};
+  SYNX_INFO={nombre:SYNX_INFO.nombre||first.nombre||'',num:SYNX_INFO.num||(SYN_PENDX.find(P=>P.num)||{}).num||'',origen:SYNX_INFO.origen||(SYN_PENDX.find(P=>P.origen)||{}).origen||'',equipo:SYNX_INFO.equipo||dest};
+  synPrevRenderX();const box=document.getElementById('synPrevX');if(box)box.scrollIntoView({block:'nearest'});
+}
+function synRefList(){
+  const by={};SYNEXT.filter(r=>sameTeam(r.equipo,plTeam)).forEach(r=>{(by[r.nombre]=by[r.nombre]||[]).push(r);});
+  const names=Object.keys(by).sort();
+  if(!names.length)return '<span class="zone-sub" style="margin:0">Todavía no hay ningún refuerzo cargado para '+escAttr(plTeam)+'.</span>';
+  return names.map((n,i)=>{const rs=by[n],f=rs[0],has=fn=>rs.some(fn);
+    return '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>'+(f.num?'#'+escAttr(f.num)+' ':'')+escAttr(n)+'</b><span class="zone-sub" style="margin:0">viene de '+escAttr((f.raw&&f.raw.origen)||'—')+'</span>'+
+      '<span class="syn-chk"><span class="'+(has(r=>r.situacion==='Overall')?'ok':'no')+'">'+(has(r=>r.situacion==='Overall')?'✓':'·')+' General</span> · <span class="'+(has(r=>SYN_PT.includes(r.situacion))?'ok':'no')+'">'+(has(r=>SYN_PT.includes(r.situacion))?'✓':'·')+' Jugadas</span> · <span class="'+(has(r=>/Dribble|Catch|At Rim/.test(r.situacion))?'ok':'no')+'">'+(has(r=>/Dribble|Catch|At Rim/.test(r.situacion))?'✓':'·')+' Tiro</span></span>'+
+      '<button class="sim-btn" style="padding:3px 9px" onclick="synRefDel('+i+')" title="Borrar los datos de este refuerzo">🗑 Quitar</button></span>';}).join('');
+}
+function synRefNames(){return [...new Set(SYNEXT.filter(r=>sameTeam(r.equipo,plTeam)).map(r=>r.nombre))].sort();}
+async function synRefDel(i){
+  const n=synRefNames()[i];if(!n)return;if(!confirm('¿Borrar los datos de Synergy de '+n+' (refuerzo de '+plTeam+')? Se puede volver a cargar.'))return;
+  const ok=document.getElementById('synOkX');
+  try{const eq=(SYNEXT.find(r=>r.nombre===n&&sameTeam(r.equipo,plTeam))||{}).equipo;
+    const {error}=await getSB().from('synergy_stats').delete().eq('fuente','ext').eq('equipo',eq).eq('nombre',n);if(error)throw new Error(error.message);
+    SYNEXT=SYNEXT.filter(r=>!(r.nombre===n&&sameTeam(r.equipo,plTeam)));renderPlacas();
+    const o2=document.getElementById('synOkX');if(o2){o2.style.color='var(--positive)';o2.textContent='✓ Se borró '+n+'.';}
+  }catch(e){if(ok){ok.style.color='var(--negative)';ok.textContent='No se pudo borrar: '+(e.message||e);}}
+}
+function synBindDropX(){const z=document.getElementById('synZoneX');if(!z||z._b)return;z._b=1;
+  z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('syn-drop');});z.addEventListener('dragleave',()=>z.classList.remove('syn-drop'));
+  z.addEventListener('drop',async e=>{e.preventDefault();z.classList.remove('syn-drop');synImportX(await synDropFiles(e.dataTransfer));});}
+function synPrevRenderX(){
+  const box=document.getElementById('synPrevX');if(!box)return;
+  if(!SYN_PENDX.length){box.innerHTML='';return;}
+  const I=SYNX_INFO,teams=Object.values(SYN_TEAMS);
+  const inp=(lbl,k,ph,w,list)=>'<label class="zone-lbl" style="display:flex;flex-direction:column;gap:3px">'+lbl+'<input style="width:'+w+'px" value="'+escAttr(I[k]||'')+'" placeholder="'+escAttr(ph)+'"'+(list?' list="'+list+'"':'')+' oninput="SYNX_INFO.'+k+'=this.value"></label>';
+  box.innerHTML='<div class="syn-prev"><div class="syn-ph">Refuerzo: completá los datos del jugador, revisá lo que detecté en cada archivo y tocá <b>Guardar</b>. Quedan aparte de los rankings de la liga.</div>'+
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0">'+inp('Jugador','nombre','Nombre y apellido',230,'synXNames')+inp('Número','num','Si ya lo sabe',90)+inp('Viene de (club / liga)','origen','Ej.: Club, país',230)+
+    '<label class="zone-lbl" style="display:flex;flex-direction:column;gap:3px">Llega a<select onchange="SYNX_INFO.equipo=this.value">'+teams.map(t=>'<option'+(t===I.equipo?' selected':'')+'>'+escAttr(t)+'</option>').join('')+'</select></label>'+
+    '<datalist id="synXNames">'+synRefNames().map(n=>'<option value="'+escAttr(n)+'">').join('')+'</datalist></div>'+
+    '<table class="syn-t"><thead><tr><th>Archivo</th><th>Tipo</th><th>Jugadas detectadas</th><th>Estado</th></tr></thead><tbody>'+
+    SYN_PENDX.map((P,i)=>{const bad=!P.skip&&!P.ok;
+      const det=P.ok?'<details><summary>'+P.recs.length+' ('+P.recs.map(r=>synSitL(r.situacion)).slice(0,3).join(', ')+(P.recs.length>3?'…':'')+')</summary><div class="zone-sub" style="margin:4px 0">'+P.recs.map(r=>escAttr(synSitL(r.situacion))+': '+(r.poss!=null?r.poss+' pos':'—')+' · '+(r.ppp!=null?r.ppp+' PPP':'—')).join('<br>')+'</div></details>'+(P.ign?'<span style="color:var(--text-3)">(se ignoran '+P.ign+' filas internas o repetidas)</span>':''):'—';
+      return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
+        '<td>'+escAttr(synXKindL(P.kind))+' <select onchange="SYN_PENDX['+i+'].skip=(this.value===\'0\');synPrevRenderX()"><option value="1"'+(P.skip?'':' selected')+'>Guardar</option><option value="0"'+(P.skip?' selected':'')+'>No guardar</option></select></td>'+
+        '<td>'+det+'</td><td>'+(P.skip?'No se guarda':P.err?'⚠ '+escAttr(P.err):P.gp?'OK · '+P.gp+' PJ en el archivo':'OK')+'</td></tr>';}).join('')+
+    '</tbody></table><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="sim-btn" style="background:var(--pl-acc);color:var(--pl-acc-fg);border-color:transparent" onclick="synSaveX()">💾 Guardar refuerzo</button><button class="sim-btn" onclick="SYN_PENDX=[];synPrevRenderX()">Cancelar</button><span id="synSaveMsgX" class="zone-sub" style="margin:0"></span></div></div>';
+}
+async function synSaveX(){
+  const msg=document.getElementById('synSaveMsgX'),say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
+  const I=SYNX_INFO,nombre=String(I.nombre||'').trim(),origen=String(I.origen||'').trim(),num=String(I.num||'').trim(),equipo=I.equipo;
+  const todo=SYN_PENDX.filter(P=>P.ok&&P.recs.length&&!P.skip);
+  if(!todo.length){say('No hay nada para guardar.',true);return;}
+  if(!nombre){say('Escribí el nombre del jugador.',true);return;}
+  if(!equipo){say('Elegí a qué equipo llega.',true);return;}
+  const temporada=((synLatest(SYNDB)[0]||{}).temporada)||'2026-2027';
+  const prev=SYNEXT.filter(r=>r.nombre===nombre&&sameTeam(r.equipo,equipo));
+  // jugadas nuevas (si una jugada viene en dos archivos, vale el más nuevo) + las que ya estaban guardadas y no se reemplazan
+  const nuevas={};todo.forEach(P=>P.recs.forEach(r=>{nuevas[r.situacion]={...r,_f:P.name};}));
+  const gpMax=Math.max(0,...todo.map(P=>P.gp||0),...prev.map(r=>+(r.raw&&r.raw.gp_origen)||0));
+  const clean=r=>({team_syn:'EXT|'+origen,nombre,equipo,num:num||null,situacion:r.situacion,gp:1,poss:r.poss,pct_time:r.pct_time,pts:r.pts,ppp:r.ppp,fg_pct:r.fg_pct,efg:r.efg,to_pct:r.to_pct,ft_rate:r.ft_rate,score_pct:r.score_pct,fg3_pct:r.fg3_pct,fg3_rate:r.fg3_rate,
+    raw:{origen,gp_origen:gpMax,archivo:r._f||(r.raw&&r.raw.archivo)||'',pct_time_archivo:r.pct_time_archivo!=null?r.pct_time_archivo:r.pct_time},temporada,lado:'off',tipo:'player',fuente:'ext'});
+  const recs=Object.values(nuevas).map(r=>({...clean(r),raw:{...clean(r).raw,pct_time_archivo:r.pct_time}})).concat(prev.filter(r=>!nuevas[r.situacion]).map(r=>({...clean(r),raw:{...(r.raw||{}),origen,gp_origen:gpMax}})));
+  // % de su juego: jugadas sobre el total de jugadas; tiros sobre el total de posesiones (Overall), como en las capturas
+  const isPT=s=>SYN_PT.includes(s)||s==='Miscellaneous',r1=x=>Math.round(x*10)/10;
+  const totPT=recs.filter(r=>isPT(r.situacion)).reduce((a,r)=>a+(+r.poss||0),0),ov=recs.find(r=>r.situacion==='Overall'),ovP=ov?(+ov.poss||0):0;
+  recs.forEach(r=>{if(r.situacion==='Overall')r.pct_time=100;else if(isPT(r.situacion)){if(totPT)r.pct_time=r1((+r.poss||0)/totPT*100);}else if(ovP)r.pct_time=r1((+r.poss||0)/ovP*100);});
+  try{say('Guardando…');const c=getSB();
+    const eqOld=(prev[0]||{}).equipo||equipo;
+    const del=await c.from('synergy_stats').delete().eq('fuente','ext').eq('equipo',eqOld).eq('nombre',nombre);if(del.error)throw new Error(del.error.message);
+    for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
+    SYNEXT=SYNEXT.filter(r=>!(r.nombre===nombre&&sameTeam(r.equipo,equipo))).concat(recs);
+    SYN_PENDX=[];SYNX_INFO={nombre:'',num:'',origen:'',equipo:''};renderPlacas();
+    const ok=document.getElementById('synOkX');if(ok){ok.style.color='var(--positive)';ok.textContent='✓ '+nombre+' guardado ('+recs.length+' jugadas). Ya tiene su placa «Refuerzo» abajo.';}
+  }catch(e){say('No se pudo guardar: '+(e.message||e),true);}
+}
 function synLatest(rows){let t='';rows.forEach(r=>{if(String(r.temporada)>t)t=String(r.temporada);});return rows.filter(r=>String(r.temporada)===t);}
 function synNorm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();}
 // fila de Synergy del jugador (por número + apellido, o inicial + apellido)
 function synFor(team,p,sit,lado){
-  const rows=synLatest(SYNDB.filter(r=>r.tipo==='player'&&sameTeam(r.equipo,team)&&r.situacion===(sit||'Overall')&&r.lado===(lado||'off')));if(!rows.length)return null;
+  const rows=synLatest((p&&p.ext?SYNEXT:SYNDB).filter(r=>r.tipo==='player'&&sameTeam(r.equipo,team)&&r.situacion===(sit||'Overall')&&r.lado===(lado||'off')));if(!rows.length)return null;
   const nm=synNorm(p.nombre),m=nm.match(/^([a-z])\s+(.+)$/),ini=m?m[1]:'',last=(m?m[2]:nm).replace(/ /g,'');
   const hasLast=r=>last&&synNorm(r.nombre).replace(/ /g,'').includes(last);
   return rows.find(r=>String(r.num)===String(p.num)&&hasLast(r))||rows.find(r=>hasLast(r)&&(!ini||synNorm(r.nombre)[0]===ini))||(rows.filter(r=>String(r.num)===String(p.num)).length===1?rows.find(r=>String(r.num)===String(p.num)):null);
@@ -3447,7 +3603,7 @@ function synTotPoss(r){return Math.round((+r.poss||0)*(+r.gp||1));}
 const SYN_MINP=10;
 function pppColor(v){v=+v;return v>=1.1?'#34c769':v>=0.95?'#7bc96f':v>=0.8?'#e0a83b':'#f97316';}
 // posesiones por partido: la captura trae el total de la temporada; se divide por los partidos que jugó (planillas FIBA)
-function synPPG(r,p){if(!r)return null;return r.fuente==='cap'?synTotPoss(r)/Math.max(1,+(p&&p.g)||1):+r.poss;}
+function synPPG(r,p){if(!r)return null;if(r.fuente==='ext')return (+(p&&p.g)>0)?synTotPoss(r)/p.g:null;return r.fuente==='cap'?synTotPoss(r)/Math.max(1,+(p&&p.g)||1):+r.poss;}
 function synPlayTypes(team,p){const out=[];SYN_PT.forEach(s=>{const r=synFor(team,p,s,'off');if(r&&(+r.pct_time||0)>0)out.push({k:s,sit:synSitL(s),r});});return out.sort((a,b)=>b.r.pct_time-a.r.pct_time);}
 // Tipos de tiro (archivos de Shot Attempts / Catch and Shoot)
 const SYN_SHOTMIN=5; // mínimo de posesiones para elegir el mejor / peor tiro
@@ -3527,10 +3683,10 @@ function plDraw(cv,k){
   const A={anot:pool.map(q=>pgf(q,'pts')),gen:pool.map(q=>pgf(q,'ast')),tiro:pool.map(q=>pgf(q,'tpm')),reb:pool.map(q=>pgf(q,'reb')),def:pool.map(q=>pgf(q,'rob')+pgf(q,'tap'))};
   if(k==='__cover__'){plDrawCover(ctx,base,acc,txt,sub);return;}
   const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);if(!p)return;
-  const d=PLS.players[k]||{},S=plStatsFor(plTeam,p,pool,A),g=S.g;
+  const d=PLS.players[k]||{},S=p.ext?{g:p.g||1,pct:[0,0,0,0,0],rol:'Refuerzo',usg:null,efg:0}:plStatsFor(plTeam,p,pool,A),g=S.g;
   plLogo(ctx,plTeam,1700,52,150);
   // cabecera (con foto si hay)
-  const ph=plOn('foto')?plImg(playerPhoto(plTeam,p.num)):null;let hx=70;
+  const ph=(plOn('foto')&&!p.ext)?plImg(playerPhoto(plTeam,p.num)):null;let hx=70;
   if(ph){const R=110,cx=70+R,cy=40+R+10;ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.closePath();ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.08);ctx.fill();ctx.clip();
     const sc=Math.max(2*R/ph.naturalWidth,2*R/ph.naturalHeight);ctx.drawImage(ph,cx-ph.naturalWidth*sc/2,cy-R,ph.naturalWidth*sc,ph.naturalHeight*sc);ctx.restore();
     ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.lineWidth=6;ctx.strokeStyle=acc;ctx.stroke();hx=70+2*R+34;}
@@ -3538,20 +3694,20 @@ function plDraw(cv,k){
   const nx=hx+ctx.measureText('#'+p.num).width+40;
   ctx.fillStyle=txt;const fs=plFit(ctx,String(p.nombre).toUpperCase(),1600-nx,104,'800',PL_FD);ctx.fillText(String(p.nombre).toUpperCase(),nx,150);
   ctx.font='600 36px '+PL_FB;ctx.fillStyle=sub;
-  const meta=[plTeam,plOn('fisico')&&d.pos?d.pos:null,p.g+' PJ'].filter(Boolean).join('  ·  ');ctx.fillText(meta,nx,205);
+  const meta=(p.ext?[plTeam+' · refuerzo',plOn('fisico')&&d.pos?d.pos:null,p.origen?'Viene de '+p.origen:null,p.g?p.g+' PJ allá':null]:[plTeam,plOn('fisico')&&d.pos?d.pos:null,p.g+' PJ']).filter(Boolean).join('  ·  ');ctx.fillText(meta,nx,205);
   if(plOn('fisico')&&(d.alt||d.peso)){ctx.font='700 42px '+PL_FD;ctx.fillStyle=txt;ctx.fillText([d.alt,d.peso].filter(Boolean).join('   ·   '),nx,262);}
-  if(plOn('uso')){const tag=S.rol.toUpperCase();ctx.font='800 30px '+PL_FD;const w=ctx.measureText(tag).width+44;plRR(ctx,1850-w,222,w,54,27);ctx.fillStyle=acc;ctx.fill();ctx.fillStyle=plLum(acc)>0.6?'#111':'#fff';ctx.fillText(tag,1872-w,260);}
+  if(plOn('uso')||p.ext){const tag=S.rol.toUpperCase();ctx.font='800 30px '+PL_FD;const w=ctx.measureText(tag).width+44;plRR(ctx,1850-w,222,w,54,27);ctx.fillStyle=acc;ctx.fill();ctx.fillStyle=plLum(acc)>0.6?'#111':'#fff';ctx.fillText(tag,1872-w,260);}
   // tendencias (franja inferior de ancho completo)
   const tend=(plOn('tman')||plOn('synt'))?plTend(plTeam,p,d):[];
   const nTL=Math.min(PL_TMAX,tend.length),tExtra=Math.max(0,nTL-4)*34;   // con más de 4 renglones la caja crece hacia arriba
   const top=310,bottom=tend.length?790-tExtra:985;
   // columna izquierda: tarjetas
   const tiles=[];
-  if(plOn('prom'))tiles.push(['PTS',(p.pts/g).toFixed(1)],['REB',(p.reb/g).toFixed(1)],['AST',(p.ast/g).toFixed(1)],['MIN',(p.min/g).toFixed(1)]);
-  if(plOn('tiro'))tiles.push(['eFG%',Math.round(S.efg)+'%'],['TRIPLES',(p.tpa?Math.round(p.tpm/p.tpa*100):0)+'%',p.tpm+'/'+p.tpa],['LIBRES',(p.fta?Math.round(p.ftm/p.fta*100):0)+'%',p.ftm+'/'+p.fta]);
-  if(plOn('uso'))tiles.push(['USO',S.usg!=null?S.usg+'%':'—']);
+  if(plOn('prom')&&!p.ext)tiles.push(['PTS',(p.pts/g).toFixed(1)],['REB',(p.reb/g).toFixed(1)],['AST',(p.ast/g).toFixed(1)],['MIN',(p.min/g).toFixed(1)]);
+  if(plOn('tiro')&&!p.ext)tiles.push(['eFG%',Math.round(S.efg)+'%'],['TRIPLES',(p.tpa?Math.round(p.tpm/p.tpa*100):0)+'%',p.tpm+'/'+p.tpa],['LIBRES',(p.fta?Math.round(p.ftm/p.fta*100):0)+'%',p.ftm+'/'+p.fta]);
+  if(plOn('uso')&&!p.ext)tiles.push(['USO',S.usg!=null?S.usg+'%':'—']);
   const STL=plOn('st')?synShotTypes(plTeam,p):[],SDL=plOn('st')?synShotDist(plTeam,p):[];
-  const colW=(plOn('carta')||STL.length||SDL.length)?880:1780;let ty=top;
+  const colW=((plOn('carta')&&!p.ext)||STL.length||SDL.length)?880:1780;let ty=top;
   if(tiles.length){const per=colW<1000?4:8,tw=(colW-(per-1)*16)/per,th=120;
     tiles.forEach((t,i)=>{const r=Math.floor(i/per),c=i%per,x=70+c*(tw+16),y=ty+r*(th+16);plRR(ctx,x,y,tw,th,16);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
       ctx.fillStyle=sub;ctx.font='700 22px '+PL_FD;ctx.textAlign='center';ctx.fillText(t[0],x+tw/2,y+34);ctx.fillStyle=txt;ctx.font='800 56px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+(t[2]?86:94));
@@ -3579,7 +3735,7 @@ function plDraw(cv,k){
     let it=[['PPP',sy.ppp!=null?(+sy.ppp).toFixed(2):'—',sy.ppp!=null?pppColor(sy.ppp):null],['POS./PARTIDO',pg!=null?pg.toFixed(1):'—'],['eFG%',sy.efg!=null?Math.round(sy.efg)+'%':'—'],
       ['PÉRDIDAS',sy.to_pct!=null?Math.round(sy.to_pct)+'%':'—'],['ANOTA',sy.score_pct!=null?Math.round(sy.score_pct)+'%':'—'],['VA A LIBRES',sy.ft_rate!=null?Math.round(sy.ft_rate)+'%':'—']];
     const per=bottom-ty>=36+2*96?3:6,rows=Math.ceil(it.length/per),th=Math.min(84,Math.floor((bottom-ty-36-(rows-1)*10)/rows));
-    if(th>=60){usedSyn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('SYNERGY · ATAQUE (TEMPORADA)',70,ty+22);ty+=34;
+    if(th>=60){usedSyn=true;ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText(p.ext?'SYNERGY · ATAQUE · '+String(p.origen||'OTRA LIGA').toUpperCase():'SYNERGY · ATAQUE (TEMPORADA)',70,ty+22);ty+=34;
       const tw=(colW-(per-1)*12)/per;
       it.forEach((t,i)=>{const r=Math.floor(i/per),c=i%per,x=70+c*(tw+12),y=ty+r*(th+10);plRR(ctx,x,y,tw,th,12);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.07);ctx.fill();
         ctx.textAlign='center';ctx.fillStyle=sub;ctx.font='700 18px '+PL_FD;ctx.fillText(t[0],x+tw/2,y+24);ctx.fillStyle=t[2]||txt;ctx.font='800 '+Math.min(40,th-34)+'px '+PL_FD;ctx.fillText(t[1],x+tw/2,y+th-14);ctx.textAlign='left';});
@@ -3588,7 +3744,7 @@ function plDraw(cv,k){
     ctx.font='700 24px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('PERFIL VS LA LIGA (PERCENTIL)',70,ty+22);ty+=36;
     L.forEach((l,i)=>{const y=ty+i*rh,bw=colW-330;ctx.fillStyle=txt;ctx.font='600 22px '+PL_FB;ctx.fillText(l,70,y+19);plRR(ctx,270,y+4,bw,16,8);ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.1);ctx.fill();
       plRR(ctx,270,y+4,Math.max(16,bw*S.pct[i]/100),16,8);ctx.fillStyle=pctColor(S.pct[i]);ctx.fill();ctx.fillStyle=txt;ctx.font='800 24px '+PL_FD;ctx.textAlign='right';ctx.fillText(String(S.pct[i]),70+colW,y+21);ctx.textAlign='left';});}
-  if(plOn('carta')){
+  if(plOn('carta')&&!p.ext){
     const cw=STL.length?480:850;
     const sh=fichaShots(p);plCourt(ctx,sh,1000,top,cw,bottom-top-26,txt,acc);
     ctx.font='600 20px '+PL_FB;ctx.fillStyle=sub;ctx.textAlign='right';ctx.fillText(sh.length+' tiros ubicados · % por zona',1000+cw,bottom);ctx.textAlign='left';
@@ -3641,7 +3797,7 @@ function plDrawCover(ctx,base,acc,txt,sub){
   const st=plOn('syn')?synLatest(SYNDB.filter(r=>r.tipo==='team'&&r.situacion==='Overall'&&sameTeam(r.equipo,team))):[];
   const so=st.find(r=>r.lado==='off'),sd=st.find(r=>r.lado==='def');
   if(so||sd){ctx.font='600 30px '+PL_FB;ctx.fillStyle=acc;ctx.fillText('Synergy: '+[so?(+so.ppp).toFixed(2)+' puntos por posesión en ataque':null,sd?(+sd.ppp).toFixed(2)+' en defensa':null].filter(Boolean).join('   ·   '),80,plVs?598:560);}
-  const top=plPlayers(team).slice().sort((a,b)=>b.pts/b.g-a.pts/a.g).slice(0,4);
+  const top=plPlayers(team).filter(p=>!p.ext).slice().sort((a,b)=>b.pts/b.g-a.pts/a.g).slice(0,4);
   ctx.font='700 28px '+PL_FD;ctx.fillStyle=sub;ctx.fillText('GOLEADORES',80,905);
   ctx.font='600 34px '+PL_FB;ctx.fillStyle=txt;ctx.fillText(top.map(p=>'#'+p.num+' '+p.nombre+' '+(p.pts/p.g).toFixed(1)).join('     '),80,955);
   plFooter(ctx,txt,acc,'Scouting · '+team,'Datos: planillas FIBA LiveStats');
