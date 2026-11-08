@@ -3524,9 +3524,10 @@ function synRefList(){
   const names=Object.keys(by).sort();
   if(!names.length)return '<span class="zone-sub" style="margin:0">Todavía no hay ningún refuerzo cargado para '+escAttr(plTeam)+'.</span>';
   return names.map((n,i)=>{const rs=by[n],f=rs[0],has=fn=>rs.some(fn);
-    return '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>'+(f.num?'#'+escAttr(f.num)+' ':'')+escAttr(n)+'</b><span class="zone-sub" style="margin:0">viene de '+escAttr((f.raw&&f.raw.origen)||'—')+'</span>'+
+    return '<span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+(FOTODB[normTeamKey(f.equipo)+'|'+synRefKey(n)]?'<img alt="" src="'+escAttr(playerPhoto(f.equipo,synRefKey(n))||'')+'" style="width:34px;height:34px;border-radius:50%;object-fit:cover;object-position:top">':'')+'<b>'+(f.num?'#'+escAttr(f.num)+' ':'')+escAttr(n)+'</b><span class="zone-sub" style="margin:0">viene de '+escAttr((f.raw&&f.raw.origen)||'—')+'</span>'+
       '<span class="syn-chk"><span class="'+(has(r=>r.situacion==='Overall')?'ok':'no')+'">'+(has(r=>r.situacion==='Overall')?'✓':'·')+' General</span> · <span class="'+(has(r=>SYN_PT.includes(r.situacion))?'ok':'no')+'">'+(has(r=>SYN_PT.includes(r.situacion))?'✓':'·')+' Jugadas</span> · <span class="'+(has(r=>/Dribble|Catch|At Rim/.test(r.situacion))?'ok':'no')+'">'+(has(r=>/Dribble|Catch|At Rim/.test(r.situacion))?'✓':'·')+' Tiro</span></span>'+
-      '<button class="sim-btn" style="padding:3px 9px" onclick="synRefDel('+i+')" title="Borrar los datos de este refuerzo">🗑 Quitar</button></span>';}).join('');
+      '<label class="sim-btn" style="cursor:pointer;padding:3px 9px" title="Foto que sale en su placa">📷 '+(FOTODB[normTeamKey(f.equipo)+'|'+synRefKey(n)]?'Cambiar foto':'Cargar foto')+'<input type="file" accept="image/*" style="display:none" onchange="synRefFoto('+i+',this.files[0]);this.value=\'\'"></label>'+
+      '<button class="sim-btn" style="padding:3px 9px" onclick="synRefDel('+i+')" title="Borrar los datos y la foto de este refuerzo">🗑 Quitar</button></span>';}).join('');
 }
 function synRefNames(){return [...new Set(SYNEXT.filter(r=>sameTeam(r.equipo,plTeam)).map(r=>r.nombre))].sort();}
 async function synRefDel(i){
@@ -3534,10 +3535,34 @@ async function synRefDel(i){
   const ok=document.getElementById('synOkX');
   try{const eq=(SYNEXT.find(r=>r.nombre===n&&sameTeam(r.equipo,plTeam))||{}).equipo;
     const {error}=await getSB().from('synergy_stats').delete().eq('fuente','ext').eq('equipo',eq).eq('nombre',n);if(error)throw new Error(error.message);
+    const fk=normTeamKey(eq)+'|'+synRefKey(n);if(FOTODB[fk]){const fe=await getSB().from('fotos_jugadores').delete().eq('equipo',eq).eq('num',synRefKey(n)).eq('nombre',n);if(!fe.error)delete FOTODB[fk];}
     SYNEXT=SYNEXT.filter(r=>!(r.nombre===n&&sameTeam(r.equipo,plTeam)));renderPlacas();
     const o2=document.getElementById('synOkX');if(o2){o2.style.color='var(--positive)';o2.textContent='✓ Se borró '+n+'.';}
   }catch(e){if(ok){ok.style.color='var(--negative)';ok.textContent='No se pudo borrar: '+(e.message||e);}}
 }
+// ── foto del refuerzo: se guarda en fotos_jugadores con clave propia (ref-nombre) para no pisar ni tomar la foto de otro jugador con el mismo número ──
+let SYNX_FOTO='';
+function synRefKey(n){return 'ref-'+synNorm(n).replace(/ /g,'-');}
+function synFotoRead(file,max){return new Promise((res,rej)=>{
+  if(!file||!/^image\//.test(file.type||'')){rej(new Error('Elegí un archivo de imagen (JPG o PNG).'));return;}
+  const fr=new FileReader();fr.onerror=()=>rej(new Error('No pude leer la imagen.'));
+  fr.onload=()=>{const im=new Image();im.onerror=()=>rej(new Error('La imagen no se pudo abrir.'));
+    im.onload=()=>{const k=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.max(1,Math.round(im.naturalWidth*k)),h=Math.max(1,Math.round(im.naturalHeight*k));
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);res(cv.toDataURL('image/jpeg',0.86));};
+    im.src=fr.result;};
+  fr.readAsDataURL(file);});}
+async function synFotoSave(equipo,nombre,dataUrl){
+  const num=synRefKey(nombre),row={equipo,num,nombre,foto_url:'',foto_data:dataUrl,updated_at:new Date().toISOString()};
+  const {error}=await getSB().from('fotos_jugadores').upsert(row,{onConflict:'equipo,num,nombre'});if(error)throw new Error(error.message);
+  FOTODB[normTeamKey(equipo)+'|'+num]=row;
+}
+async function synXFotoPick(file){const m=document.getElementById('synXFotoMsg');
+  try{SYNX_FOTO=await synFotoRead(file,360);if(m){m.style.color='var(--positive)';m.textContent='✓ Foto lista: se guarda junto con el jugador.';}}
+  catch(e){SYNX_FOTO='';if(m){m.style.color='var(--negative)';m.textContent=e.message||String(e);}}}
+async function synRefFoto(i,file){const n=synRefNames()[i],ok=document.getElementById('synOkX');if(!n||!file)return;
+  try{const d=await synFotoRead(file,360),eq=(SYNEXT.find(r=>r.nombre===n&&sameTeam(r.equipo,plTeam))||{}).equipo||plTeam;
+    await synFotoSave(eq,n,d);renderPlacas();const o2=document.getElementById('synOkX');if(o2){o2.style.color='var(--positive)';o2.textContent='✓ Foto de '+n+' guardada.';}}
+  catch(e){if(ok){ok.style.color='var(--negative)';ok.textContent='No se pudo guardar la foto: '+(e.message||e);}}}
 function synBindDropX(){const z=document.getElementById('synZoneX');if(!z||z._b)return;z._b=1;
   z.addEventListener('dragover',e=>{e.preventDefault();z.classList.add('syn-drop');});z.addEventListener('dragleave',()=>z.classList.remove('syn-drop'));
   z.addEventListener('drop',async e=>{e.preventDefault();z.classList.remove('syn-drop');synImportX(await synDropFiles(e.dataTransfer));});}
@@ -3549,6 +3574,8 @@ function synPrevRenderX(){
   box.innerHTML='<div class="syn-prev"><div class="syn-ph">Refuerzo: completá los datos del jugador, revisá lo que detecté en cada archivo y tocá <b>Guardar</b>. Quedan aparte de los rankings de la liga.</div>'+
     '<div style="display:flex;gap:12px;flex-wrap:wrap;margin:8px 0">'+inp('Jugador','nombre','Nombre y apellido',230,'synXNames')+inp('Número','num','Si ya lo sabe',90)+inp('Viene de (club / liga)','origen','Ej.: Club, país',230)+
     '<label class="zone-lbl" style="display:flex;flex-direction:column;gap:3px">Llega a<select onchange="SYNX_INFO.equipo=this.value">'+teams.map(t=>'<option'+(t===I.equipo?' selected':'')+'>'+escAttr(t)+'</option>').join('')+'</select></label>'+
+    '<label class="zone-lbl" style="display:flex;flex-direction:column;gap:3px">Foto (opcional)<input type="file" accept="image/*" onchange="synXFotoPick(this.files[0])"></label>'+
+    '<span id="synXFotoMsg" class="zone-sub" style="margin:0;align-self:flex-end">'+(SYNX_FOTO?'✓ Foto lista: se guarda junto con el jugador.':'')+'</span>'+
     '<datalist id="synXNames">'+synRefNames().map(n=>'<option value="'+escAttr(n)+'">').join('')+'</datalist></div>'+
     '<table class="syn-t"><thead><tr><th>Archivo</th><th>Tipo</th><th>Jugadas detectadas</th><th>Estado</th></tr></thead><tbody>'+
     SYN_PENDX.map((P,i)=>{const bad=!P.skip&&!P.ok;
@@ -3556,7 +3583,7 @@ function synPrevRenderX(){
       return '<tr'+(bad?' class="bad"':'')+'><td title="'+escAttr(P.name)+'">'+escAttr(P.name.length>60?P.name.slice(0,57)+'…':P.name)+'</td>'+
         '<td>'+escAttr(synXKindL(P.kind))+' <select onchange="SYN_PENDX['+i+'].skip=(this.value===\'0\');synPrevRenderX()"><option value="1"'+(P.skip?'':' selected')+'>Guardar</option><option value="0"'+(P.skip?' selected':'')+'>No guardar</option></select></td>'+
         '<td>'+det+'</td><td>'+(P.skip?'No se guarda':P.err?'⚠ '+escAttr(P.err):P.gp?'OK · '+P.gp+' PJ en el archivo':'OK')+'</td></tr>';}).join('')+
-    '</tbody></table><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="sim-btn" style="background:var(--pl-acc);color:var(--pl-acc-fg);border-color:transparent" onclick="synSaveX()">💾 Guardar refuerzo</button><button class="sim-btn" onclick="SYN_PENDX=[];synPrevRenderX()">Cancelar</button><span id="synSaveMsgX" class="zone-sub" style="margin:0"></span></div></div>';
+    '</tbody></table><div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="sim-btn" style="background:var(--pl-acc);color:var(--pl-acc-fg);border-color:transparent" onclick="synSaveX()">💾 Guardar refuerzo</button><button class="sim-btn" onclick="SYN_PENDX=[];SYNX_FOTO=\'\';synPrevRenderX()">Cancelar</button><span id="synSaveMsgX" class="zone-sub" style="margin:0"></span></div></div>';
 }
 async function synSaveX(){
   const msg=document.getElementById('synSaveMsgX'),say=(t,err)=>{if(msg){msg.textContent=t;msg.style.color=err?'var(--negative)':'var(--text-2)';}};
@@ -3582,8 +3609,9 @@ async function synSaveX(){
     const del=await c.from('synergy_stats').delete().eq('fuente','ext').eq('equipo',eqOld).eq('nombre',nombre);if(del.error)throw new Error(del.error.message);
     for(let i=0;i<recs.length;i+=400){const {error}=await c.from('synergy_stats').insert(recs.slice(i,i+400));if(error)throw new Error(error.message);}
     SYNEXT=SYNEXT.filter(r=>!(r.nombre===nombre&&sameTeam(r.equipo,equipo))).concat(recs);
+    let fotoErr='';if(SYNX_FOTO){try{await synFotoSave(equipo,nombre,SYNX_FOTO);}catch(e){fotoErr=' (la foto no se pudo guardar: '+(e.message||e)+')';}SYNX_FOTO='';}
     SYN_PENDX=[];SYNX_INFO={nombre:'',num:'',origen:'',equipo:''};renderPlacas();
-    const ok=document.getElementById('synOkX');if(ok){ok.style.color='var(--positive)';ok.textContent='✓ '+nombre+' guardado ('+recs.length+' jugadas). Ya tiene su placa «Refuerzo» abajo.';}
+    const ok=document.getElementById('synOkX');if(ok){ok.style.color='var(--positive)';ok.textContent='✓ '+nombre+' guardado ('+recs.length+' jugadas). Ya tiene su placa «Refuerzo» abajo.'+fotoErr;if(fotoErr)ok.style.color='var(--negative)';}
   }catch(e){say('No se pudo guardar: '+(e.message||e),true);}
 }
 function synLatest(rows){let t='';rows.forEach(r=>{if(String(r.temporada)>t)t=String(r.temporada);});return rows.filter(r=>String(r.temporada)===t);}
@@ -3686,7 +3714,7 @@ function plDraw(cv,k){
   const d=PLS.players[k]||{},S=p.ext?{g:p.g||1,pct:[0,0,0,0,0],rol:'Refuerzo',usg:null,efg:0}:plStatsFor(plTeam,p,pool,A),g=S.g;
   plLogo(ctx,plTeam,1700,52,150);
   // cabecera (con foto si hay)
-  const ph=(plOn('foto')&&!p.ext)?plImg(playerPhoto(plTeam,p.num)):null;let hx=70;
+  const ph=plOn('foto')?plImg(playerPhoto(plTeam,p.ext?p.key:p.num)):null;let hx=70;
   if(ph){const R=110,cx=70+R,cy=40+R+10;ctx.save();ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.closePath();ctx.fillStyle=plHex(txt==='#fff'?'#ffffff':'#000000',0.08);ctx.fill();ctx.clip();
     const sc=Math.max(2*R/ph.naturalWidth,2*R/ph.naturalHeight);ctx.drawImage(ph,cx-ph.naturalWidth*sc/2,cy-R,ph.naturalWidth*sc,ph.naturalHeight*sc);ctx.restore();
     ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.lineWidth=6;ctx.strokeStyle=acc;ctx.stroke();hx=70+2*R+34;}
@@ -3803,7 +3831,7 @@ function plDrawCover(ctx,base,acc,txt,sub){
   plFooter(ctx,txt,acc,'Scouting · '+team,'Datos: planillas FIBA LiveStats');
 }
 function plName(k){if(k==='__cover__')return 'Portada';const p=plPlayers(plTeam).find(q=>plPkey(plTeam,q)===k);return p?('#'+p.num+'_'+p.nombre):'placa';}
-async function plPng(k){const c=document.querySelector('#view-placas canvas[data-k="'+CSS.escape(k)+'"]');if(!c)return;await plImgReady([clubLogoAny(plTeam)].concat(plPlayers(plTeam).map(p=>playerPhoto(plTeam,p.num))));plDraw(c,k);
+async function plPng(k){const c=document.querySelector('#view-placas canvas[data-k="'+CSS.escape(k)+'"]');if(!c)return;await plImgReady([clubLogoAny(plTeam)].concat(plPlayers(plTeam).map(p=>playerPhoto(plTeam,p.ext?p.key:p.num))));plDraw(c,k);
   setTimeout(()=>c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=('Placa_'+plTeam+'_'+plName(k)).replace(/[^A-Za-z0-9#_-]+/g,'_')+'.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);},'image/png'),120);}
 async function plPdf(){
   const btn=document.getElementById('plPdfBtn');const old=btn.textContent;btn.textContent='Generando…';btn.disabled=true;
@@ -3811,7 +3839,7 @@ async function plPdf(){
     const jsPDF=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
     const cs=[...document.querySelectorAll('#view-placas canvas[data-k]')].filter(c=>!PLS.excl[c.dataset.k]);
     if(!cs.length){alert('No hay placas marcadas para incluir.');return;}
-    await plImgReady([clubLogoAny(plTeam)].concat(plPlayers(plTeam).map(p=>playerPhoto(plTeam,p.num))));
+    await plImgReady([clubLogoAny(plTeam)].concat(plPlayers(plTeam).map(p=>playerPhoto(plTeam,p.ext?p.key:p.num))));
     const pdf=new jsPDF({orientation:'landscape',unit:'px',format:[1920,1080],hotfixes:['px_scaling']});
     cs.forEach((c,i)=>{plDraw(c,c.dataset.k);});
     await new Promise(r=>setTimeout(r,200));
