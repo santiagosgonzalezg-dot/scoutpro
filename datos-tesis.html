@@ -107,6 +107,9 @@ td.low{color:var(--text-3)}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-2);margin:2px 0 8px}
 .tip{position:fixed;z-index:100;pointer-events:none;background:var(--bg-panel);border:1px solid var(--border-strong);border-radius:6px;padding:7px 10px;font-family:var(--font-mono);font-size:10.5px;color:var(--text);display:none;max-width:240px;line-height:1.5}
 .mini{font-family:var(--font-mono);font-size:10px;color:var(--text-3)}
+.cst{font-family:var(--font-mono);font-size:10px;color:var(--text-2);border:1px solid var(--border-light);border-radius:20px;padding:5px 11px;white-space:nowrap}
+.cst.ok{color:var(--positive);border-color:rgba(52,199,105,.4)}.cst.pend{color:#f5b042;border-color:rgba(245,176,66,.45)}.cst.err{color:var(--negative);border-color:rgba(240,80,80,.5);cursor:pointer}
+.login{max-width:420px;margin:30px auto}.login .field{margin-bottom:12px}.login .field input{width:100%}
 @media(max-width:640px){.opts.c3{grid-template-columns:1fr}.tbtn{font-size:17px}}
 @media print{
   body{background:#fff;color:#111}.topbar,.tabs,.btn,.spnav-burger,.noprint,.tip{display:none!important}
@@ -117,11 +120,13 @@ td.low{color:var(--text-3)}
   .kpi .v,.mh-t,.teamhead{color:#111}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="topbar">
   <div class="logo"><span class="a">DATOS TESIS</span><span class="v">TEMPORAL</span></div>
   <div class="tb-spacer"></div>
+  <span class="cst" id="cst" onclick="flush()">…</span>
 </div>
 
 <div class="wrap">
@@ -141,10 +146,16 @@ td.low{color:var(--text-3)}
 <script>
 /* ═══════════════════════════════════════════════════════════════
    DATOS TESIS · Momento de la posesión en que se lanza (Playoffs LA)
-   Almacenamiento: localStorage de este navegador (clave sp_tesis_v1).
-   Para borrar la sección: eliminar este archivo y la entrada del menú.
+   Almacenamiento: Supabase → tablas tesis_partidos y tesis_tiros
+   (RLS: cada usuario ve y edita solo sus propios registros).
+   Usa la misma sesión que el resto de ScoutPro (mismo origen).
+   Si una operación falla (sin conexión), queda en una cola local
+   y se reintenta sola; no se pierde.
+   Para eliminar la sección: borrar este archivo y las dos tablas.
    ═══════════════════════════════════════════════════════════════ */
-const LS='sp_tesis_v1';
+const SB_URL='https://jqudeomgafqilqmqcqzg.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8';
+const LS_ACTIVE='sp_tesis_active',LS_Q='sp_tesis_cola',LS_LEGACY='sp_tesis_v1';
 const SEG=[
   {n:1,l:'Primeros 8"',r:'seg. 1–8',s:'1.º tramo'},
   {n:2,l:'Segundos 8"',r:'seg. 9–16',s:'2.º tramo'},
@@ -156,14 +167,18 @@ const DET_OK=['Asistido','Individual','Con falta (+1)'];
 const DET_KO=['Rebote defensivo','Rebote ofensivo','Tapón','Con falta (TL)'];
 const C1='#f97316',C2='#4f8ef7';
 
-let DB=load();
+let DB={games:[],active:null},sb=null,SESSION=null,CLOUD={state:'init',err:''},Q=loadQ(),FLUSHING=false;
 let UI={team:null,seg:null,pts:null,res:null,det:null,view:'cargar',tFase:'',tTeam:'',tGames:null};
 
-function load(){try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d&&Array.isArray(d.games))return d;}catch(e){}return{games:[],active:null};}
-function save(){try{localStorage.setItem(LS,JSON.stringify(DB));}catch(e){alert('No se pudo guardar en el navegador.');}}
+function saveActive(){try{DB.active?localStorage.setItem(LS_ACTIVE,DB.active):localStorage.removeItem(LS_ACTIVE);}catch(e){}}
+function save(){saveActive();}
+function loadQ(){try{return JSON.parse(localStorage.getItem(LS_Q)||'[]')||[];}catch(e){return[];}}
+function saveQ(){try{localStorage.setItem(LS_Q,JSON.stringify(Q));}catch(e){}}
+function legacy(){try{const d=JSON.parse(localStorage.getItem(LS_LEGACY)||'null');if(d&&Array.isArray(d.games)&&d.games.length)return d;}catch(e){}return null;}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const isUuid=x=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(x||''));
+function uid(){if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();const b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=b[6]&15|64;b[8]=b[8]&63|128;const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
 const tkey=s=>String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ');
 const pct=(a,b)=>b>0?(100*a/b):null;
 const fp=(v,d=0)=>v==null?'—':v.toFixed(d)+'%';
@@ -173,6 +188,107 @@ const active=()=>game(DB.active)||null;
 function gname(g){return (g.fase?g.fase+' · ':'')+'Juego '+g.juego+' · '+g.local+' vs '+g.visitante;}
 function teamName(g,side){return side==='L'?g.local:g.visitante;}
 const teamColor=side=>side==='L'?C1:C2;
+
+/* ─────────── nube (Supabase) ─────────── */
+const rowG=g=>({id:g.id,fase:g.fase||'',juego:g.juego,local:g.local,visitante:g.visitante,fecha:g.fecha||null});
+const rowT=(g,s)=>({id:s.id,partido_id:g.id,equipo:s.t,tramo:s.seg,puntos:s.pts,emboca:!!s.res,detalle:s.det||'',created_at:s.ts||new Date().toISOString()});
+function paintStatus(){
+  const e=$('cst');if(!e)return;
+  let c='cst',t;
+  if(CLOUD.state==='nolib'||!SESSION){t='☁ Sin sesión';}
+  else if(Q.length){c+=CLOUD.err?' err':' pend';t=(CLOUD.err?'⚠ ':'⏳ ')+Q.length+' sin subir'+(CLOUD.err?' · reintentar':'…');}
+  else if(CLOUD.state==='ok'){c+=' ok';t='☁ Guardado en Supabase';}
+  else if(CLOUD.state==='fail'){c+=' err';t='⚠ Sin conexión';}
+  else t='☁ Conectando…';
+  e.className=c;e.textContent=t;e.title=CLOUD.err||'';
+}
+async function cloud(op){Q.push(op);saveQ();paintStatus();await flush();}
+async function flush(){
+  if(!sb||!SESSION||FLUSHING)return;FLUSHING=true;CLOUD.err='';
+  try{
+    while(Q.length){
+      const o=Q[0];let r;
+      if(o.k==='ins_g')r=await sb.from('tesis_partidos').upsert(o.row);
+      else if(o.k==='ins_t')r=await sb.from('tesis_tiros').upsert(o.row);
+      else if(o.k==='del_t')r=await sb.from('tesis_tiros').delete().eq('id',o.id);
+      else if(o.k==='del_g')r=await sb.from('tesis_partidos').delete().eq('id',o.id);
+      else if(o.k==='wipe')r=await sb.from('tesis_partidos').delete().neq('id','00000000-0000-0000-0000-000000000000');
+      else r={};
+      if(r.error){
+        const st=r.status||0,perm=st>=400&&st<500&&![401,408,429].includes(st);
+        CLOUD.err=r.error.message||'Error';
+        if(perm){Q.shift();saveQ();continue;}   /* error definitivo: se descarta para no trabar la cola */
+        break;
+      }
+      Q.shift();saveQ();
+    }
+  }catch(e){CLOUD.err=(e&&e.message)||'Sin conexión';}
+  FLUSHING=false;paintStatus();
+}
+async function pull(){
+  CLOUD.state='sync';paintStatus();
+  try{
+    const pr=await sb.from('tesis_partidos').select('*').order('created_at',{ascending:true}).order('id');
+    if(pr.error)throw pr.error;
+    let tiros=[],f=0;
+    for(;;){const r=await sb.from('tesis_tiros').select('*').order('created_at',{ascending:true}).order('id').range(f,f+999);
+      if(r.error)throw r.error;tiros=tiros.concat(r.data||[]);if((r.data||[]).length<1000)break;f+=1000;if(f>200000)break;}
+    const by={};tiros.forEach(t=>{(by[t.partido_id]=by[t.partido_id]||[]).push({id:t.id,t:t.equipo,seg:t.tramo,pts:t.puntos,res:t.emboca?1:0,det:t.detalle||'',ts:t.created_at});});
+    const prev=DB.active||localStorage.getItem(LS_ACTIVE);
+    DB.games=(pr.data||[]).map(p=>({id:p.id,fase:p.fase,juego:p.juego,local:p.local,visitante:p.visitante,fecha:p.fecha||'',shots:by[p.id]||[]}));
+    DB.active=prev&&game(prev)?prev:(DB.games.length?DB.games[DB.games.length-1].id:null);
+    saveActive();CLOUD.state='ok';CLOUD.err='';
+  }catch(e){CLOUD.state='fail';CLOUD.err=(e&&e.message)||'Sin conexión';}
+  paintStatus();
+}
+async function afterLogin(){CLOUD.state='sync';renderAll();await flush();await pull();renderAll();}
+async function doLogin(){
+  const m=$('lgMsg');m.textContent='Ingresando…';
+  const r=await sb.auth.signInWithPassword({email:$('lgEmail').value.trim(),password:$('lgPass').value});
+  if(r.error){m.textContent='No se pudo ingresar: '+r.error.message;return;}
+  SESSION=r.data.session;afterLogin();
+}
+function loginHTML(){return `<div class="card login"><div class="card-t">Ingresar</div>
+  <div class="mini" style="margin-bottom:14px;line-height:1.6">Use la misma cuenta con la que entra a ScoutPro. Los datos de esta sección quedan guardados en su cuenta y no los ve nadie más.</div>
+  <div class="field"><label>Correo</label><input id="lgEmail" type="email" autocomplete="username"></div>
+  <div class="field"><label>Contraseña</label><input id="lgPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <button class="btn-primary" onclick="doLogin()">Ingresar</button> <span class="regmsg" id="lgMsg"></span></div>`;}
+function gate(el){
+  if(CLOUD.state==='nolib'){el.innerHTML='<div class="empty">No se pudo cargar la conexión con Supabase (¿sin internet?).<br>Recargue la página.</div>';return true;}
+  if(CLOUD.state==='init'){el.innerHTML='<div class="empty">Conectando…</div>';return true;}
+  if(!SESSION){el.innerHTML=loginHTML();return true;}
+  if(CLOUD.state==='sync'){el.innerHTML='<div class="empty">Cargando datos desde Supabase…</div>';return true;}
+  if(CLOUD.state==='fail'){el.innerHTML='<div class="empty">No se pudieron leer los datos.<br><span class="mini">'+esc(CLOUD.err)+'</span><br><br><button class="btn" onclick="afterLogin()">Reintentar</button></div>';return true;}
+  return false;
+}
+/* datos que estaban guardados solo en este navegador (versión anterior) */
+function legacyBanner(){
+  const d=legacy();if(!d||!SESSION)return '';
+  const n=d.games.reduce((a,g)=>a+(g.shots||[]).length,0);
+  return `<div class="note"><b>Hay datos guardados solo en este navegador:</b> ${d.games.length} partidos y ${n} tiros. <button class="btn" onclick="uploadLegacy()">⬆ Subir a Supabase</button></div>`;
+}
+function importGames(list){
+  list.forEach(g0=>{
+    const g={id:isUuid(g0.id)?g0.id:uid(),fase:g0.fase||'',juego:+g0.juego||1,local:g0.local,visitante:g0.visitante,fecha:g0.fecha||'',shots:[]};
+    const base=Date.now();
+    (g0.shots||[]).forEach((x,i)=>g.shots.push({id:isUuid(x.id)?x.id:uid(),t:x.t,seg:x.seg,pts:x.pts,res:x.res?1:0,det:x.det||'',ts:x.ts||new Date(base+i).toISOString()}));
+    const i=DB.games.findIndex(z=>z.id===g.id);if(i>=0)DB.games[i]=g;else DB.games.push(g);
+    Q.push({k:'ins_g',row:rowG(g)});g.shots.forEach(s=>Q.push({k:'ins_t',row:rowT(g,s)}));
+  });
+  saveQ();
+}
+async function uploadLegacy(){
+  const d=legacy();if(!d)return;importGames(d.games);
+  try{localStorage.setItem(LS_LEGACY+'_migrado',localStorage.getItem(LS_LEGACY));localStorage.removeItem(LS_LEGACY);}catch(e){}
+  if(!DB.active&&DB.games.length)DB.active=DB.games[0].id;saveActive();paintStatus();renderAll();await flush();renderAll();
+}
+async function boot(){
+  if(!window.supabase||!window.supabase.createClient){CLOUD.state='nolib';paintStatus();renderAll();return;}
+  sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+  sb.auth.onAuthStateChange((ev,ses)=>{SESSION=ses;if(ev==='SIGNED_OUT'){Q=[];saveQ();DB={games:[],active:null};paintStatus();renderAll();}});
+  const r=await sb.auth.getSession();SESSION=r.data&&r.data.session;
+  if(SESSION){await afterLogin();}else{CLOUD.state='ok';paintStatus();renderAll();}
+}
 
 /* ─────────── estadística ─────────── */
 function agg(shots){
@@ -239,9 +355,10 @@ const segLegend=()=>`<div class="legend">${SEG.map((s,i)=>`<span><span class="sw
 /* ═══════════════ CARGAR ═══════════════ */
 function teamList(){const m={};DB.games.forEach(g=>{[g.local,g.visitante].forEach(n=>{m[tkey(n)]=m[tkey(n)]||n;});});return Object.values(m).sort();}
 function renderCargar(){
+  if(gate($('view-cargar')))return;
   const g=active();
   const opts=DB.games.map(x=>`<option value="${x.id}" ${x.id===DB.active?'selected':''}>${esc(gname(x))}</option>`).join('');
-  let h=`<div class="note"><b>Cómo se carga:</b> primero se crea el partido (fase, número de juego y equipos). Luego, por cada tiro, se elige el equipo, el tramo de la posesión en que salió (primeros, segundos o terceros 8 segundos), si fue de 2 o 3 puntos y si entró. El detalle de «qué pasó» es opcional. Los tramos se miden en <b>segundos transcurridos de la posesión</b> (reloj de 24″: 24→16, 16→8, 8→0).</div>
+  let h=legacyBanner()+`<div class="note"><b>Cómo se carga:</b> primero se crea el partido (fase, número de juego y equipos). Luego, por cada tiro, se elige el equipo, el tramo de la posesión en que salió (primeros, segundos o terceros 8 segundos), si fue de 2 o 3 puntos y si entró. El detalle de «qué pasó» es opcional. Los tramos se miden en <b>segundos transcurridos de la posesión</b> (reloj de 24″: 24→16, 16→8, 8→0).</div>
   <div class="card"><div class="card-t">Partido</div>
   <div class="controls">
     <div class="field w"><label>Partido cargado</label><select id="selGame" onchange="setActive(this.value)"><option value="">— elegir —</option>${opts}</select></div>
@@ -305,19 +422,19 @@ function addGame(){
   if(tkey(loc)===tkey(vis)){alert('Local y visitante no pueden ser el mismo equipo.');return;}
   const ex=teamList();const fix=n=>ex.find(e=>tkey(e)===tkey(n))||n;
   const g={id:uid(),fase:$('nFase').value,juego:+$('nJuego').value,local:fix(loc),visitante:fix(vis),fecha:$('nFec').value||'',shots:[]};
-  DB.games.push(g);DB.active=g.id;save();UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();
+  DB.games.push(g);DB.active=g.id;save();cloud({k:'ins_g',row:rowG(g)});UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();
 }
 function setActive(id){DB.active=id||null;save();UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();}
 function delGame(id){const g=game(id);if(!g||!confirm('¿Eliminar "'+gname(g)+'" con sus '+g.shots.length+' tiros?'))return;
-  DB.games=DB.games.filter(x=>x.id!==id);DB.active=DB.games.length?DB.games[DB.games.length-1].id:null;save();renderCargar();}
+  DB.games=DB.games.filter(x=>x.id!==id);DB.active=DB.games.length?DB.games[DB.games.length-1].id:null;save();cloud({k:'del_g',id});renderCargar();}
 function regShot(){
   const g=active();if(!g||!(UI.team&&UI.seg&&UI.pts&&UI.res!=null))return;
-  g.shots.push({t:UI.team,seg:UI.seg,pts:UI.pts,res:UI.res,det:UI.det||''});save();
+  const sh={id:uid(),t:UI.team,seg:UI.seg,pts:UI.pts,res:UI.res,det:UI.det||'',ts:new Date().toISOString()};g.shots.push(sh);cloud({k:'ins_t',row:rowT(g,sh)});
   const last=teamName(g,UI.team)+' · '+SEG[UI.seg-1].l+' · '+UI.pts+' pts · '+(UI.res?'emboca':'falla');
   UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();$('regMsg').textContent='✓ Registrado: '+last;
 }
-function undo(){const g=active();if(!g||!g.shots.length)return;g.shots.pop();save();renderCargar();}
-function delShot(id,i){const g=game(id);if(!g)return;g.shots.splice(i,1);save();renderCargar();}
+function undo(){const g=active();if(!g||!g.shots.length)return;const s=g.shots.pop();cloud({k:'del_t',id:s.id});renderCargar();}
+function delShot(id,i){const g=game(id);if(!g)return;const r=g.shots.splice(i,1)[0];if(r)cloud({k:'del_t',id:r.id});renderCargar();}
 
 /* ═══════════════ INFORME ═══════════════ */
 let INF_ID=null;
@@ -339,7 +456,7 @@ function insightsFor(name,seg,tot,base){
   return out;
 }
 function renderInforme(){
-  const el=$('view-informe');
+  const el=$('view-informe');if(gate(el))return;
   if(!DB.games.length){el.innerHTML='<div class="empty">Cargá al menos un partido para generar el informe.</div>';return;}
   if(!INF_ID||!game(INF_ID))INF_ID=DB.active&&game(DB.active)?DB.active:DB.games[0].id;
   const g=game(INF_ID);
@@ -394,7 +511,7 @@ function renderInforme(){
 
 /* ═══════════════ TENDENCIAS ═══════════════ */
 function renderTend(){
-  const el=$('view-tend');
+  const el=$('view-tend');if(gate(el))return;
   if(!DB.games.length){el.innerHTML='<div class="empty">Cargá partidos para ver tendencias.</div>';return;}
   const fases=[...new Set(DB.games.map(g=>g.fase).filter(Boolean))];
   const teams=teamList();
@@ -460,18 +577,17 @@ function expCSV(){download('datos-tesis.csv','﻿'+csvRows().map(r=>r.map(c=>'"'
 function expJSON(){download('datos-tesis-respaldo.json',JSON.stringify(DB,null,1),'application/json');}
 function impJSON(inp){
   const f=inp.files[0];if(!f)return;const rd=new FileReader();
-  rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d||!Array.isArray(d.games))throw 0;
-    const merge=confirm('¿Sumar este respaldo a los datos actuales?\n\nAceptar = sumar (los partidos con el mismo ID se reemplazan)\nCancelar = reemplazar todo');
-    if(merge){d.games.forEach(g=>{const i=DB.games.findIndex(x=>x.id===g.id);if(i>=0)DB.games[i]=g;else DB.games.push(g);});}
-    else DB=d;
-    if(!DB.active||!game(DB.active))DB.active=DB.games.length?DB.games[0].id:null;
-    save();renderAll();alert('Respaldo importado.');}catch(e){alert('El archivo no es un respaldo válido.');}};
+  rd.onload=async()=>{try{const d=JSON.parse(rd.result);if(!d||!Array.isArray(d.games))throw 0;
+    if(!confirm('Se sumarán '+d.games.length+' partidos a la base (los que ya existan con el mismo ID se actualizan). ¿Continuar?'))return;
+    importGames(d.games);if(!DB.active&&DB.games.length)DB.active=DB.games[0].id;saveActive();paintStatus();renderAll();await flush();renderAll();alert('Respaldo importado.');}
+    catch(e){alert('El archivo no es un respaldo válido.');}};
   rd.readAsText(f);inp.value='';
 }
-function wipe(){if(confirm('Se borrarán TODOS los partidos y tiros de este navegador. ¿Continuar?')&&confirm('Última confirmación: esta acción no se puede deshacer.')){DB={games:[],active:null};save();renderAll();}}
+function wipe(){if(confirm('Se borrarán TODOS los partidos y tiros de su cuenta en Supabase. ¿Continuar?')&&confirm('Última confirmación: esta acción no se puede deshacer.')){DB={games:[],active:null};save();cloud({k:'wipe'});renderAll();}}
 function renderDatos(){
+  if(gate($('view-datos')))return;
   const n=DB.games.reduce((a,g)=>a+g.shots.length,0);
-  let h=`<div class="note"><b>Dónde se guardan los datos:</b> en este navegador y en este dispositivo (no en la nube). Si se borran los datos del sitio o se cambia de equipo, se pierden. Conviene descargar el <b>respaldo (JSON)</b> al terminar cada jornada de carga; el <b>CSV</b> abre directo en Excel o SPSS para el análisis de la tesis.</div>
+  let h=legacyBanner()+`<div class="note"><b>Dónde se guardan los datos:</b> en Supabase, en las tablas <b>tesis_partidos</b> y <b>tesis_tiros</b>, asociadas a su cuenta. Se ven desde cualquier dispositivo en el que ingrese. El <b>CSV</b> abre directo en Excel o SPSS para el análisis de la tesis; el <b>respaldo JSON</b> es una copia de seguridad adicional.</div>
   <div class="card"><div class="controls"><button class="btn" onclick="expCSV()">⬇ Exportar CSV (todos los tiros)</button><button class="btn" onclick="expJSON()">⬇ Respaldo JSON</button>
    <label class="btn" style="cursor:pointer">⬆ Importar respaldo<input type="file" accept=".json,application/json" style="display:none" onchange="impJSON(this)"></label>
    <div class="tb-spacer"></div><button class="btn danger" onclick="wipe()">Borrar todo</button></div>
@@ -483,15 +599,14 @@ function renderDatos(){
 
 /* ═══════════════ navegación interna ═══════════════ */
 function printView(v){document.querySelectorAll('.view').forEach(x=>x.classList.remove('print'));$('view-'+v).classList.add('print');window.print();}
-function renderAll(){renderCargar();renderInforme();renderTend();renderDatos();}
+function renderAll(){go(UI.view);}   /* solo se dibuja la pestaña activa (evita IDs duplicados en el login) */
 function go(v){
   UI.view=v;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));
   document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+v));
   ({cargar:renderCargar,informe:renderInforme,tend:renderTend,datos:renderDatos})[v]();
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(t.dataset.v));
-if(!DB.active&&DB.games.length)DB.active=DB.games[DB.games.length-1].id;
-renderAll();
+paintStatus();renderAll();boot();
 </script>
 
 <!-- Menú de navegación compartido (igual al del resto de las secciones, con «Datos Tesis» agregado) -->
