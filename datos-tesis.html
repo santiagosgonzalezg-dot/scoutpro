@@ -57,7 +57,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .lab{font-family:var(--font-mono);font-size:9.5px;letter-spacing:1px;color:var(--text-2);text-transform:uppercase;margin:16px 0 8px}
 .lab i{font-style:normal;color:var(--text-3);text-transform:none;letter-spacing:0;margin-left:6px}
 .opts{display:grid;gap:10px}
-.opts.c3{grid-template-columns:repeat(3,1fr)}.opts.c2{grid-template-columns:repeat(2,1fr)}
+.opts.c3{grid-template-columns:repeat(3,1fr)}.opts.c2{grid-template-columns:repeat(2,1fr)}.opts.c5{grid-template-columns:repeat(5,1fr)}.opts.c5 .obtn{padding:12px 4px;font-size:17px}
 .opts.chips{display:flex;flex-wrap:wrap;gap:8px}
 .obtn{background:var(--bg-panel);border:1px solid var(--border-light);color:var(--text);border-radius:10px;padding:14px 8px;font-family:var(--font-disp);font-weight:800;font-size:19px;cursor:pointer;transition:all var(--t-fast);text-align:center;line-height:1.1}
 .obtn small{display:block;font-family:var(--font-mono);font-weight:500;font-size:9.5px;color:var(--text-2);margin-top:4px;letter-spacing:.3px}
@@ -156,6 +156,7 @@ td.low{color:var(--text-3)}
 const SB_URL='https://jqudeomgafqilqmqcqzg.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxdWRlb21nYWZxaWxxbXFjcXpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyNjY1MTQsImV4cCI6MjA5NTg0MjUxNH0.0tl4jVOnuOE8DxTOQfGF2qirCeMIKRdv5RCZ0dGzBl8';
 const LS_ACTIVE='sp_tesis_active',LS_Q='sp_tesis_cola',LS_LEGACY='sp_tesis_v1';
+const CUARTOS=[1,2,3,4,5];
 const SEG=[
   {n:1,l:'Primeros 8"',r:'seg. 1–8',s:'1.º tramo'},
   {n:2,l:'Segundos 8"',r:'seg. 9–16',s:'2.º tramo'},
@@ -166,9 +167,11 @@ const FASES=['Octavos de final','Cuartos de final','Semifinal','Final','Otra'];
 const DET_OK=['Asistido','Individual','Con falta (+1)'];
 const DET_KO=['Rebote defensivo','Rebote ofensivo','Tapón','Con falta (TL)'];
 const C1='#f97316',C2='#4f8ef7';
+const qLabel=q=>q===5?'Prórroga':(q?q+'.º cuarto':'Sin dato');
+const qBtn=q=>q===5?'PR':q+'.º';
 
 let DB={games:[],active:null},sb=null,SESSION=null,CLOUD={state:'init',err:''},Q=loadQ(),FLUSHING=false;
-let UI={team:null,seg:null,pts:null,res:null,det:null,view:'cargar',tFase:'',tTeam:'',tGames:null};
+let UI={team:null,seg:null,pts:null,res:null,det:null,q:null,view:'cargar',tFase:'',tTeam:'',tQ:'',iT:'',iQ:''};
 
 function saveActive(){try{DB.active?localStorage.setItem(LS_ACTIVE,DB.active):localStorage.removeItem(LS_ACTIVE);}catch(e){}}
 function save(){saveActive();}
@@ -191,7 +194,7 @@ const teamColor=side=>side==='L'?C1:C2;
 
 /* ─────────── nube (Supabase) ─────────── */
 const rowG=g=>({id:g.id,fase:g.fase||'',juego:g.juego,local:g.local,visitante:g.visitante,fecha:g.fecha||null});
-const rowT=(g,s)=>({id:s.id,partido_id:g.id,equipo:s.t,tramo:s.seg,puntos:s.pts,emboca:!!s.res,detalle:s.det||'',created_at:s.ts||new Date().toISOString()});
+const rowT=(g,s)=>({id:s.id,partido_id:g.id,equipo:s.t,tramo:s.seg,puntos:s.pts,emboca:!!s.res,detalle:s.det||'',cuarto:s.q||null,created_at:s.ts||new Date().toISOString()});
 function paintStatus(){
   const e=$('cst');if(!e)return;
   let c='cst',t;
@@ -233,7 +236,7 @@ async function pull(){
     let tiros=[],f=0;
     for(;;){const r=await sb.from('tesis_tiros').select('*').order('created_at',{ascending:true}).order('id').range(f,f+999);
       if(r.error)throw r.error;tiros=tiros.concat(r.data||[]);if((r.data||[]).length<1000)break;f+=1000;if(f>200000)break;}
-    const by={};tiros.forEach(t=>{(by[t.partido_id]=by[t.partido_id]||[]).push({id:t.id,t:t.equipo,seg:t.tramo,pts:t.puntos,res:t.emboca?1:0,det:t.detalle||'',ts:t.created_at});});
+    const by={};tiros.forEach(t=>{(by[t.partido_id]=by[t.partido_id]||[]).push({id:t.id,t:t.equipo,seg:t.tramo,pts:t.puntos,res:t.emboca?1:0,det:t.detalle||'',q:t.cuarto||null,ts:t.created_at});});
     const prev=DB.active||localStorage.getItem(LS_ACTIVE);
     DB.games=(pr.data||[]).map(p=>({id:p.id,fase:p.fase,juego:p.juego,local:p.local,visitante:p.visitante,fecha:p.fecha||'',shots:by[p.id]||[]}));
     DB.active=prev&&game(prev)?prev:(DB.games.length?DB.games[DB.games.length-1].id:null);
@@ -271,7 +274,7 @@ function importGames(list){
   list.forEach(g0=>{
     const g={id:isUuid(g0.id)?g0.id:uid(),fase:g0.fase||'',juego:+g0.juego||1,local:g0.local,visitante:g0.visitante,fecha:g0.fecha||'',shots:[]};
     const base=Date.now();
-    (g0.shots||[]).forEach((x,i)=>g.shots.push({id:isUuid(x.id)?x.id:uid(),t:x.t,seg:x.seg,pts:x.pts,res:x.res?1:0,det:x.det||'',ts:x.ts||new Date(base+i).toISOString()}));
+    (g0.shots||[]).forEach((x,i)=>g.shots.push({id:isUuid(x.id)?x.id:uid(),t:x.t,seg:x.seg,pts:x.pts,res:x.res?1:0,det:x.det||'',q:x.q||null,ts:x.ts||new Date(base+i).toISOString()}));
     const i=DB.games.findIndex(z=>z.id===g.id);if(i>=0)DB.games[i]=g;else DB.games.push(g);
     Q.push({k:'ins_g',row:rowG(g)});g.shots.forEach(s=>Q.push({k:'ins_t',row:rowT(g,s)}));
   });
@@ -358,7 +361,7 @@ function renderCargar(){
   if(gate($('view-cargar')))return;
   const g=active();
   const opts=DB.games.map(x=>`<option value="${x.id}" ${x.id===DB.active?'selected':''}>${esc(gname(x))}</option>`).join('');
-  let h=legacyBanner()+`<div class="note"><b>Cómo se carga:</b> primero se crea el partido (fase, número de juego y equipos). Luego, por cada tiro, se elige el equipo, el tramo de la posesión en que salió (primeros, segundos o terceros 8 segundos), si fue de 2 o 3 puntos y si entró. El detalle de «qué pasó» es opcional. Los tramos se miden en <b>segundos transcurridos de la posesión</b> (reloj de 24″: 24→16, 16→8, 8→0).</div>
+  let h=legacyBanner()+`<div class="note"><b>Cómo se carga:</b> primero se crea el partido (fase, número de juego y equipos). Luego, por cada tiro, se indica el cuarto (queda seleccionado hasta que lo cambie), el equipo, el tramo de la posesión en que salió (primeros, segundos o terceros 8 segundos), si fue de 2 o 3 puntos y si entró. El detalle de «qué pasó» es opcional. Los tramos se miden en <b>segundos transcurridos de la posesión</b> (reloj de 24″: 24→16, 16→8, 8→0).</div>
   <div class="card"><div class="card-t">Partido</div>
   <div class="controls">
     <div class="field w"><label>Partido cargado</label><select id="selGame" onchange="setActive(this.value)"><option value="">— elegir —</option>${opts}</select></div>
@@ -385,22 +388,24 @@ function renderCargar(){
     <div class="lc"><b style="color:${C2}">${B.m}/${B.n}</b><span>${esc(g.visitante)} · tiros</span></div>
     <div class="lc"><b>${g.shots.length}</b><span>Total cargados</span></div>
   </div>
-  <div class="lab">1 · Equipo que tira</div>
+  <div class="lab">1 · Cuarto <i>queda marcado para los tiros siguientes</i></div>
+  <div class="opts c5">${CUARTOS.map(q=>`<button class="obtn ${UI.q===q?'on':''}" onclick="pick('q',${q})">${qBtn(q)}<small>${q===5?'prórroga':'cuarto'}</small></button>`).join('')}</div>
+  <div class="lab">2 · Equipo que tira</div>
   <div class="teambtns">
     <button class="tbtn t1 ${UI.team==='L'?'on':''}" onclick="pick('team','L')">${esc(g.local)}<small>LOCAL</small></button>
     <button class="tbtn t2 ${UI.team==='V'?'on':''}" onclick="pick('team','V')">${esc(g.visitante)}<small>VISITANTE</small></button>
   </div>
-  <div class="lab">2 · Momento de la posesión <i>¿en qué tramo salió el tiro?</i></div>
+  <div class="lab">3 · Momento de la posesión <i>¿en qué tramo salió el tiro?</i></div>
   <div class="opts c3">${SEG.map(s=>`<button class="obtn ${UI.seg===s.n?'on':''}" onclick="pick('seg',${s.n})">${s.l}<small>${s.r}</small></button>`).join('')}</div>
-  <div class="lab">3 · Tipo de tiro</div>
+  <div class="lab">4 · Tipo de tiro</div>
   <div class="opts c2"><button class="obtn ${UI.pts===2?'on':''}" onclick="pick('pts',2)">2 puntos</button><button class="obtn ${UI.pts===3?'on':''}" onclick="pick('pts',3)">3 puntos</button></div>
-  <div class="lab">4 · Resultado</div>
+  <div class="lab">5 · Resultado</div>
   <div class="opts c2"><button class="obtn ${UI.res===1?'on ok':''}" onclick="pick('res',1)">✔ Emboca</button><button class="obtn ${UI.res===0?'on ko':''}" onclick="pick('res',0)">✖ Falla</button></div>
-  <div class="lab">5 · Qué pasó <i>opcional</i></div>
+  <div class="lab">6 · Qué pasó <i>opcional</i></div>
   <div class="opts chips">${UI.res==null?'<span class="mini">Elegí primero el resultado.</span>':(UI.res?DET_OK:DET_KO).map(d=>`<button class="chip ${UI.det===d?'on':''}" onclick="pick('det','${d}')">${d}</button>`).join('')}</div>
-  <div class="regrow"><button class="btn-primary" id="btnReg" onclick="regShot()" ${(UI.team&&UI.seg&&UI.pts&&UI.res!=null)?'':'disabled'}>Registrar tiro</button>
+  <div class="regrow"><button class="btn-primary" id="btnReg" onclick="regShot()" ${(UI.q&&UI.team&&UI.seg&&UI.pts&&UI.res!=null)?'':'disabled'}>Registrar tiro</button>
     <button class="btn" onclick="undo()" ${g.shots.length?'':'disabled'}>↶ Deshacer último</button>
-    <button class="btn" onclick="UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar()">Limpiar selección</button>
+    <button class="btn" onclick="UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar()">Limpiar selección (el cuarto se mantiene)</button>
     <span class="regmsg" id="regMsg"></span></div></div>`;
   h+=`<div class="card"><div class="card-t">Últimos tiros cargados</div>${shotsTable(g,true)}</div>`;
   $('view-cargar').innerHTML=h;
@@ -408,13 +413,13 @@ function renderCargar(){
 function shotsTable(g,recent){
   if(!g.shots.length)return '<div class="empty" style="padding:20px">Todavía no hay tiros.</div>';
   const list=g.shots.map((s,i)=>({s,i})).reverse().slice(0,recent?15:9999);
-  return `<div class="tblwrap"><table class="t"><thead><tr><th class="l">#</th><th class="l">Equipo</th><th class="l">Tramo</th><th>Tipo</th><th class="l">Resultado</th><th class="l">Qué pasó</th><th></th></tr></thead><tbody>${list.map(({s,i})=>`<tr>
-    <td class="l">${i+1}</td><td class="l"><span class="sw" style="background:${teamColor(s.t)}"></span>${esc(teamName(g,s.t))}</td>
+  return `<div class="tblwrap"><table class="t"><thead><tr><th class="l">#</th><th class="l">Cuarto</th><th class="l">Equipo</th><th class="l">Tramo</th><th>Tipo</th><th class="l">Resultado</th><th class="l">Qué pasó</th><th></th></tr></thead><tbody>${list.map(({s,i})=>`<tr>
+    <td class="l">${i+1}</td><td class="l">${s.q?qBtn(s.q):'—'}</td><td class="l"><span class="sw" style="background:${teamColor(s.t)}"></span>${esc(teamName(g,s.t))}</td>
     <td class="l">${SEG[s.seg-1].l}</td><td>${s.pts} pts</td>
     <td class="l" style="color:${s.res?'var(--positive)':'var(--negative)'}">${s.res?'Emboca':'Falla'}</td><td class="l">${esc(s.det||'—')}</td>
     <td><button class="dbtn" onclick="delShot('${g.id}',${i})" title="Borrar">✕</button></td></tr>`).join('')}</tbody></table></div>`;
 }
-function pick(k,v){UI[k]=(UI[k]===v&&k!=='team'&&k!=='res')?null:v;if(k==='res')UI.det=null;renderCargar();}
+function pick(k,v){UI[k]=(UI[k]===v&&k!=='team'&&k!=='res'&&k!=='q')?null:v;if(k==='res')UI.det=null;renderCargar();}
 function toggleNew(){const b=$('newBox');b.style.display=b.style.display==='none'?'block':'none';}
 function addGame(){
   const loc=$('nLoc').value.trim(),vis=$('nVis').value.trim();
@@ -422,19 +427,50 @@ function addGame(){
   if(tkey(loc)===tkey(vis)){alert('Local y visitante no pueden ser el mismo equipo.');return;}
   const ex=teamList();const fix=n=>ex.find(e=>tkey(e)===tkey(n))||n;
   const g={id:uid(),fase:$('nFase').value,juego:+$('nJuego').value,local:fix(loc),visitante:fix(vis),fecha:$('nFec').value||'',shots:[]};
-  DB.games.push(g);DB.active=g.id;save();cloud({k:'ins_g',row:rowG(g)});UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();
+  DB.games.push(g);DB.active=g.id;save();cloud({k:'ins_g',row:rowG(g)});UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;renderCargar();
 }
-function setActive(id){DB.active=id||null;save();UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();}
+function setActive(id){DB.active=id||null;save();UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;renderCargar();}
 function delGame(id){const g=game(id);if(!g||!confirm('¿Eliminar "'+gname(g)+'" con sus '+g.shots.length+' tiros?'))return;
   DB.games=DB.games.filter(x=>x.id!==id);DB.active=DB.games.length?DB.games[DB.games.length-1].id:null;save();cloud({k:'del_g',id});renderCargar();}
 function regShot(){
-  const g=active();if(!g||!(UI.team&&UI.seg&&UI.pts&&UI.res!=null))return;
-  const sh={id:uid(),t:UI.team,seg:UI.seg,pts:UI.pts,res:UI.res,det:UI.det||'',ts:new Date().toISOString()};g.shots.push(sh);cloud({k:'ins_t',row:rowT(g,sh)});
-  const last=teamName(g,UI.team)+' · '+SEG[UI.seg-1].l+' · '+UI.pts+' pts · '+(UI.res?'emboca':'falla');
+  const g=active();if(!g||!(UI.q&&UI.team&&UI.seg&&UI.pts&&UI.res!=null))return;
+  const sh={id:uid(),q:UI.q,t:UI.team,seg:UI.seg,pts:UI.pts,res:UI.res,det:UI.det||'',ts:new Date().toISOString()};g.shots.push(sh);cloud({k:'ins_t',row:rowT(g,sh)});
+  const last=qLabel(UI.q)+' · '+teamName(g,UI.team)+' · '+SEG[UI.seg-1].l+' · '+UI.pts+' pts · '+(UI.res?'emboca':'falla');
   UI.team=UI.seg=UI.pts=UI.res=UI.det=null;renderCargar();$('regMsg').textContent='✓ Registrado: '+last;
 }
 function undo(){const g=active();if(!g||!g.shots.length)return;const s=g.shots.pop();cloud({k:'del_t',id:s.id});renderCargar();}
 function delShot(id,i){const g=game(id);if(!g)return;const r=g.shots.splice(i,1)[0];if(r)cloud({k:'del_t',id:r.id});renderCargar();}
+
+/* ═══════════════ POR CUARTO ═══════════════
+   sides: [{name,col,sh}] · muestra cómo tira cada equipo en cada cuarto */
+function qSection(sides,title){
+  const withQ=sides.map(x=>({...x,shq:x.sh.filter(z=>z.q)}));
+  const qs=CUARTOS.filter(q=>withQ.some(x=>x.shq.some(z=>z.q===q)));
+  const sinQ=sides.reduce((a,x)=>a+x.sh.filter(z=>!z.q).length,0);
+  let h=`<div class="sec">${title}</div>`;
+  if(!qs.length)return h+'<div class="card"><div class="empty" style="padding:20px">Los tiros cargados todavía no tienen cuarto. Desde ahora se registra en cada tiro.</div></div>';
+  const cats=qs.map(q=>({l:q===5?'Prórroga':q+'.º',r:q===5?'':'cuarto'}));
+  const mk=(f,tf)=>withQ.map(x=>({name:x.name,color:x.col,vals:qs.map(q=>f(x,q)),tips:qs.map(q=>tf(x,q))}));
+  const cnt=(x,q)=>x.shq.filter(z=>z.q===q);
+  const dist=mk((x,q)=>pct(cnt(x,q).length,x.shq.length),(x,q)=>`${x.name} · ${qLabel(q)}: ${cnt(x,q).length} de ${x.shq.length} tiros (${fp(pct(cnt(x,q).length,x.shq.length))})`);
+  const efg=mk((x,q)=>agg(cnt(x,q)).efg,(x,q)=>{const a=agg(cnt(x,q));return `${x.name} · ${qLabel(q)}: eFG% ${fp(a.efg,1)} (${a.m}/${a.n})`;});
+  const leg=`<div class="legend">${withQ.map(x=>`<span><span class="sw" style="background:${x.col}"></span>${esc(x.name)}</span>`).join('')}</div>`;
+  h+=`<div class="grid2"><div class="card"><div class="card-t">Reparto de tiros por cuarto <span class="mini">(% de sus tiros)</span></div>${leg}${barChart(cats,dist,v=>v.toFixed(0)+'%',{unit:'%',title:'Tiros por cuarto'})}</div>
+   <div class="card"><div class="card-t">Eficiencia (eFG%) por cuarto</div>${leg}${barChart(cats,efg,v=>v.toFixed(0)+'%',{unit:'%',max:60,title:'eFG por cuarto'})}</div></div>`;
+  h+=`<div class="card"><div class="card-t">Momento de la posesión en que tira, cuarto a cuarto <span class="mini">(100 % = tiros del equipo en ese cuarto)</span></div>${segLegend()}`;
+  withQ.forEach(x=>{
+    h+=`<div class="teamhead" style="font-size:15px;margin:12px 0 4px"><span class="sw" style="background:${x.col}"></span>${esc(x.name)}</div>`+
+      stackChart(qs.map(q=>{const sg=bySeg(cnt(x,q));return{label:qLabel(q),vals:SEG.map(k=>sg[k.n].n),tipHead:x.name+' · '+qLabel(q)};}),{title:'Tramos por cuarto'});
+  });
+  h+=`</div><div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Equipo / cuarto</th><th>Tiros</th><th>% de sus tiros</th><th>FG%</th><th>3PA</th><th>% de 3</th><th>3P%</th><th>eFG%</th><th>Pts/tiro</th><th>% 1.º 8″</th><th>% 2.º 8″</th><th>% 3.º 8″</th></tr></thead><tbody>`;
+  withQ.forEach(x=>{
+    h+=`<tr class="grp"><td colspan="12"><span class="sw" style="background:${x.col}"></span>${esc(x.name)}</td></tr>`;
+    qs.forEach(q=>{const a=agg(cnt(x,q)),sg=bySeg(cnt(x,q)),lo=a.n<5;
+      h+=`<tr><td class="l">${qLabel(q)}</td><td>${a.n}</td><td>${fp(pct(a.n,x.shq.length))}</td><td class="${lo?'low':''}">${fp(a.fg,1)}</td><td>${a.n3}</td><td>${fp(a.r3)}</td><td class="${lo?'low':''}">${fp(a.p3,1)}</td><td class="${lo?'low':''}">${fp(a.efg,1)}</td><td>${f2(a.ppt)}</td>${SEG.map(k=>`<td>${fp(pct(sg[k.n].n,a.n))}</td>`).join('')}</tr>`;});
+  });
+  h+=`</tbody></table></div><div class="mini" style="margin-top:8px">Los valores en gris provienen de menos de 5 tiros.${sinQ?` ${sinQ} tiros sin cuarto (cargados antes de este cambio) no figuran en esta sección.`:''}</div></div>`;
+  return h;
+}
 
 /* ═══════════════ INFORME ═══════════════ */
 let INF_ID=null;
@@ -462,15 +498,20 @@ function renderInforme(){
   const g=game(INF_ID);
   const opts=DB.games.map(x=>`<option value="${x.id}" ${x.id===INF_ID?'selected':''}>${esc(gname(x))}</option>`).join('');
   let h=`<div class="controls noprint" style="margin-bottom:16px"><div class="field w"><label>Partido</label><select onchange="INF_ID=this.value;renderInforme()">${opts}</select></div>
+    <div class="field"><label>Equipo</label><select onchange="UI.iT=this.value;renderInforme()"><option value="">Ambos</option><option value="L" ${UI.iT==='L'?'selected':''}>${esc(g.local)}</option><option value="V" ${UI.iT==='V'?'selected':''}>${esc(g.visitante)}</option></select></div>
+    <div class="field"><label>Cuarto</label><select onchange="UI.iQ=this.value;renderInforme()"><option value="">Todos</option>${CUARTOS.map(q=>`<option value="${q}" ${+UI.iQ===q?'selected':''}>${qLabel(q)}</option>`).join('')}</select></div>
     <button class="btn" onclick="printView('informe')">🖨 Imprimir / PDF</button></div>`;
   if(!g.shots.length){el.innerHTML=h+'<div class="empty">Este partido todavía no tiene tiros cargados.</div>';return;}
   /* promedio de muestra (todos los tiros cargados) como referencia */
   const allShots=DB.games.flatMap(x=>x.shots),base={n:allShots.length,s3:allShots.filter(s=>s.seg===3).length};
-  const sides=['L','V'].map(side=>{const sh=g.shots.filter(s=>s.t===side);return{side,name:teamName(g,side),col:teamColor(side),sh,tot:agg(sh),seg:bySeg(sh)};});
-  const gAll=agg(g.shots);
+  const fs=g.shots.filter(s=>(!UI.iQ||s.q===+UI.iQ)&&(!UI.iT||s.t===UI.iT));
+  const sides=['L','V'].filter(side=>!UI.iT||side===UI.iT).map(side=>{const sh=fs.filter(s=>s.t===side);return{side,name:teamName(g,side),col:teamColor(side),sh,tot:agg(sh),seg:bySeg(sh)};});
+  const gAll=agg(fs);
+  const filtTxt=[UI.iT?teamName(g,UI.iT):'',UI.iQ?qLabel(+UI.iQ):''].filter(Boolean).join(' · ');
   h+=`<div class="matchhead"><div><div class="mh-s">${esc(g.fase||'Playoffs')} · JUEGO ${g.juego}${g.fecha?' · '+esc(g.fecha):''}</div>
     <div class="mh-t"><span style="color:${C1}">${esc(g.local)}</span> <span style="color:var(--text-3)">vs</span> <span style="color:${C2}">${esc(g.visitante)}</span></div></div>
-    <div class="tb-spacer"></div><div class="mh-s">${gAll.n} tiros de campo registrados</div></div>`;
+    <div class="tb-spacer"></div><div class="mh-s">${filtTxt?'Filtro: '+esc(filtTxt)+' · ':''}${gAll.n} tiros de campo</div></div>`;
+  if(!fs.length){el.innerHTML=h+'<div class="empty">No hay tiros cargados con ese filtro (equipo / cuarto).</div>';return;}
   /* KPIs por equipo */
   sides.forEach(s=>{
     const t=s.tot;
@@ -498,14 +539,15 @@ function renderInforme(){
     const t=s.tot;h+=`<tr><td class="l"><b>Total</b></td><td><b>${t.n}</b></td><td>100%</td><td><b>${t.m}</b></td><td>${fp(t.fg,1)}</td><td>${t.n3}</td><td>${fp(t.p3,1)}</td><td>${t.n2}</td><td>${fp(t.p2,1)}</td><td>${fp(t.efg,1)}</td><td><b>${t.pts}</b></td><td>${f2(t.ppt)}</td><td>${t.miss?t.orb+'/'+t.miss+' ('+fp(t.orbp)+')':'—'}</td></tr>`;
   });
   h+=`</tbody></table></div><div class="mini" style="margin-top:8px">eFG% = (convertidos + 0,5 × triples convertidos) ÷ intentos. Los valores en gris provienen de menos de 5 tiros. «Rebote of.» se calcula solo con los fallos en los que se indicó el detalle.</div></div>`;
+  if(!UI.iQ)h+=qSection(sides.map(x=>({name:x.name,col:x.col,sh:x.sh})),'Cómo tira cada equipo por cuarto');
   /* qué pasó */
   const dets=[...DET_OK,...DET_KO];
-  const anyDet=g.shots.some(s=>s.det);
+  const anyDet=fs.some(s=>s.det);
   if(anyDet){
     h+=`<div class="sec">Qué pasó tras el tiro</div><div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Detalle</th>${sides.map(s=>`<th>${esc(s.name)}</th>`).join('')}</tr></thead><tbody>${dets.map(d=>`<tr><td class="l">${d}</td>${sides.map(s=>`<td>${s.sh.filter(x=>x.det===d).length}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
   }
   /* lectura */
-  h+=`<div class="sec">Lectura del partido</div><div class="card">${sides.map(s=>`<div class="teamhead" style="font-size:16px"><span class="sw" style="background:${s.col}"></span>${esc(s.name)}</div><ul class="insights" style="margin-bottom:14px">${insightsFor(s.name,s.seg,s.tot,base).map(([c,t])=>`<li class="${c}">${t}</li>`).join('')}</ul>`).join('')}</div>`;
+  h+=`<div class="sec">Lectura del partido</div><div class="card">${sides.map(s=>`<div class="teamhead" style="font-size:16px"><span class="sw" style="background:${s.col}"></span>${esc(s.name)}</div><ul class="insights" style="margin-bottom:14px">${insightsFor(s.name+(UI.iQ?' ('+qLabel(+UI.iQ)+')':''),s.seg,s.tot,base).map(([c,t])=>`<li class="${c}">${t}</li>`).join('')}</ul>`).join('')}</div>`;
   el.innerHTML=h;
 }
 
@@ -519,15 +561,16 @@ function renderTend(){
   let h=`<div class="controls noprint" style="margin-bottom:16px">
     <div class="field"><label>Fase</label><select onchange="UI.tFase=this.value;UI.tTeam='';renderTend()"><option value="">Todas</option>${fases.map(f=>`<option ${UI.tFase===f?'selected':''}>${esc(f)}</option>`).join('')}</select></div>
     <div class="field w"><label>Equipo</label><select onchange="UI.tTeam=this.value;renderTend()"><option value="">Toda la muestra (todos los equipos)</option>${teams.map(t=>`<option ${UI.tTeam===t?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
+    <div class="field"><label>Cuarto</label><select onchange="UI.tQ=this.value;renderTend()"><option value="">Todos</option>${CUARTOS.map(q=>`<option value="${q}" ${+UI.tQ===q?'selected':''}>${qLabel(q)}</option>`).join('')}</select></div>
     <button class="btn" onclick="printView('tend')">🖨 Imprimir / PDF</button></div>`;
   /* shots por (juego, equipo) */
-  const rec=[];G.forEach(g=>{['L','V'].forEach(side=>{const nm=teamName(g,side);rec.push({g,side,nm,opp:teamName(g,side==='L'?'V':'L'),sh:g.shots.filter(s=>s.t===side)});});});
+  const rec=[];G.forEach(g=>{['L','V'].forEach(side=>{const nm=teamName(g,side);rec.push({g,side,nm,opp:teamName(g,side==='L'?'V':'L'),sh:g.shots.filter(s=>s.t===side&&(!UI.tQ||s.q===+UI.tQ))});});});
   const sel=UI.tTeam?rec.filter(r=>tkey(r.nm)===tkey(UI.tTeam)):rec;
   const shots=sel.flatMap(r=>r.sh);
   const title=UI.tTeam||'Toda la muestra';
   if(!shots.length){el.innerHTML=h+'<div class="empty">No hay tiros cargados para este filtro.</div>';return;}
   const tot=agg(shots),seg=bySeg(shots);
-  h+=`<div class="matchhead"><div><div class="mh-s">${UI.tFase?esc(UI.tFase):'TODAS LAS FASES'} · ${sel.filter(r=>r.sh.length).length} ${UI.tTeam?'partidos':'registros equipo-partido'}</div><div class="mh-t">${esc(title)}</div></div><div class="tb-spacer"></div><div class="mh-s">${tot.n} tiros de campo</div></div>`;
+  h+=`<div class="matchhead"><div><div class="mh-s">${UI.tFase?esc(UI.tFase):'TODAS LAS FASES'} · ${UI.tQ?esc(qLabel(+UI.tQ))+' · ':''}${sel.filter(r=>r.sh.length).length} ${UI.tTeam?'partidos':'registros equipo-partido'}</div><div class="mh-t">${esc(title)}</div></div><div class="tb-spacer"></div><div class="mh-s">${tot.n} tiros de campo</div></div>`;
   h+=`<div class="kpis"><div class="kpi"><div class="v">${fp(tot.fg,1)}</div><div class="k">FG%</div><div class="s">${tot.m}/${tot.n}</div></div>
     <div class="kpi"><div class="v">${fp(tot.efg,1)}</div><div class="k">eFG%</div></div>
     <div class="kpi"><div class="v">${fp(tot.r3,0)}</div><div class="k">% de tiros de 3</div></div>
@@ -541,6 +584,7 @@ function renderTend(){
    <div class="card"><div class="card-t">Distribución por tramo <span class="mini">(% de tiros)</span></div>${barChart(cats,sA,v=>v.toFixed(0)+'%',{unit:'%',title:'Distribución'})}</div>
    <div class="card"><div class="card-t">Eficiencia (eFG%) por tramo</div>${barChart(cats,sB,v=>v.toFixed(0)+'%',{unit:'%',max:60,title:'eFG por tramo'})}</div></div>`;
   h+=`<div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Tramo</th><th>Tiros</th><th>% de tiros</th><th>FG%</th><th>3PA</th><th>% de 3</th><th>3P%</th><th>2P%</th><th>eFG%</th><th>Pts/tiro</th><th>Rebote of. tras fallo</th></tr></thead><tbody>${SEG.map(x=>{const a=seg[x.n],lo=a.n<5;return`<tr><td class="l">${x.l} <span class="mini">${x.r}</span></td><td>${a.n}</td><td>${fp(pct(a.n,tot.n))}</td><td class="${lo?'low':''}">${fp(a.fg,1)}</td><td>${a.n3}</td><td>${fp(a.r3)}</td><td class="${lo?'low':''}">${fp(a.p3,1)}</td><td class="${lo?'low':''}">${fp(a.p2,1)}</td><td class="${lo?'low':''}">${fp(a.efg,1)}</td><td>${f2(a.ppt)}</td><td>${a.miss?fp(a.orbp):'—'}</td></tr>`;}).join('')}</tbody></table></div></div>`;
+  if(!UI.tQ)h+=qSection([{name:title,col:'#8b5cf6',sh:shots}],'Cómo tira '+(UI.tTeam?esc(UI.tTeam):'la muestra')+' por cuarto');
   /* evolución partido a partido */
   const rows=sel.filter(r=>r.sh.length).sort((a,b)=>(a.g.fecha||'').localeCompare(b.g.fecha||'')||a.g.juego-b.g.juego);
   h+=`<div class="sec">Evolución ${UI.tTeam?'partido a partido':'por registro equipo-partido'}</div><div class="card"><div class="card-t">Reparto de tiros por tramo <span class="mini">(100 % = tiros del equipo en ese partido)</span></div>${segLegend()}
@@ -568,8 +612,8 @@ function renderTend(){
 
 /* ═══════════════ DATOS Y RESPALDO ═══════════════ */
 function csvRows(){
-  const r=[['fase','juego','fecha','local','visitante','n_tiro','equipo','rival','condicion','tramo','segundos','puntos_intento','resultado','que_paso']];
-  DB.games.forEach(g=>g.shots.forEach((s,i)=>r.push([g.fase,g.juego,g.fecha,g.local,g.visitante,i+1,teamName(g,s.t),teamName(g,s.t==='L'?'V':'L'),s.t==='L'?'Local':'Visitante',s.seg,SEG[s.seg-1].r.replace('seg. ',''),s.pts,s.res?'Emboca':'Falla',s.det||''])));
+  const r=[['fase','juego','fecha','local','visitante','n_tiro','equipo','rival','condicion','cuarto','tramo','segundos','puntos_intento','resultado','que_paso']];
+  DB.games.forEach(g=>g.shots.forEach((s,i)=>r.push([g.fase,g.juego,g.fecha,g.local,g.visitante,i+1,teamName(g,s.t),teamName(g,s.t==='L'?'V':'L'),s.t==='L'?'Local':'Visitante',s.q?qLabel(s.q):'',s.seg,SEG[s.seg-1].r.replace('seg. ',''),s.pts,s.res?'Emboca':'Falla',s.det||''])));
   return r;
 }
 function download(name,text,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
