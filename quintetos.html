@@ -267,6 +267,43 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .ds-av td b{color:var(--text);font-weight:800;font-size:16px}
 .ds-av td.pos,.ds-trend td.pos{color:var(--positive)} .ds-av td.neg{color:var(--negative)} .ds-av td.neu,.ds-trend td.neu{color:var(--insight)} .ds-av td.nd{color:var(--text-3);font-weight:400}
 .ds-sig .pos{color:var(--positive);font-weight:600} .ds-sig .neg{color:var(--negative);font-weight:600}
+/* STATS CLAVE · legibilidad: más contraste y letra más grande (solo esta sección) */
+#view-ds{--ds-t1:#f2f4f8;--ds-t2:#d3d8e2;--ds-t3:#aeb6c4;--ds-pos:#4ade80;--ds-neg:#ff7070;--ds-neu:#c4b5fd}
+#view-ds .ds-live{font-size:12.5px;color:var(--ds-t2)}
+#view-ds .ds-live .tag{color:var(--ds-t2);font-size:12px}
+#view-ds .ds-live .tag.on{color:var(--ds-pos)}
+#view-ds .ds-warn{font-size:13.5px;color:var(--ds-t1)}
+#view-ds .ds-bl{font-size:13px;color:var(--ds-t2)}
+#view-ds .ds-bmid{font-size:11px;color:var(--ds-t3)}
+#view-ds .ds-bn.neg{opacity:.8}
+#view-ds .ds-card-h{font-size:17px;color:var(--ds-t1)}
+#view-ds .ds-tbl th{font-size:16px}
+#view-ds .ds-tbl td{font-size:20px}
+#view-ds .ds-tbl td.l{font-size:12.5px;color:var(--ds-t2);letter-spacing:0}
+#view-ds .ds-tbl td.a,#view-ds .ds-tbl td.b{color:var(--ds-t3)}
+#view-ds .ds-tbl td.a.win{color:#ff8a3d} #view-ds .ds-tbl td.b.win{color:#6ea8ff}
+#view-ds .ds-tbl tr.sec td{font-size:11px;letter-spacing:1.5px;color:var(--ds-t3);background:#12141b}
+#view-ds .ds-sig{font-size:14px;color:var(--ds-t1);line-height:1.55}
+#view-ds .ds-sig .pos{color:var(--ds-pos)} #view-ds .ds-sig .neg{color:var(--ds-neg)}
+#view-ds .ds-now-t{font-size:16px}
+#view-ds .ds-now-m{font-size:12.5px;color:var(--ds-t2)}
+#view-ds .ds-now-m b{font-size:18px;color:var(--ds-t1)}
+#view-ds .pchip{font-size:12px;color:var(--ds-t1);padding:3px 8px 3px 4px}
+#view-ds .pchip .pn{font-size:11px;font-weight:700}
+#view-ds .ds-trend th{font-size:12px;color:var(--ds-t2)}
+#view-ds .ds-trend td{font-size:18px;color:var(--ds-t1)}
+#view-ds .ds-trend td:first-child{font-size:15px}
+#view-ds .ds-trend td.pos,#view-ds .ds-av td.pos{color:var(--ds-pos)}
+#view-ds .ds-trend td.neg,#view-ds .ds-av td.neg{color:var(--ds-neg)}
+#view-ds .ds-trend td.neu,#view-ds .ds-av td.neu{color:var(--ds-neu)}
+#view-ds .ds-trend td.nd,#view-ds .ds-av td.nd{color:var(--ds-t3)}
+#view-ds .ds-av th{font-size:12px;color:var(--ds-t2)}
+#view-ds .ds-av th.l,#view-ds .ds-av td.l{font-size:12.5px;color:var(--ds-t1)}
+#view-ds .ds-av td{font-size:17px;color:var(--ds-t3)}
+#view-ds .ds-av td b{font-size:19px;color:#fff}
+#view-ds .ds-foot{font-size:11.5px;color:var(--ds-t3);line-height:1.6}
+#view-ds .section-sep{font-size:12px;letter-spacing:2px;color:var(--ds-t2)}
+#view-ds select{font-size:13px!important;color:var(--ds-t1)!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
