@@ -214,6 +214,59 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .btn{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:6px 12px;cursor:pointer;transition:all var(--t-fast)}
 .btn:hover{border-color:var(--offense);color:var(--offense)}
 .empty{text-align:center;color:var(--text-3);font-family:var(--font-mono);font-size:11px;padding:40px}
+
+/* STATS CLAVE */
+.ds-live{font-family:var(--font-mono);font-size:10px;color:var(--text-2);margin-bottom:var(--sp-3);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ds-live .tag{border:1px solid var(--border-light);border-radius:var(--r-sm);padding:2px 8px;color:var(--text-2)}
+.ds-live .tag.on{border-color:var(--positive);color:var(--positive);background:var(--positive-bg)}
+.ds-warn{font-size:12px;line-height:1.5;border-radius:9px;padding:8px 12px;margin-bottom:var(--sp-3);background:rgba(224,168,59,.10);border:1px solid rgba(224,168,59,.35);color:var(--text)}
+.ds-banner{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--sp-4);align-items:center;background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);padding:var(--sp-4) var(--sp-5);margin-bottom:var(--sp-4)}
+.ds-b.t2{text-align:right}
+.ds-bn{font-family:var(--font-disp);font-weight:900;font-size:40px;line-height:1}
+.ds-b.t1 .ds-bn{color:var(--offense)} .ds-b.t2 .ds-bn{color:var(--defense)}
+.ds-bn.neg{opacity:.55}
+.ds-bl{font-family:var(--font-mono);font-size:10px;color:var(--text-2);margin-top:4px}
+.ds-bmid{font-family:var(--font-mono);font-size:9px;letter-spacing:1.5px;color:var(--text-3);text-align:center;text-transform:uppercase;line-height:1.6}
+.ds-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:var(--sp-4);align-items:start}
+@media(max-width:900px){.ds-grid{grid-template-columns:1fr}.ds-banner{padding:var(--sp-3)}.ds-bn{font-size:30px}}
+.ds-card{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);overflow:hidden;margin-bottom:var(--sp-4)}
+.ds-card-h{font-family:var(--font-disp);font-weight:700;font-size:15px;letter-spacing:.5px;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border-subtle)}
+.ds-tbl{width:100%;border-collapse:collapse}
+.ds-tbl th{font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:.5px;padding:8px var(--sp-3);background:var(--bg-panel);border-bottom:1px solid var(--border-light)}
+.ds-tbl th.a{text-align:right;color:var(--offense);width:27%} .ds-tbl th.b{text-align:left;color:var(--defense);width:27%}
+.ds-tbl td{padding:7px var(--sp-3);border-bottom:1px solid var(--border-subtle);font-family:var(--font-disp);font-weight:800;font-size:18px;line-height:1.1}
+.ds-tbl td.l{text-align:center;font-family:var(--font-mono);font-weight:400;font-size:10px;letter-spacing:.3px;color:var(--text-2)}
+.ds-tbl td.a{text-align:right;color:var(--text-3)} .ds-tbl td.b{text-align:left;color:var(--text-3)}
+.ds-tbl td.a.win{color:var(--offense)} .ds-tbl td.b.win{color:var(--defense)}
+.ds-tbl td.a.eq,.ds-tbl td.b.eq{color:var(--text)}
+.ds-tbl tr.sec td{font-family:var(--font-mono);font-weight:500;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);background:var(--bg-base);text-align:left;padding:6px var(--sp-3)}
+.ds-sig{display:flex;gap:10px;padding:10px var(--sp-4);border-bottom:1px solid var(--border-subtle);font-size:12.5px;line-height:1.5;color:var(--text)}
+.ds-sig:last-child{border-bottom:none}
+.ds-sig b{font-weight:600}
+.ds-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+.ds-dot.t1{background:var(--offense)} .ds-dot.t2{background:var(--defense)} .ds-dot.n{background:var(--text-3)}
+.ds-now{padding:10px var(--sp-4);border-bottom:1px solid var(--border-subtle)}
+.ds-now:last-child{border-bottom:none}
+.ds-now-t{font-family:var(--font-disp);font-weight:700;font-size:14px;letter-spacing:.5px;margin-bottom:6px}
+.ds-now.t1 .ds-now-t{color:var(--offense)} .ds-now.t2 .ds-now-t{color:var(--defense)}
+.ds-now .picker.t1 .pchip .pn,.ds-now.t1 .pchip .pn{background:var(--offense)} .ds-now.t2 .pchip .pn{background:var(--defense)}
+.ds-now-m{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-family:var(--font-mono);font-size:10px;color:var(--text-2)}
+.ds-now-m b{font-family:var(--font-disp);font-weight:800;font-size:16px;color:var(--text);margin-left:3px}
+.ds-trend{width:100%;border-collapse:collapse}
+.ds-trend th{font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:1px;color:var(--text-2);padding:7px 6px;text-align:center;border-bottom:1px solid var(--border-light);background:var(--bg-panel)}
+.ds-trend th:first-child,.ds-trend td:first-child{text-align:left;padding-left:var(--sp-4)}
+.ds-trend td{padding:7px 6px;text-align:center;font-family:var(--font-disp);font-weight:800;font-size:16px;border-bottom:1px solid var(--border-subtle)}
+.ds-trend td:first-child{font-size:13px;letter-spacing:.3px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ds-trend tr.t1 td:first-child{color:var(--offense)} .ds-trend tr.t2 td:first-child{color:var(--defense)}
+.ds-trend td.pos{color:var(--positive)} .ds-trend td.neg{color:var(--negative)} .ds-trend td.nd{color:var(--text-3);font-weight:400}
+.ds-foot{font-family:var(--font-mono);font-size:9px;line-height:1.6;color:var(--text-3);padding:var(--sp-3) var(--sp-4)}
+.ds-av{width:100%;border-collapse:collapse}
+.ds-av th{font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:1px;color:var(--text-2);padding:7px 8px;text-align:right;border-bottom:1px solid var(--border-light);background:var(--bg-panel)}
+.ds-av th.l,.ds-av td.l{text-align:left;padding-left:var(--sp-4);font-family:var(--font-mono);font-weight:400;font-size:10px;color:var(--text-2);letter-spacing:.2px}
+.ds-av td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border-subtle);font-family:var(--font-disp);font-weight:700;font-size:15px;color:var(--text-2)}
+.ds-av td b{color:var(--text);font-weight:800;font-size:16px}
+.ds-av td.pos,.ds-trend td.pos{color:var(--positive)} .ds-av td.neg{color:var(--negative)} .ds-av td.neu,.ds-trend td.neu{color:var(--insight)} .ds-av td.nd{color:var(--text-3);font-weight:400}
+.ds-sig .pos{color:var(--positive);font-weight:600} .ds-sig .neg{color:var(--negative);font-weight:600}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -904,12 +957,14 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
   </div>
 
   <div class="tabs" id="tabs">
-    <button class="tab active" data-v="cmp" onclick="switchView('cmp')">Comparar</button>
+    <button class="tab active" data-v="ds" onclick="switchView('ds')">Stats clave</button>
+    <button class="tab" data-v="cmp" onclick="switchView('cmp')">Comparar</button>
     <button class="tab" data-v="cuarto" onclick="switchView('cuarto')">Por cuarto</button>
     <button class="tab" data-v="cons" onclick="switchView('cons')">Consolidado</button>
   </div>
 
-  <div class="view active" id="view-cmp"></div>
+  <div class="view active" id="view-ds"></div>
+  <div class="view" id="view-cmp"></div>
   <div class="view" id="view-cuarto"></div>
   <div class="view" id="view-cons"></div>
 </div>
@@ -1288,6 +1343,7 @@ function renderAll(){
   else{S.kickoff=null;if(!f.value){const d=new Date();f.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}}
   document.getElementById('saveStatus').textContent='';
   renderMatchHeader();
+  try{renderStats();}catch(e){var vds=document.getElementById('view-ds');if(vds)vds.innerHTML='<div class="empty">No se pudieron calcular las stats clave: '+e.message+'</div>';}
   renderComparar();
   renderPorCuarto();
   renderConsolidado();
@@ -2263,6 +2319,309 @@ function exportCSV(){
   }
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='quintetos_'+(S.teams[1].name||'partido')+'.csv';a.click();
+}
+
+// ---- STATS CLAVE ----
+// Vista corta para decidir: posesiones, eficiencia ofensiva/defensiva y los «cuatro factores»,
+// por equipo, con todo lo cargado hasta el momento (sirve con el partido en juego).
+// Posesiones = tiros de campo − reb. ofensivos + pérdidas + 0,44 × TL (igual que en el resto de la página).
+let DSL=null;
+function dsLive(){
+  // ¿Hasta dónde llegan los datos? Si el último cuarto no terminó, los minutos del último tramo
+  // se cortan en el último reloj que trajo FIBA (si no, se contarían hasta el final del cuarto).
+  if(!S.periods.length)return null;
+  const per=S.periods[S.periods.length-1];let mn=null;
+  for(const e of (S.data.pbp||[])){
+    if((+e.period||1)!==per)continue;
+    const m=String(e.gt||'').match(/^(\d{1,2}):(\d{2})/);if(!m)continue;
+    const v=+m[1]+(+m[2])/60;if(mn===null||v<mn)mn=v;
+  }
+  if(mn===null)return {per,rem:periodStart(per),live:true};
+  return {per,rem:mn,live:mn>0.01};
+}
+function dsSegMin(seg,q){
+  let end=parseTime(seg.endTime);
+  if(DSL&&DSL.live&&q===DSL.per&&end===0)end=Math.max(DSL.rem,0);
+  const d=parseTime(seg.startTime)-end;return d<0?0:d;
+}
+function dsSum(team,pers){
+  const s=emptyStats();let mins=0;
+  for(const q of pers){for(const seg of S.results[q]['lineups'+team]){mins+=dsSegMin(seg,q);for(const k in s)s[k]+=(seg.stats[k]||0);}}
+  return {s,mins};
+}
+function dsDerive(o){
+  const den=o.fga+0.44*o.fta+o.per;
+  o.ortg=o.poss>0?o.pts/o.poss:null;
+  o.efg=o.fga>0?(o.fgm+0.5*o.tpm)/o.fga*100:null;
+  o.tov=den>0?o.per/den*100:null;
+  o.ftr=o.fga>0?o.fta/o.fga*100:null;
+  return o;
+}
+function dsOff(s){
+  const fga=s.pt2conv+s.pt2fail+s.pt3conv+s.pt3fail;
+  return dsDerive({pts:s.pt2conv*2+s.pt3conv*3+(s.tlconv||0),fga,fgm:s.pt2conv+s.pt3conv,tpm:s.pt3conv,
+    fta:(s.tlconv||0)+(s.tlfail||0),per:s.per||0,poss:estPosProp(s),orb:s.rebOff||0,drb:s.rebDef||0,rob:s.rob||0,ast:s.ast||0});
+}
+// o = lo de un equipo, r = lo del rival (la defensiva de uno es el ataque del otro)
+function dsCalc(o,r,mins){
+  return {poss:o.poss,mins,
+    pace:mins>0?o.poss/mins*40:null,
+    ortg:o.ortg,drtg:r.ortg,net:(o.ortg!=null&&r.ortg!=null)?o.ortg-r.ortg:null,
+    efg:o.efg,efgOpp:r.efg,tov:o.tov,tovForced:r.tov,ftr:o.ftr,
+    orb:(o.orb+r.drb)>0?o.orb/(o.orb+r.drb)*100:null,
+    drb:(o.drb+r.orb)>0?o.drb/(o.drb+r.orb)*100:null,
+    rob:o.rob,pts:o.pts,ptsOpp:r.pts};
+}
+function dsMetrics(pers){
+  const A={1:dsSum(1,pers),2:dsSum(2,pers)};
+  const O={1:dsOff(A[1].s),2:dsOff(A[2].s)};
+  return {1:dsCalc(O[1],O[2],A[1].mins),2:dsCalc(O[2],O[1],A[2].mins)};
+}
+function dsNow(team){
+  const per=S.periods[S.periods.length-1];
+  const segs=S.results[per]['lineups'+team];const cur=segs[segs.length-1];
+  if(!cur)return null;
+  const key=luKey(cur);let mins=0;const st=emptyStats();
+  for(const q of S.periods)for(const seg of S.results[q]['lineups'+team]){
+    if(luKey(seg)!==key)continue;mins+=dsSegMin(seg,q);for(const k in st)st[k]+=(seg.stats[k]||0);
+  }
+  const m=calcMetrics({stats:st,totalMins:mins});
+  return {players:cur.players,mins,m,enough:Math.min(m.posProp,m.posRiv)>=CMP_MIN_POSS};
+}
+function dsQ(q){return q>4?('OT'+(q-4)):('Q'+q);}
+function renderStats(){
+  DSL=dsLive();
+  const M=dsMetrics(S.periods);
+  const n={1:S.teams[1].name,2:S.teams[2].name};
+  const f2=v=>v==null?'—':v.toFixed(2);
+  const p1=v=>v==null?'—':v.toFixed(1)+'%';
+  const p0=v=>v==null?'—':Math.round(v)+'%';
+  const sg=v=>v==null?'—':(v>0.004?'+':v<-0.004?'−':'')+Math.abs(v).toFixed(2);
+  const minPoss=Math.min(M[1].poss,M[2].poss);
+
+  // — estado de los datos —
+  const live=DSL&&DSL.live;
+  const estado='<div class="ds-live"><span class="tag '+(live?'on':'')+'">'+(live?'● EN JUEGO':'FINAL')+'</span>'+
+    '<span>'+(live?'Datos hasta '+dsQ(DSL.per)+' · quedan '+luFmt(DSL.rem)+' · vuelva a tocar «Cargar partido» para actualizar':'Partido completo')+'</span></div>';
+  const aviso=minPoss<10?'<div class="ds-warn">Todavía hay pocas posesiones ('+Math.round(minPoss)+'). Tome los porcentajes como orientación, no como tendencia.</div>':'';
+
+  // — banner: eficiencia neta —
+  const nb=(t)=>{const v=M[t].net;return '<div class="ds-b t'+t+'"><div class="ds-bn'+(v!=null&&v<-0.004?' neg':'')+'">'+sg(v)+'</div><div class="ds-bl">'+n[t]+'</div></div>';};
+  const banner='<div class="ds-banner">'+nb(1)+'<div class="ds-bmid">Eficiencia neta<br>pts por posesión<br>(ataque − defensa)</div>'+nb(2)+'</div>';
+
+  // — tabla —
+  const ROWS=[
+    {sec:'Posesiones y ritmo'},
+    {l:'Posesiones (estimadas)',k:'poss',f:v=>String(Math.round(v)),b:null},
+    {l:'Ritmo · posesiones cada 40\'',k:'pace',f:v=>v==null?'—':v.toFixed(0),b:null},
+    {sec:'Ofensivas · cómo ataca cada uno'},
+    {l:'Eficiencia ofensiva · pts/pos',k:'ortg',f:f2,b:'hi'},
+    {l:'eFG% · calidad de tiro',k:'efg',f:p1,b:'hi'},
+    {l:'Pérdidas · % de sus posesiones',k:'tov',f:p1,b:'lo'},
+    {l:'Rebote ofensivo %',k:'orb',f:p0,b:'hi'},
+    {l:'Tiros libres c/ 100 tiros de campo',k:'ftr',f:v=>v==null?'—':Math.round(v),b:'hi'},
+    {sec:'Defensivas · cómo defiende cada uno'},
+    {l:'Eficiencia defensiva · pts/pos que permite',k:'drtg',f:f2,b:'lo'},
+    {l:'eFG% que permite',k:'efgOpp',f:p1,b:'lo'},
+    {l:'Pérdidas que fuerza %',k:'tovForced',f:p1,b:'hi'},
+    {l:'Rebote defensivo %',k:'drb',f:p0,b:'hi'},
+    {l:'Robos',k:'rob',f:v=>String(v),b:'hi'}
+  ];
+  const body=ROWS.map(r=>{
+    if(r.sec)return '<tr class="sec"><td colspan="3">'+r.sec+'</td></tr>';
+    const a=M[1][r.k],b=M[2][r.k];let ca='',cb='';
+    if(r.b&&a!=null&&b!=null&&Math.abs(a-b)>1e-9&&minPoss>=CMP_MIN_POSS){
+      const w1=r.b==='hi'?a>b:a<b;ca=w1?'win':'';cb=w1?'':'win';
+    }
+    return '<tr><td class="a '+ca+'">'+(a==null?'—':r.f(a))+'</td><td class="l">'+r.l+'</td><td class="b '+cb+'">'+(b==null?'—':r.f(b))+'</td></tr>';
+  }).join('');
+  const tabla='<div class="ds-card"><table class="ds-tbl"><thead><tr><th class="a">'+n[1]+'</th><th></th><th class="b">'+n[2]+'</th></tr></thead><tbody>'+body+'</tbody></table>'+
+    '<div class="ds-foot">Color = el que mejor está en cada fila. Defensa de uno = ataque del otro.</div></div>';
+
+  // — lectura rápida: las 3 diferencias más grandes en los cuatro factores —
+  const SIG=[
+    {k:'efg',thr:4,hi:true,txt:(W,L,wv,lv)=>'<b>Tiro:</b> '+W+' '+wv.toFixed(1)+'% de eFG vs '+lv.toFixed(1)+'% de '+L+' → '+L+': ajustar cobertura / mejorar la selección de tiro.'},
+    {k:'tov',thr:3,hi:false,txt:(W,L,wv,lv)=>'<b>Pérdidas:</b> '+L+' pierde el '+lv.toFixed(0)+'% de sus posesiones ('+W+' '+wv.toFixed(0)+'%) → presionar a '+L+' / '+L+' asegurar el primer pase.'},
+    {k:'orb',thr:6,hi:true,txt:(W,L,wv,lv)=>'<b>Rebote ofensivo:</b> '+W+' recupera '+Math.round(wv)+'% de sus fallos ('+L+' '+Math.round(lv)+'%) → '+L+': cerrar el rebote con los cinco.'},
+    {k:'ftr',thr:10,hi:true,txt:(W,L,wv,lv)=>'<b>Tiros libres:</b> '+W+' va más a la línea ('+Math.round(wv)+' por 100 tiros vs '+Math.round(lv)+') → '+L+': defender sin falta.'}
+  ];
+  const sigs=[];
+  for(const d of SIG){
+    const a=M[1][d.k],b=M[2][d.k];if(a==null||b==null)continue;
+    const gap=Math.abs(a-b);if(gap<d.thr)continue;
+    const w=(d.hi?a>b:a<b)?1:2,l=3-w;
+    sigs.push({ratio:gap/d.thr,w,html:d.txt(n[w],n[l],M[w][d.k],M[l][d.k])});
+  }
+  sigs.sort((x,y)=>y.ratio-x.ratio);
+  const top=sigs.slice(0,3);
+  const lectura='<div class="ds-card"><div class="ds-card-h">Qué mirar</div>'+
+    (minPoss<5?'<div class="ds-sig"><span class="ds-dot n"></span><span>Muy pocas posesiones para sacar conclusiones.</span></div>':
+     top.length?top.map(s=>'<div class="ds-sig"><span class="ds-dot t'+s.w+'"></span><span>'+s.html+'</span></div>').join(''):
+     '<div class="ds-sig"><span class="ds-dot n"></span><span>Sin ventajas claras en tiro, pérdidas, rebote ni libres: partido parejo en lo básico.</span></div>')+
+    '</div>';
+
+  // — quinteto en cancha —
+  const now=(t)=>{
+    const c=dsNow(t);if(!c)return '';
+    const m=c.m,net=(m.efOff-m.efDefRaw)/100;
+    return '<div class="ds-now t'+t+'"><div class="ds-now-t">'+n[t]+'</div><div class="lcard-players">'+c.players.map(p=>pchip(p,t)).join('')+'</div>'+
+      '<div class="ds-now-m"><span>Juntos<b>'+fmtMins(c.mins)+'</b></span><span>+/-<b style="color:'+(m.diff>0?'var(--positive)':m.diff<0?'var(--negative)':'var(--text)')+'">'+(m.diff>0?'+':'')+m.diff+'</b></span>'+
+      '<span>Ef. neta<b>'+(c.enough?sg(net):'—')+'</b></span><span>Pos.<b>'+Math.round(m.posProp)+'</b></span></div>'+
+      (c.enough?'':'<div class="ds-now-m"><span>Pocas posesiones juntos: todavía no es confiable.</span></div>')+'</div>';
+  };
+  const ahora='<div class="ds-card"><div class="ds-card-h">'+(live?'En cancha ahora':'Último quinteto en cancha')+'</div>'+now(1)+now(2)+'</div>';
+
+  // — tendencia por cuarto —
+  const perM={};S.periods.forEach(q=>{perM[q]=dsMetrics([q]);});
+  const cell=(q,t)=>{const m=perM[q];const v=m[t].net;
+    if(v==null||Math.min(m[1].poss,m[2].poss)<CMP_MIN_POSS)return '<td class="nd">·</td>';
+    return '<td class="'+(v>0.004?'pos':v<-0.004?'neg':'')+'">'+sg(v)+'</td>';};
+  const trow=(t)=>'<tr class="t'+t+'"><td title="'+n[t]+'">'+n[t]+'</td>'+S.periods.map(q=>cell(q,t)).join('')+'</tr>';
+  const tend='<div class="ds-card"><div class="ds-card-h">Tendencia · ef. neta por cuarto</div>'+
+    '<table class="ds-trend"><thead><tr><th></th>'+S.periods.map(q=>'<th>'+dsQ(q)+(live&&q===DSL.per?'*':'')+'</th>').join('')+'</tr></thead><tbody>'+trow(1)+trow(2)+'</tbody></table>'+
+    '<div class="ds-foot">Pts por posesión (ataque − defensa). «·» = muy pocas posesiones.'+(live?' * cuarto en juego.':'')+'</div></div>';
+
+  document.getElementById('view-ds').innerHTML=estado+aviso+banner+
+    '<div class="ds-grid"><div>'+tabla+'</div><div>'+lectura+ahora+tend+'</div></div>'+
+    '<div id="ds-avg"></div>';
+  try{dsAvg();}catch(e){const a=document.getElementById('ds-avg');if(a)a.innerHTML='<div class="ds-warn">No se pudo calcular la comparación con el promedio: '+e.message+'</div>';}
+}
+
+// ---- HOY vs PROMEDIO (partidos guardados en la base: cuartos_log) ----
+const DS_STOP=new Set(['CLUB','BASKET','BASKETBALL','BASQUETBOL','BASQUET','ATLETICO','DEPORTIVO','SOCIAL','CLUBES','FUTBOL','UNION','CENTRO']);
+function dsKey(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[.]/g,'').replace(/\s+/g,' ').trim();}
+function dsLike(a,b,nivel){
+  a=dsKey(a);b=dsKey(b);if(!a||!b)return false;
+  if(nivel===1)return a===b;
+  if(nivel===2)return a.includes(b)||b.includes(a);
+  const tb=b.split(' ');
+  return a.split(' ').some(w=>w.length>=4&&!DS_STOP.has(w)&&tb.includes(w));
+}
+function dsMine(){
+  // 1) la elección guardada, 2) el equipo/club del perfil (de lo más exacto a lo más flojo; solo vale si da UN equipo), 3) sin definir (0)
+  const names=[S.teams[1].name,S.teams[2].name];let saved=null;
+  try{saved=localStorage.getItem('sp_ds_mine');}catch(e){}
+  if(saved){const i=names.findIndex(n=>dsKey(n)===dsKey(saved));if(i>=0)return i+1;}
+  let p=null;try{p=(window.ScoutPro&&window.ScoutPro.profile)?window.ScoutPro.profile():null;}catch(e){}
+  const cands=p?[p.equipo,p.club].filter(Boolean):[];
+  for(const nivel of [1,2,3]){
+    const hit=[1,2].filter(t=>cands.some(c=>dsLike(c,names[t-1],nivel)));
+    if(hit.length===1)return hit[0];
+    if(hit.length===2)return 0;
+  }
+  return 0;
+}
+function dsSetMine(t){
+  try{localStorage.setItem('sp_ds_mine',S.teams[t].name);}catch(e){}
+  dsAvg();
+}
+function dsSumRows(rows){
+  const o={pts:0,fga:0,fgm:0,tpm:0,fta:0,per:0,orb:0,drb:0,rob:0,poss:0,min:0};
+  for(const r of rows){
+    o.pts+=+r.pts_favor||0;o.fga+=(+r.pt2i||0)+(+r.pt3i||0);o.fgm+=(+r.pt2c||0)+(+r.pt3c||0);o.tpm+=+r.pt3c||0;
+    o.fta+=+r.tli||0;o.per+=+r.per||0;o.orb+=+r.reb_off||0;o.drb+=+r.reb_def||0;o.rob+=+r.rob||0;o.poss+=+r.pos||0;o.min+=+r.min||0;
+  }
+  return o;
+}
+async function dsHist(name,exclude){
+  S.dsCache=S.dsCache||{};
+  const ck=dsKey(name)+'|'+(exclude||'');
+  if(S.dsCache[ck])return S.dsCache[ck];
+  const client=getSB();if(!client)throw new Error('no hay conexión con la base');
+  const COLS='match_id,fecha,equipo,rival,cuarto,min,pts_favor,pts_contra,pos,pos_riv,pt2c,pt2i,pt3c,pt3i,tlc,tli,per,reb_off,reb_def,rob';
+  const pull=async(f)=>{let out=[];for(let a=0;;a+=1000){const {data,error}=await f(client.from('cuartos_log').select(COLS)).range(a,a+999);if(error)throw error;out=out.concat(data||[]);if(!data||data.length<1000)break;}return out;};
+  let mine=await pull(q=>q.eq('equipo',name));
+  if(!mine.length){
+    const tok=dsKey(name).split(' ').filter(w=>w.length>=4&&!DS_STOP.has(w)).sort((x,y)=>y.length-x.length)[0];
+    if(tok)mine=await pull(q=>q.ilike('equipo','%'+tok+'%'));
+  }
+  if(exclude)mine=mine.filter(r=>String(r.match_id)!==String(exclude));
+  const names=[...new Set(mine.map(r=>r.equipo))];
+  const ids=[...new Set(mine.map(r=>String(r.match_id)))];
+  const all=ids.length?await mgFetchIn(client,'cuartos_log',COLS,ids):[];
+  const opp=all.filter(r=>!names.includes(r.equipo));
+  const oppIds=new Set(opp.map(r=>String(r.match_id)));
+  const mineOk=mine.filter(r=>oppIds.has(String(r.match_id)));     // solo partidos con las dos filas
+  const games=[...new Set(mineOk.map(r=>String(r.match_id)))];
+  const o=dsDerive(dsSumRows(mineOk)),r=dsDerive(dsSumRows(opp.filter(x=>games.includes(String(x.match_id)))));
+  const res={n:games.length,names,m:games.length?dsCalc(o,r,o.min):null,byQ:{},
+    desde:mineOk.map(x=>x.fecha).filter(Boolean).sort()[0]||null};
+  for(let q=1;q<=4;q++){const t=dsSumRows(mineOk.filter(x=>+x.cuarto===q));res.byQ[q]=t.min>0?t.poss/t.min*10:null;}
+  S.dsCache[ck]=res;return res;
+}
+const DS_AROWS=[
+  {l:"Posesiones por partido (a 40')",s:'ritmo',k:'pace',b:null,thr:3,f:v=>v.toFixed(0),d:v=>Math.abs(v).toFixed(0)},
+  {l:'Eficiencia ofensiva · pts/pos',s:'ataque',k:'ortg',b:'hi',thr:0.06,f:v=>v.toFixed(2),d:v=>Math.abs(v).toFixed(2)},
+  {l:'eFG%',s:'tiro',k:'efg',b:'hi',thr:3,f:v=>v.toFixed(1)+'%',d:v=>Math.abs(v).toFixed(1)},
+  {l:'Pérdidas %',s:'pérdidas',k:'tov',b:'lo',thr:2.5,f:v=>v.toFixed(1)+'%',d:v=>Math.abs(v).toFixed(1)},
+  {l:'Rebote ofensivo %',s:'reb. ofensivo',k:'orb',b:'hi',thr:5,f:v=>Math.round(v)+'%',d:v=>Math.abs(v).toFixed(0)},
+  {l:'Tiros libres c/ 100 tiros',s:'libres',k:'ftr',b:'hi',thr:8,f:v=>Math.round(v),d:v=>Math.abs(v).toFixed(0)},
+  {l:'Eficiencia defensiva · pts/pos que permite',s:'defensa',k:'drtg',b:'lo',thr:0.06,f:v=>v.toFixed(2),d:v=>Math.abs(v).toFixed(2)},
+  {l:'eFG% que permite',s:'tiro que permite',k:'efgOpp',b:'lo',thr:3,f:v=>v.toFixed(1)+'%',d:v=>Math.abs(v).toFixed(1)},
+  {l:'Pérdidas que fuerza %',s:'pérdidas forzadas',k:'tovForced',b:'hi',thr:2.5,f:v=>v.toFixed(1)+'%',d:v=>Math.abs(v).toFixed(1)},
+  {l:'Rebote defensivo %',s:'reb. defensivo',k:'drb',b:'hi',thr:5,f:v=>Math.round(v)+'%',d:v=>Math.abs(v).toFixed(0)}
+];
+function dsAvgCard(t,H,cls,titulo){
+  const today=dsMetrics(S.periods)[t];
+  const live=DSL&&DSL.live;
+  const head='<div class="ds-card-h">'+titulo+' · '+S.teams[t].name+'</div>';
+  if(!H.n)return '<div class="ds-card t'+t+'">'+head+'<div class="ds-sig"><span class="ds-dot n"></span><span>No hay partidos guardados de este equipo (o no se encontró con ese nombre): no hay promedio para comparar.</span></div></div>';
+  const poco=Math.min(dsMetrics(S.periods)[1].poss,dsMetrics(S.periods)[2].poss)<10;
+  const ups=[],downs=[];
+  const body=DS_AROWS.map(r=>{
+    const a=H.m[r.k],h=today[r.k];
+    if(a==null||h==null)return '<tr><td class="l">'+r.l+'</td><td>'+(a==null?'—':r.f(a))+'</td><td>'+(h==null?'—':r.f(h))+'</td><td class="nd">—</td></tr>';
+    const d=h-a,big=!poco&&Math.abs(d)>=r.thr;
+    let c='nd',txt='≈';
+    if(big){
+      const good=r.b==null?null:(r.b==='hi'?d>0:d<0);
+      c=good==null?'neu':good?'pos':'neg';txt=(d>0?'▲ +':'▼ −')+r.d(d);
+      if(good===true)ups.push(r.s);else if(good===false)downs.push(r.s);
+    }
+    return '<tr><td class="l">'+r.l+'</td><td>'+r.f(a)+'</td><td><b>'+r.f(h)+'</b></td><td class="'+c+'">'+txt+'</td></tr>';
+  }).join('');
+  const resumen=poco?'Pocas posesiones todavía: la comparación es orientativa.':
+    (ups.length||downs.length)?
+      (ups.length?'<span class="pos">Por encima de su promedio:</span> '+ups.join(', ')+'. ':'')+(downs.length?'<span class="neg">Por debajo:</span> '+downs.join(', ')+'.':''):
+      'Rindiendo dentro de su promedio.';
+  // posesiones por cuarto (ritmo cada 10', para poder comparar el cuarto en juego)
+  const qs=S.periods.filter(q=>q<=4);
+  const qh='<th></th>'+qs.map(q=>'<th>Q'+q+(live&&q===DSL.per?'*':'')+'</th>').join('');
+  const qa='<td>Prom.</td>'+qs.map(q=>'<td class="nd">'+(H.byQ[q]==null?'·':H.byQ[q].toFixed(0))+'</td>').join('');
+  const qt='<td>Hoy</td>'+qs.map(q=>{
+    const m=dsSum(t,[q]);const po=dsOff(m.s).poss;
+    if(m.mins<1)return '<td class="nd">·</td>';
+    const v=po/m.mins*10,a=H.byQ[q];
+    let c='';if(a!=null&&Math.abs(v-a)>=3)c=' class="neu"';
+    return '<td'+c+'>'+v.toFixed(0)+(a!=null&&Math.abs(v-a)>=3?(v>a?' ▲':' ▼'):'')+'</td>';
+  }).join('');
+  return '<div class="ds-card t'+t+'">'+head+
+    '<div class="ds-sig"><span class="ds-dot t'+t+'"></span><span>'+resumen+'</span></div>'+
+    '<table class="ds-av"><thead><tr><th class="l">Métrica</th><th>Prom.</th><th>Hoy</th><th>Dif.</th></tr></thead><tbody>'+body+'</tbody></table>'+
+    '<table class="ds-trend" style="margin-top:6px"><thead><tr>'+qh+'</tr></thead><tbody><tr>'+qa+'</tr><tr>'+qt+'</tr></tbody></table>'+
+    '<div class="ds-foot">Posesiones por cuarto, ritmo cada 10\''+(live?' (* cuarto en juego)':'')+'. Promedio de <b>'+H.n+'</b> partido'+(H.n===1?'':'s')+' guardado'+(H.n===1?'':'s')+
+    (H.desde?' desde el '+String(H.desde).slice(0,10).split('-').reverse().join('/'):'')+', sin contar este. Equipo(s) considerado(s): '+H.names.join(', ')+'.</div></div>';
+}
+async function dsAvg(){
+  const box=document.getElementById('ds-avg');if(!box)return;
+  const tok=S.dsTok=(S.dsTok||0)+1;
+  const mine=dsMine();
+  const sel='<select id="dsMine" onchange="dsSetMine(+this.value)" style="background:var(--bg-base);border:1px solid var(--border-light);border-radius:var(--r);padding:6px 10px;font-family:var(--font-mono);font-size:11px;color:var(--text);outline:none">'+
+    (mine?'':'<option value="0">— elija —</option>')+
+    [1,2].map(t=>'<option value="'+t+'"'+(mine===t?' selected':'')+'>'+S.teams[t].name+'</option>').join('')+'</select>';
+  const bar='<div class="section-sep">Hoy vs promedio</div><div class="ds-live"><span>Nuestro equipo:</span>'+sel+'</div>';
+  if(!mine){box.innerHTML=bar+'<div class="ds-warn">No pude saber cuál de los dos es su equipo (el perfil dice «'+(((window.ScoutPro&&window.ScoutPro.profile&&window.ScoutPro.profile())||{}).equipo||'—')+'»). Elíjalo arriba y queda recordado.</div>';return;}
+  box.innerHTML=bar+'<div class="ds-warn" style="background:var(--bg-panel);border-color:var(--border-light)">Buscando promedios en la base…</div>';
+  const cur=(document.getElementById('matchId').value.match(/(\d{5,})/)||[])[1]||'';
+  const riv=3-mine;
+  try{
+    const [A,B]=await Promise.all([dsHist(S.teams[mine].name,cur),dsHist(S.teams[riv].name,cur)]);
+    if(tok!==S.dsTok)return;                       // llegó tarde: ya se cargó otro partido
+    box.innerHTML=bar+'<div class="ds-grid">'+dsAvgCard(mine,A,'t'+mine,'Nuestro equipo')+dsAvgCard(riv,B,'t'+riv,'Rival')+'</div>';
+  }catch(e){
+    if(tok!==S.dsTok)return;
+    box.innerHTML=bar+'<div class="ds-warn">No se pudo leer el promedio de la base: '+(e.message||e)+'</div>';
+  }
 }
 
 // ---- TABS ----
