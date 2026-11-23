@@ -26,7 +26,7 @@ body{background:var(--bg-base);color:var(--text);font-family:var(--font-ui);font
 .logo .v{font-family:var(--font-mono);font-size:8px;color:var(--text-3);letter-spacing:2px;margin-left:6px;border:1px solid var(--border-light);border-radius:var(--r-sm);padding:2px 6px;vertical-align:middle}
 .tb-spacer{flex:1}
 .btn{background:var(--bg-panel);border:1px solid var(--border-light);border-radius:var(--r-sm);color:var(--text-2);font-family:var(--font-mono);font-size:10px;padding:7px 13px;cursor:pointer;transition:all var(--t-fast);white-space:nowrap}
-.btn:hover{border-color:var(--insight);color:var(--insight)}
+.btn:hover,.btn.on{border-color:var(--insight);color:var(--insight)}
 .btn.danger:hover{border-color:var(--negative);color:var(--negative)}
 .btn-primary{background:var(--offense);border:none;border-radius:6px;color:#1a1205;font-family:var(--font-mono);font-size:12px;letter-spacing:.5px;padding:12px 24px;cursor:pointer;font-weight:600;transition:filter var(--t-fast)}
 .btn-primary:hover{filter:brightness(1.08)}.btn-primary:disabled{opacity:.35;cursor:not-allowed;filter:none}
@@ -366,10 +366,11 @@ function renderCargar(){
   <div class="controls">
     <div class="field w"><label>Partido cargado</label><select id="selGame" onchange="setActive(this.value)"><option value="">— elegir —</option>${opts}</select></div>
     <button class="btn" onclick="toggleNew()">＋ Nuevo partido</button>
-    ${g?`<button class="btn danger" onclick="delGame('${g.id}')">Eliminar partido</button>`:''}
+    ${g?`<button class="btn ${UI.edit?'on':''}" onclick="toggleEdit()">✎ Editar partido</button><button class="btn danger" onclick="delGame('${g.id}')">Eliminar partido</button>`:''}
   </div>
+  <datalist id="dlTeams">${teamList().map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
+  ${g&&UI.edit?editBoxHTML(g):''}
   <div id="newBox" style="display:${DB.games.length?'none':'block'};margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light)">
-    <datalist id="dlTeams">${teamList().map(t=>`<option value="${esc(t)}">`).join('')}</datalist>
     <div class="controls">
       <div class="field"><label>Fase de playoffs</label><select id="nFase">${FASES.map(f=>`<option>${f}</option>`).join('')}</select></div>
       <div class="field"><label>Juego N.º de la serie</label><select id="nJuego">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}">Juego ${n}</option>`).join('')}</select></div>
@@ -421,15 +422,45 @@ function shotsTable(g,recent){
 }
 function pick(k,v){UI[k]=(UI[k]===v&&k!=='team'&&k!=='res'&&k!=='q')?null:v;if(k==='res')UI.det=null;renderCargar();}
 function toggleNew(){const b=$('newBox');b.style.display=b.style.display==='none'?'block':'none';}
+/* ── editar un partido ya cargado (fase, juego, equipos, fecha) ── */
+function editBoxHTML(g){
+  const fases=FASES.includes(g.fase)||!g.fase?FASES:[...FASES,g.fase];
+  return `<div id="editBox" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light)">
+    <div class="lab" style="margin-top:0">Editar partido <i>los ${g.shots.length} tiros cargados se conservan</i></div>
+    <div class="controls">
+      <div class="field"><label>Fase de playoffs</label><select id="eFase">${fases.map(f=>`<option ${f===g.fase?'selected':''}>${esc(f)}</option>`).join('')}</select></div>
+      <div class="field"><label>Juego N.º de la serie</label><select id="eJuego">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${n===+g.juego?'selected':''}>Juego ${n}</option>`).join('')}</select></div>
+      <div class="field w"><label>Local</label><input id="eLoc" list="dlTeams" value="${esc(g.local)}"></div>
+      <div class="field w"><label>Visitante</label><input id="eVis" list="dlTeams" value="${esc(g.visitante)}"></div>
+      <div class="field"><label>Fecha (opcional)</label><input id="eFec" type="date" value="${esc(g.fecha||'')}"></div>
+      <button class="btn-primary" onclick="saveEdit()">Guardar cambios</button>
+      <button class="btn" onclick="toggleEdit()">Cancelar</button>
+    </div>
+    <div class="mini" style="margin-top:8px">Cambiar un nombre de equipo lo renombra en este partido; cada tiro conserva el lado (local / visitante) con el que fue cargado.</div>
+  </div>`;
+}
+function toggleEdit(){UI.edit=!UI.edit;renderCargar();}
+function editGame(id){DB.active=id;save();UI.edit=true;UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;go('cargar');}
+function saveEdit(){
+  const g=active();if(!g)return;
+  const loc=$('eLoc').value.trim(),vis=$('eVis').value.trim();
+  if(!loc||!vis){alert('Completá local y visitante.');return;}
+  if(tkey(loc)===tkey(vis)){alert('Local y visitante no pueden ser el mismo equipo.');return;}
+  /* si el nombre coincide con el de un equipo de OTRO partido, se unifica la grafía */
+  const otros={};DB.games.filter(x=>x.id!==g.id).forEach(x=>[x.local,x.visitante].forEach(n=>{otros[tkey(n)]=otros[tkey(n)]||n;}));
+  const fix=n=>otros[tkey(n)]||n;
+  g.fase=$('eFase').value;g.juego=+$('eJuego').value;g.local=fix(loc);g.visitante=fix(vis);g.fecha=$('eFec').value||'';
+  UI.edit=false;save();cloud({k:'ins_g',row:rowG(g)});renderCargar();
+}
 function addGame(){
   const loc=$('nLoc').value.trim(),vis=$('nVis').value.trim();
   if(!loc||!vis){alert('Completá local y visitante.');return;}
   if(tkey(loc)===tkey(vis)){alert('Local y visitante no pueden ser el mismo equipo.');return;}
   const ex=teamList();const fix=n=>ex.find(e=>tkey(e)===tkey(n))||n;
   const g={id:uid(),fase:$('nFase').value,juego:+$('nJuego').value,local:fix(loc),visitante:fix(vis),fecha:$('nFec').value||'',shots:[]};
-  DB.games.push(g);DB.active=g.id;save();cloud({k:'ins_g',row:rowG(g)});UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;renderCargar();
+  DB.games.push(g);DB.active=g.id;save();cloud({k:'ins_g',row:rowG(g)});UI.edit=false;UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;renderCargar();
 }
-function setActive(id){DB.active=id||null;save();UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;renderCargar();}
+function setActive(id){DB.active=id||null;save();UI.edit=false;UI.team=UI.seg=UI.pts=UI.res=UI.det=UI.q=null;renderCargar();}
 function delGame(id){const g=game(id);if(!g||!confirm('¿Eliminar "'+gname(g)+'" con sus '+g.shots.length+' tiros?'))return;
   DB.games=DB.games.filter(x=>x.id!==id);DB.active=DB.games.length?DB.games[DB.games.length-1].id:null;save();cloud({k:'del_g',id});renderCargar();}
 function regShot(){
@@ -637,7 +668,7 @@ function renderDatos(){
    <div class="tb-spacer"></div><button class="btn danger" onclick="wipe()">Borrar todo</button></div>
    <div class="mini" style="margin-top:10px">${DB.games.length} partidos · ${n} tiros cargados</div></div>`;
   if(!DB.games.length){h+='<div class="empty">Sin datos todavía.</div>';}
-  else h+=`<div class="card"><div class="card-t">Partidos cargados</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Fase</th><th>Juego</th><th class="l">Local</th><th class="l">Visitante</th><th class="l">Fecha</th><th>Tiros</th><th></th></tr></thead><tbody>${DB.games.map(g=>`<tr><td class="l">${esc(g.fase)}</td><td>${g.juego}</td><td class="l">${esc(g.local)}</td><td class="l">${esc(g.visitante)}</td><td class="l">${esc(g.fecha||'—')}</td><td>${g.shots.length}</td><td><button class="btn" onclick="DB.active='${g.id}';save();go('cargar')">Abrir</button> <button class="btn" onclick="INF_ID='${g.id}';go('informe')">Informe</button></td></tr>`).join('')}</tbody></table></div></div>`;
+  else h+=`<div class="card"><div class="card-t">Partidos cargados</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Fase</th><th>Juego</th><th class="l">Local</th><th class="l">Visitante</th><th class="l">Fecha</th><th>Tiros</th><th></th></tr></thead><tbody>${DB.games.map(g=>`<tr><td class="l">${esc(g.fase)}</td><td>${g.juego}</td><td class="l">${esc(g.local)}</td><td class="l">${esc(g.visitante)}</td><td class="l">${esc(g.fecha||'—')}</td><td>${g.shots.length}</td><td><button class="btn" onclick="DB.active='${g.id}';save();UI.edit=false;go('cargar')">Abrir</button> <button class="btn" onclick="editGame('${g.id}')">✎ Editar</button><button class="btn" onclick="INF_ID='${g.id}';go('informe')">Informe</button></td></tr>`).join('')}</tbody></table></div></div>`;
   $('view-datos').innerHTML=h;
 }
 
