@@ -993,6 +993,32 @@ details.rv-sec:not([open])>summary .rv-chev{transform:rotate(-90deg)}details.rv-
 .pl-man-x{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:1px solid var(--border-light);background:transparent;color:var(--text-3);cursor:pointer}.pl-man-x:hover{color:var(--negative);border-color:var(--negative)}
 .pl-man-add{margin-top:4px;font:600 12px var(--font-ui);padding:6px 10px;border-radius:8px;border:1px dashed var(--pl-acc,var(--offense));background:transparent;color:var(--pl-acc,var(--offense));cursor:pointer}
 .pl-tsec{margin-top:10px}.pl-tsec-h{font-family:var(--font-disp);font-weight:700;letter-spacing:.5px}.pl-tsec-h span{display:block;font-family:var(--font-ui);font-weight:400;font-size:12px;color:var(--text-3);letter-spacing:0;margin-top:2px}
+/* ═══ Análisis de liga ═══ */
+.lg-ftxt{font-family:var(--font-mono);font-size:11px;color:var(--text-2);margin:-4px 0 12px;letter-spacing:.3px}
+.lg-leg{display:flex;flex-wrap:wrap;gap:14px;font-size:11.5px;color:var(--text-2);margin:2px 0 8px}
+.lg-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.grid2-lg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:var(--sp-3);margin-bottom:var(--sp-4)}
+.note-lg{background:rgba(167,139,250,.07);border:1px solid rgba(167,139,250,.25);border-radius:var(--r-lg);padding:12px 15px;font-size:13px;color:var(--text-2);line-height:1.6;margin:0 0 var(--sp-4)}
+.note-lg b{color:var(--insight)}
+.insights-lg{list-style:none;display:flex;flex-direction:column;gap:8px;margin:0 0 var(--sp-4);padding:0}
+.insights-lg li{font-size:13px;line-height:1.55;color:var(--text);padding:10px 14px;background:var(--bg-raised);border:1px solid var(--border-light);border-left:3px solid var(--insight);border-radius:6px}
+.mini-lg{font-size:9px;color:var(--text-3)}
+.lg-mb{display:inline-flex;width:90px;height:9px;border-radius:3px;overflow:hidden;vertical-align:middle;background:var(--bg-panel)}
+.lg-mb i{display:block;height:100%}
+.lg-win{color:var(--positive);font-weight:600}.lg-loss{color:var(--negative)}
+table.t tr.lg-first td{border-top:1px solid var(--border-light)}
+table.t tr.lg-sel td{background:rgba(249,115,22,.08)}
+table.t tr.lg-ref td{color:var(--text-2)}
+td.low{color:var(--text-3)}
+details.lg-j{background:var(--bg-raised);border:1px solid var(--border-light);border-radius:var(--r-lg);margin-bottom:var(--sp-3);overflow:hidden}
+details.lg-j>summary{cursor:pointer;list-style:none;padding:11px 14px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;font-family:var(--font-disp);font-size:16px;letter-spacing:.4px}
+details.lg-j>summary::-webkit-details-marker{display:none}
+details.lg-j>summary::before{content:'▸';color:var(--offense);font-size:13px;transition:transform .15s}
+details.lg-j[open]>summary::before{transform:rotate(90deg)}
+.lg-js{font-family:var(--font-mono);font-size:10.5px;color:var(--text-2);letter-spacing:0}
+.lg-teams{padding:0 14px 10px;font-size:12px;color:var(--text-2);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.lg-teams em{font-style:normal;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:20px;padding:3px 10px;color:var(--text)}
+.chart text{font-family:var(--font-mono);fill:var(--text-2);font-size:10px}
 </style>
 </head>
 <body>
@@ -1038,6 +1064,7 @@ details.rv-sec:not([open])>summary .rv-chev{transform:rotate(-90deg)}details.rv-
     <button class="tab" data-v="situacion" onclick="switchView('situacion')">🎯 Por situación</button>
     <button class="tab" data-v="partido" onclick="switchView('partido')">📋 Partido</button>
     <button class="tab" data-v="qxp" onclick="switchView('qxp')">🔎 Quintetos×Partido</button>
+    <button class="tab" data-v="liga" onclick="switchView('liga')">📈 Análisis liga</button>
   </div>
 
   <div class="view active" id="view-dashboard"></div>
@@ -1059,6 +1086,7 @@ details.rv-sec:not([open])>summary .rv-chev{transform:rotate(-90deg)}details.rv-
   <div class="view" id="view-situacion"></div>
   <div class="view" id="view-partido"></div>
   <div class="view" id="view-qxp"></div>
+  <div class="view" id="view-liga"></div>
 
   <div id="msg" class="empty"><div class="loadbox"><div class="spinner"></div><div>Cargando datos…</div></div></div>
 </div>
@@ -4472,7 +4500,302 @@ function renderPareto(){
     (liga&&all.length>TBL_MAX?'<div class="zone-sub" style="margin-top:8px">Tabla recortada a los '+TBL_MAX+' de mayor volumen (hay '+all.length+' jugadores con registro).</div>':'')+'</div>';
 }
 
-function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();renderQxP();try{if(document.body.classList.contains('v-placas'))renderPlacas();}catch(e){console.warn('placas',e);}}
+/* ═══════════════════════════════════════════════════════════════
+   ANÁLISIS DE LIGA · momento del tiro (tramo de posesión), TS%, eFG%,
+   evolución por jornada y relación con la victoria / el resultado del cuarto.
+   Fuentes (ya cargadas por loadData, con el filtro de Liga aplicado):
+     DATA     = quintetos_log  → resultado, TS%, eFG% (totales de equipo), fase, jornada
+     SHOTS    = tiros_log      → tramo 1/2/3 de cada tiro + periodo (cuarto)
+     QUARTERS = cuartos_log    → resultado de cada cuarto
+   ═══════════════════════════════════════════════════════════════ */
+const LG={fase:'',jor:'',q:0};
+const LG_TC={1:'#34c769',2:'#e0a83b',3:'#f05050'};
+const LG_TL={1:'1.er tramo · 0–8″',2:'2.º tramo · 8–16″',3:'3.er tramo · 16–24″'};
+const LG_MIN_SH=8;      // tiros con tramo mínimos por equipo-partido para entrar en correlaciones
+const LG_MIN_SHQ=4;     // ídem por equipo-cuarto
+function lgSet(k,v){if(k==='q')LG.q=+v||0;else{LG[k]=v;if(k==='fase')LG.jor='';}renderLiga();}
+const lgf=(v,d=1)=>(v==null||!isFinite(v))?'—':v.toFixed(d);
+const lgp=(v,d=0)=>(v==null||!isFinite(v))?'—':v.toFixed(d)+'%';
+const lgd=(v,d=1)=>(v==null||!isFinite(v))?'—':(v>0?'+':'')+v.toFixed(d);
+const lgq=q=>q===5?'PR':('Q'+q);
+const lgJNum=s=>{const m=String(s||'').match(/\d+(\.\d+)?/);return m?parseFloat(m[0]):9999;};
+const lgEsc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ── estadística ── */
+function lgGammaLn(z){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=z,x=z,t=x+5.5;t-=(x+0.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=c[j]/++y;return -t+Math.log(2.5066282746310005*s/x);}
+function lgBetacf(a,b,x){const FP=1e-30;let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<FP)d=FP;d=1/d;let h=d;
+  for(let m=1;m<=200;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<FP)d=FP;c=1+aa/c;if(Math.abs(c)<FP)c=FP;d=1/d;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<FP)d=FP;c=1+aa/c;if(Math.abs(c)<FP)c=FP;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<3e-7)break;}
+  return h;}
+function lgBetai(a,b,x){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(lgGammaLn(a+b)-lgGammaLn(a)-lgGammaLn(b)+a*Math.log(x)+b*Math.log(1-x));
+  return x<(a+1)/(a+b+2)?bt*lgBetacf(a,b,x)/a:1-bt*lgBetacf(b,a,1-x)/b;}
+/* p-valor bilateral de una correlación r con n observaciones independientes */
+function lgPval(r,n){if(n<4||Math.abs(r)>=1)return null;const df=n-2,t=r*Math.sqrt(df/(1-r*r));return lgBetai(df/2,0.5,df/(df+t*t));}
+function lgCorr(xs,ys){const n=xs.length;if(n<4)return null;const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;let sxy=0,sxx=0,syy=0;
+  for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}
+  if(!sxx||!syy)return null;return {r:sxy/Math.sqrt(sxx*syy),n};}
+const lgMean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+function lgStrength(r){const a=Math.abs(r);return a<0.2?'casi nula':a<0.4?'débil':a<0.6?'moderada':a<0.8?'fuerte':'muy fuerte';}
+function lgPtxt(p){return p==null?'—':p<0.001?'<0,001':p.toFixed(3).replace('.',',');}
+
+/* ── datos ── */
+function lgBuild(){
+  const SX={};SHOTS.forEach(s=>{const k=s.match_id+'§'+teamKey(s.equipo);(SX[k]=SX[k]||[]).push(s);});
+  const QX={};QUARTERS.forEach(r=>{QX[r.match_id+'§'+teamKey(r.equipo)+'§'+(+r.cuarto)]=r;});
+  const M={};
+  DATA.forEach(r=>{
+    const id=r.match_id||('?'+(r.fecha||'')+'|'+r.equipo+'|'+r.rival);
+    const m=M[id]||(M[id]={id,fecha:r.fecha||'',fase:r.fase||'',jornada:r.jornada==null?'':String(r.jornada).trim(),teams:{}});
+    const t=m.teams[r.equipo]||(m.teams[r.equipo]={team:r.equipo,rival:r.rival,local:r.es_local,rows:[]});
+    t.rows.push(r);
+  });
+  const matches=[];
+  Object.values(M).forEach(m=>{
+    const recs=Object.values(m.teams);
+    recs.forEach(t=>{t.a=agg(t.rows);t.pts=t.a.ptsF;t.ptsC=t.a.ptsC;t.margin=t.pts-t.ptsC;t.win=t.pts>t.ptsC;
+      t.sh=SX[m.id+'§'+teamKey(t.team)]||[];t.mid=m.id;t.m=m;});
+    if(!recs.length||recs.every(t=>!t.pts&&!t.ptsC))return;
+    recs.forEach(t=>{t.opp=recs.find(o=>o!==t)||null;});
+    m.recs=recs;matches.push(m);
+  });
+  const keyOf=m=>m.fase+'§'+m.jornada;
+  const firstDate={};matches.forEach(m=>{const k=keyOf(m);if(!(k in firstDate)||(m.fecha&&m.fecha<firstDate[k]))firstDate[k]=m.fecha||'9999';});
+  matches.sort((a,b)=>String(firstDate[keyOf(a)]).localeCompare(String(firstDate[keyOf(b)]))||lgJNum(a.jornada)-lgJNum(b.jornada)||String(a.fecha).localeCompare(String(b.fecha)));
+  return {matches,QX,keyOf};
+}
+/* tramos de un conjunto de tiros */
+function lgTr(shots){
+  const t=[0,1,2].map(()=>({n:0,m:0,m3:0}));
+  shots.forEach(s=>{const k=+s.tramo;if(!(k>=1&&k<=3))return;const o=t[k-1];o.n++;if(shotMade(s)){o.m++;if(s.tipo==='3pt')o.m3++;}});
+  const tot=t.reduce((a,o)=>a+o.n,0);
+  t.forEach(o=>{o.fg=o.n?100*o.m/o.n:null;o.efg=o.n?100*(o.m+0.5*o.m3)/o.n:null;o.share=tot?100*o.n/tot:null;});
+  return {t,tot};
+}
+const lgShots=(rec,q)=>q?rec.sh.filter(s=>+s.periodo===q):rec.sh;
+
+/* ── gráficos SVG ── */
+function lgLines(cats,series,unit){
+  const W=640,H=210,L=40,R=12,T=14,B=44;
+  const all=series.flatMap(s=>s.vals).filter(v=>v!=null&&isFinite(v));
+  if(!all.length)return '';
+  let lo=Math.min(...all),hi=Math.max(...all);const pad=Math.max(2,(hi-lo)*0.2);lo=Math.floor((lo-pad)/5)*5;hi=Math.ceil((hi+pad)/5)*5;if(hi===lo)hi=lo+10;
+  const iw=W-L-R,ih=H-T-B,X=i=>L+(cats.length>1?iw*i/(cats.length-1):iw/2),Y=v=>T+ih-ih*(v-lo)/(hi-lo);
+  let g='';
+  for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="rgba(255,255,255,.07)"/><text x="'+(L-6)+'" y="'+(y+3)+'" text-anchor="end">'+Math.round(v)+(unit||'')+'</text>';}
+  const step=Math.ceil(cats.length/9);
+  cats.forEach((c,i)=>{if(i%step)return;g+='<text x="'+X(i)+'" y="'+(H-24)+'" text-anchor="middle" style="fill:var(--text)">'+lgEsc(c.a)+'</text><text x="'+X(i)+'" y="'+(H-11)+'" text-anchor="middle" style="font-size:8.5px">'+lgEsc(c.b||'')+'</text>';});
+  series.forEach(s=>{
+    let d='';s.vals.forEach((v,i)=>{if(v==null)return;d+=(d?'L':'M')+X(i)+','+Y(v);});
+    g+='<path d="'+d+'" fill="none" stroke="'+s.color+'" stroke-width="2.2" stroke-linejoin="round"/>';
+    s.vals.forEach((v,i)=>{if(v==null)return;g+='<circle cx="'+X(i)+'" cy="'+Y(v)+'" r="3.8" fill="'+s.color+'"><title>'+lgEsc(s.name+' · '+cats[i].a+(cats[i].b?' '+cats[i].b:'')+': '+v.toFixed(1)+(unit||''))+'</title></circle>';});
+  });
+  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" style="width:100%;overflow:visible">'+g+'</svg>';
+}
+function lgStack(cats,shares){
+  const W=640,H=210,L=34,R=8,T=12,B=44,iw=W-L-R,ih=H-T-B,gw=iw/cats.length,bw=Math.min(54,gw-10);
+  let g='';
+  for(let i=0;i<=4;i++){const y=T+ih-ih*i/4;g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="rgba(255,255,255,.07)"/><text x="'+(L-6)+'" y="'+(y+3)+'" text-anchor="end">'+(25*i)+'%</text>';}
+  const step=Math.ceil(cats.length/9);
+  cats.forEach((c,i)=>{
+    const cx=L+gw*i+gw/2,sh=shares[i];let y=T+ih;
+    if(sh&&sh[0]!=null){[0,1,2].forEach(k=>{const h=ih*sh[k]/100;y-=h;
+      g+='<rect x="'+(cx-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+Math.max(h,0)+'" fill="'+LG_TC[k+1]+'"><title>'+lgEsc(c.a+' '+(c.b||'')+' · '+LG_TL[k+1]+': '+sh[k].toFixed(0)+'%')+'</title></rect>';
+      if(h>15&&bw>26)g+='<text x="'+cx+'" y="'+(y+h/2+3)+'" text-anchor="middle" style="fill:#0b0c10;font-size:9.5px;font-weight:700">'+sh[k].toFixed(0)+'%</text>';});}
+    if(i%step===0)g+='<text x="'+cx+'" y="'+(H-24)+'" text-anchor="middle" style="fill:var(--text)">'+lgEsc(c.a)+'</text><text x="'+cx+'" y="'+(H-11)+'" text-anchor="middle" style="font-size:8.5px">'+lgEsc(c.b||'')+'</text>';
+  });
+  return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" style="width:100%;overflow:visible">'+g+'</svg>';
+}
+const lgLegend=()=>'<div class="legend lg-leg">'+[1,2,3].map(k=>'<span><i style="background:'+LG_TC[k]+'"></i>'+LG_TL[k]+'</span>').join('')+'</div>';
+function lgMiniBar(sh){if(!sh||sh[0]==null)return '<span class="lg-mb"></span>';return '<span class="lg-mb" title="'+sh.map((v,k)=>LG_TL[k+1]+': '+v.toFixed(0)+'%').join(' · ')+'">'+sh.map((v,k)=>'<i style="width:'+v+'%;background:'+LG_TC[k+1]+'"></i>').join('')+'</span>';}
+
+/* ═══ VISTA ═══ */
+function renderLiga(){
+  const el=document.getElementById('view-liga');if(!el)return;
+  if(!DATA.length){el.innerHTML='<div class="empty">No hay datos cargados.</div>';return;}
+  const B=lgBuild(),all=B.matches,keyOf=B.keyOf;
+  // opciones de filtro (la Liga se elige arriba; acá Fase, Jornada y Cuarto)
+  const fases=[...new Set(all.map(m=>m.fase))].sort();
+  if(LG.fase&&!fases.includes(LG.fase))LG.fase='';
+  const jors=[...new Set(all.filter(m=>!LG.fase||m.fase===LG.fase).map(m=>m.jornada))].sort((a,b)=>lgJNum(a)-lgJNum(b)||String(a).localeCompare(String(b)));
+  if(LG.jor&&!jors.includes(LG.jor))LG.jor='';
+  const ligaSel=document.getElementById('selLiga');
+  const ligaOpts=ligaSel?ligaSel.innerHTML:'';
+  const ctl='<div class="controls lg-ctl">'+
+    '<div class="field"><label>Liga</label><select onchange="setLigaFiltro(this.value)">'+ligaOpts.replace('value="'+LIGA_SEL+'"','value="'+LIGA_SEL+'" selected')+'</select></div>'+
+    '<div class="field"><label>Fase</label><select onchange="lgSet(\'fase\',this.value)"><option value="">Todas</option>'+fases.map(f=>'<option value="'+lgEsc(f)+'"'+(f===LG.fase?' selected':'')+'>'+lgEsc(f||'Sin fase')+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Jornada</label><select onchange="lgSet(\'jor\',this.value)"><option value="">Todas</option>'+jors.map(j=>'<option value="'+lgEsc(j)+'"'+(j===LG.jor?' selected':'')+'>'+lgEsc(j===''?'Sin jornada':'Jornada '+j)+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label>Cuarto (momento del tiro)</label><select onchange="lgSet(\'q\',this.value)"><option value="0">Todo el partido</option>'+[1,2,3,4,5].map(q=>'<option value="'+q+'"'+(LG.q===q?' selected':'')+'>'+(q===5?'Prórroga':q+'.º cuarto')+'</option>').join('')+'</select></div>'+
+    '</div>';
+  const G=all.filter(m=>(!LG.fase||m.fase===LG.fase)&&(!LG.jor||m.jornada===LG.jor));
+  if(!G.length){el.innerHTML=ctl+'<div class="empty">No hay partidos para esta combinación de filtros.</div>';return;}
+  const recs=G.flatMap(m=>m.recs);
+  const q=LG.q;
+  const filtTxt=[ligaLabel(LIGA_SEL)||'Todas las ligas',LG.fase||'todas las fases',LG.jor?('Jornada '+LG.jor):'todas las jornadas',q?(q===5?'prórroga':q+'.º cuarto'):''].filter(Boolean).join(' · ');
+
+  /* resumen */
+  const rowsAll=recs.flatMap(r=>r.rows),aL=agg(rowsAll);
+  const shAll=recs.flatMap(r=>lgShots(r,q)),trL=lgTr(shAll);
+  const fgaAll=recs.reduce((s,r)=>s+r.a.fga,0),withTr=lgTr(recs.flatMap(r=>r.sh)).tot;
+  const teamsSet=new Set(recs.map(r=>teamKey(r.team)));
+  const cover=fgaAll?Math.round(100*withTr/fgaAll):0;
+  let h=ctl+'<div class="lg-ftxt">'+lgEsc(filtTxt)+'</div>';
+  if(!SHOTS.length)h+='<div class="note-lg">No hay tiros con momento de posesión cargados (tabla <b>tiros_log</b>). Los indicadores de TS% y eFG% sí se calculan; el momento del tiro aparece al guardar partidos con play-by-play desde Quintetos.</div>';
+  h+='<div class="kpis">'+
+    '<div class="kpi"><div class="v">'+G.length+'</div><div class="k">Partidos</div></div>'+
+    '<div class="kpi"><div class="v">'+teamsSet.size+'</div><div class="k">Equipos</div></div>'+
+    '<div class="kpi"><div class="v">'+lgf(aL.efg)+'%</div><div class="k">eFG% liga</div></div>'+
+    '<div class="kpi"><div class="v">'+lgf(aL.ts)+'%</div><div class="k">TS% liga</div></div>'+
+    '<div class="kpi"><div class="v" style="color:'+LG_TC[3]+'">'+lgp(trL.t[2].share)+'</div><div class="k">Tiros en 3.er tramo</div></div>'+
+    '<div class="kpi"><div class="v">'+cover+'%</div><div class="k">Tiros con tramo / FGA</div></div></div>';
+
+  /* 1 · partidos por jornada */
+  const groups=[];G.forEach(m=>{const k=keyOf(m);let g=groups.find(x=>x.k===k);if(!g){g={k,fase:m.fase,jornada:m.jornada,ms:[]};groups.push(g);}g.ms.push(m);});
+  const jLabel=g=>(g.fase?g.fase+' · ':'')+(g.jornada===''?'Sin jornada':'Jornada '+g.jornada);
+  h+='<div class="sec">Partidos por jornada · quiénes jugaron y cómo tiraron</div>';
+  h+=groups.map(g=>{
+    const rs=g.ms.flatMap(m=>m.recs),tms=[...new Set(rs.map(r=>r.team))].sort();
+    const body=g.ms.map(m=>{
+      const order=m.recs.slice().sort((a,b)=>(b.local===true)-(a.local===true)||String(a.team).localeCompare(String(b.team)));
+      return order.map((r,i)=>{
+        const t=lgTr(lgShots(r,q)),sh=t.tot?t.t.map(o=>o.share):null;
+        return '<tr class="'+(i===0?'lg-first':'')+'"><td class="l">'+(i===0?(m.fecha||'—'):'')+'</td><td class="l">'+teamCell(r.team)+'</td>'+
+          '<td class="l '+(r.win?'lg-win':'lg-loss')+'">'+(r.win?'G':'P')+' '+r.pts+'–'+r.ptsC+'</td>'+
+          '<td>'+lgMiniBar(sh)+'</td>'+
+          [0,1,2].map(k=>'<td style="color:'+LG_TC[k+1]+'">'+(t.tot?lgp(t.t[k].share):'—')+'</td>').join('')+
+          '<td>'+t.tot+'</td><td>'+lgf(r.a.efg)+'%</td><td>'+lgf(r.a.ts)+'%</td></tr>';
+      }).join('');
+    }).join('');
+    const ag=agg(rs.flatMap(r=>r.rows)),tg=lgTr(rs.flatMap(r=>lgShots(r,q)));
+    return '<details class="lg-j"'+(LG.jor||groups.length===1?' open':'')+'><summary><b>'+lgEsc(jLabel(g))+'</b>'+
+      '<span class="lg-js">'+g.ms.length+' partido'+(g.ms.length===1?'':'s')+' · eFG '+lgf(ag.efg)+'% · TS '+lgf(ag.ts)+'% · 3.er tramo '+lgp(tg.t[2].share)+'</span></summary>'+
+      '<div class="lg-teams"><span>Equipos que jugaron:</span> '+tms.map(t=>'<em>'+lgEsc(t)+'</em>').join('')+'</div>'+
+      '<div class="tblwrap"><table class="t"><thead><tr><th class="l">Fecha</th><th class="l">Equipo</th><th class="l">Resultado</th><th>Momento del tiro</th>'+
+      '<th style="color:'+LG_TC[1]+'">% 1.º</th><th style="color:'+LG_TC[2]+'">% 2.º</th><th style="color:'+LG_TC[3]+'">% 3.º</th><th>Tiros c/ tramo</th><th>eFG%</th><th>TS%</th></tr></thead><tbody>'+body+'</tbody></table></div></details>';
+  }).join('');
+
+  /* 2 · cuándo se tira */
+  h+='<div class="sec">Cuándo se lanza · momento de la posesión'+(q?' · '+lgq(q):'')+'</div>';
+  if(trL.tot){
+    h+=lgLegend()+'<div class="tramo-grid">'+trL.t.map((o,k)=>'<div class="tramo-card"><div class="lbl">'+LG_TL[k+1]+'</div>'+
+      '<div class="big" style="color:'+LG_TC[k+1]+'">'+lgp(o.share)+'</div>'+
+      '<div class="sub">'+o.n+' tiros · FG% '+lgp(o.fg)+' · <b>eFG% '+lgp(o.efg)+'</b></div>'+
+      '<div class="tramo-bar"><div class="tramo-fill" style="width:'+(o.share||0)+'%;background:'+LG_TC[k+1]+'"></div></div></div>').join('')+'</div>';
+    // por cuarto
+    const qs=[1,2,3,4,5].filter(x=>recs.some(r=>r.sh.some(s=>+s.periodo===x&&+s.tramo>=1)));
+    if(qs.length){
+      h+='<div class="board" style="margin-top:14px"><div class="board-title">Por cuarto · todos los equipos del filtro</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Cuarto</th><th>Tiros</th>'+
+        [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">eFG% '+k+'.º</th>').join('')+'<th>eFG% total</th></tr></thead><tbody>'+
+        qs.map(x=>{const t=lgTr(recs.flatMap(r=>lgShots(r,x))),sh=recs.flatMap(r=>lgShots(r,x)).filter(s=>+s.tramo>=1);
+          const m=sh.filter(shotMade).length,m3=sh.filter(s=>shotMade(s)&&s.tipo==='3pt').length;const ef=sh.length?100*(m+0.5*m3)/sh.length:null;
+          return '<tr'+(q===x?' class="lg-sel"':'')+'><td class="l">'+(x===5?'Prórroga':x+'.º cuarto')+'</td><td>'+t.tot+'</td>'+
+            t.t.map(o=>'<td>'+lgp(o.share)+'</td>').join('')+t.t.map((o,k)=>'<td class="'+(o.n<8?'low':'')+'">'+lgp(o.efg)+'</td>').join('')+'<td>'+lgp(ef)+'</td></tr>';}).join('')+
+        '</tbody></table></div></div><div class="zone-sub" style="margin:-6px 0 12px">Valores en gris: menos de 8 tiros.</div>';
+    }
+  }else h+='<div class="empty" style="padding:24px">Sin tiros con momento de posesión para este filtro.</div>';
+
+  /* 3 · evolución por jornada */
+  const jg=[];all.filter(m=>!LG.fase||m.fase===LG.fase).forEach(m=>{const k=keyOf(m);let g=jg.find(x=>x.k===k);if(!g){g={k,fase:m.fase,jornada:m.jornada,ms:[]};jg.push(g);}g.ms.push(m);});
+  const ev=jg.map((g,i)=>{const rs=g.ms.flatMap(m=>m.recs),a=agg(rs.flatMap(r=>r.rows)),t=lgTr(rs.flatMap(r=>lgShots(r,q)));
+    return {g,i,n:g.ms.length,teams:new Set(rs.map(r=>teamKey(r.team))).size,efg:a.efg,ts:a.ts,t,sh:t.tot?t.t.map(o=>o.share):null,
+      lbl:{a:g.jornada===''?'s/j':'J'+g.jornada,b:LG.fase?'':(g.fase||'').slice(0,12)}};});
+  h+='<div class="sec">Evolución por jornada · ¿hubo cambios?</div>';
+  if(ev.length<2){h+='<div class="empty" style="padding:24px">Hace falta más de una jornada para ver cambios. '+(LG.fase?'Probá con «Todas» las fases.':'Cargá más jornadas.')+'</div>';}
+  else{
+    const cats=ev.map(e=>e.lbl);
+    h+='<div class="grid2-lg"><div class="court-box"><div class="zone-sub" style="margin:0 0 6px">TS% y eFG% de la liga, jornada a jornada</div>'+
+      '<div class="legend lg-leg"><span><i style="background:#a78bfa"></i>TS%</span><span><i style="background:#f97316"></i>eFG%</span></div>'+
+      lgLines(cats,[{name:'TS%',color:'#a78bfa',vals:ev.map(e=>e.ts)},{name:'eFG%',color:'#f97316',vals:ev.map(e=>e.efg)}],'%')+'</div>'+
+      '<div class="court-box"><div class="zone-sub" style="margin:0 0 6px">Reparto de tiros por momento de la posesión'+(q?' · '+lgq(q):'')+'</div>'+lgLegend()+lgStack(cats,ev.map(e=>e.sh))+'</div></div>';
+    h+='<div class="board"><div class="board-title">Liga por jornada</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Jornada</th><th>Partidos</th><th>Equipos</th><th>eFG%</th><th>Δ eFG</th><th>TS%</th><th>Δ TS</th>'+
+      [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th><th>eFG% 3.º</th></tr></thead><tbody>'+
+      ev.map((e,i)=>{const p=ev[i-1];const dc=v=>v==null?'':'style="color:'+(v>0?'var(--positive)':v<0?'var(--negative)':'var(--text-3)')+'"';
+        const dE=p?e.efg-p.efg:null,dT=p?e.ts-p.ts:null,d3=p&&e.sh&&p.sh?e.sh[2]-p.sh[2]:null;
+        return '<tr><td class="l">'+lgEsc(jLabel(e.g))+'</td><td>'+e.n+'</td><td>'+e.teams+'</td><td>'+lgf(e.efg)+'</td><td '+dc(dE)+'>'+lgd(dE)+'</td><td>'+lgf(e.ts)+'</td><td '+dc(dT)+'>'+lgd(dT)+'</td>'+
+          [0,1,2].map(k=>'<td>'+(e.sh?lgp(e.sh[k]):'—')+'</td>').join('')+'<td '+dc(d3)+'>'+lgd(d3)+'</td><td class="'+(e.t.t[2].n<8?'low':'')+'">'+lgp(e.t.t[2].efg)+'</td></tr>';}).join('')+
+      '</tbody></table></div></div>';
+    // lecturas automáticas
+    const ins=[];const w=ev.filter(e=>e.sh);
+    if(w.length>=2){
+      let best=null;for(let i=1;i<w.length;i++){const d=w[i].sh[2]-w[i-1].sh[2];if(!best||Math.abs(d)>Math.abs(best.d))best={d,a:w[i-1],b:w[i]};}
+      if(best&&Math.abs(best.d)>=1)ins.push('Mayor cambio en los tiros de último momento: de <b>'+lgEsc(jLabel(best.a.g))+'</b> a <b>'+lgEsc(jLabel(best.b.g))+'</b>, el 3.er tramo '+(best.d>0?'subió':'bajó')+' <b>'+Math.abs(best.d).toFixed(1)+' pp</b> ('+lgp(best.a.sh[2])+' → '+lgp(best.b.sh[2])+').');
+      const hiJ=w.reduce((a,b)=>b.sh[2]>a.sh[2]?b:a),loJ=w.reduce((a,b)=>b.sh[2]<a.sh[2]?b:a);
+      if(hiJ!==loJ)ins.push('Más tiros de último momento en <b>'+lgEsc(jLabel(hiJ.g))+'</b> ('+lgp(hiJ.sh[2])+'); menos en <b>'+lgEsc(jLabel(loJ.g))+'</b> ('+lgp(loJ.sh[2])+').');
+      if(w.length>=4){const c=lgCorr(w.map((e,i)=>i),w.map(e=>e.sh[2]));if(c){const p=lgPval(c.r,c.n);ins.push('Tendencia del % en 3.er tramo a lo largo de las jornadas: r = '+c.r.toFixed(2).replace('.',',')+' ('+lgStrength(c.r)+(p!=null&&p<0.05?', estadísticamente significativa':', no significativa')+', '+c.n+' jornadas).');}}
+    }
+    const f=ev[0],l=ev[ev.length-1];
+    ins.push('TS% de la liga: '+lgf(f.ts)+'% en '+lgEsc(jLabel(f.g))+' → '+lgf(l.ts)+'% en '+lgEsc(jLabel(l.g))+' ('+lgd(l.ts-f.ts)+' pp). eFG%: '+lgf(f.efg)+'% → '+lgf(l.efg)+'% ('+lgd(l.efg-f.efg)+' pp).');
+    h+='<ul class="insights-lg">'+ins.map(t=>'<li>'+t+'</li>').join('')+'</ul>';
+  }
+
+  /* 4 · correlación con la victoria */
+  const R=recs.map(r=>{const t=lgTr(r.sh);if(t.tot<LG_MIN_SH)return null;const o=r.opp,to=o?lgTr(o.sh):null;
+    return {r,sh:t.t.map(x=>x.share),efg3:t.t[2].n>=3?t.t[2].efg:null,dif3:(to&&to.tot>=LG_MIN_SH)?t.t[2].share-to.t[2].share:null};}).filter(Boolean);
+  const nM=new Set(R.map(x=>x.r.mid)).size;
+  h+='<div class="sec">¿Importa cuándo se tira? Relación con la victoria</div>';
+  if(nM<4||R.length<8){
+    h+='<div class="empty" style="padding:24px">Faltan datos: se necesitan al menos 4 partidos con tiros ubicados en el tiempo (hoy hay '+nM+'). Probá ampliando los filtros (Fase / Jornada → «Todas»).</div>';
+  }else{
+    const METS=[
+      {l:'% de tiros en 1.er tramo (0–8″)',f:x=>x.sh[0],u:'%'},
+      {l:'% de tiros en 2.º tramo (8–16″)',f:x=>x.sh[1],u:'%'},
+      {l:'% de tiros en 3.er tramo (16–24″)',f:x=>x.sh[2],u:'%',key:true},
+      {l:'Diferencia de % en 3.er tramo vs rival',f:x=>x.dif3,u:'pp'},
+      {l:'eFG% en 3.er tramo',f:x=>x.efg3,u:'%'},
+      {l:'eFG% del partido',f:x=>x.r.a.efg,u:'%',ref:true},
+      {l:'TS% del partido',f:x=>x.r.a.ts,u:'%',ref:true}
+    ];
+    const rows=METS.map(m=>{
+      const P=R.filter(x=>m.f(x)!=null&&isFinite(m.f(x)));
+      const xs=P.map(m.f),yw=P.map(x=>x.r.win?1:0),ym=P.map(x=>x.r.margin);
+      const cw=lgCorr(xs,yw),cm=lgCorr(xs,ym),nm=new Set(P.map(x=>x.r.mid)).size;
+      const mw=lgMean(P.filter(x=>x.r.win).map(m.f)),ml=lgMean(P.filter(x=>!x.r.win).map(m.f));
+      return {m,cw,cm,nm,pw:cw?lgPval(cw.r,nm):null,mw,ml};
+    });
+    const cc=r=>r==null?'var(--text-3)':Math.abs(r)<0.2?'var(--text-2)':r>0?'var(--positive)':'var(--negative)';
+    h+='<div class="board"><div class="board-title">Correlación por equipo-partido · '+nM+' partidos, '+R.length+' registros</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Indicador</th><th>Promedio ganadores</th><th>Promedio perdedores</th><th>Diferencia</th><th>r con victoria</th><th>r con margen</th><th>p</th><th class="l">Lectura</th></tr></thead><tbody>'+
+      rows.map(o=>{const r=o.cw?o.cw.r:null,sig=o.pw!=null&&o.pw<0.05;
+        return '<tr'+(o.m.ref?' class="lg-ref"':'')+'><td class="l">'+o.m.l+(o.m.ref?' <span class="mini-lg">(referencia)</span>':'')+'</td><td>'+lgf(o.mw)+'</td><td>'+lgf(o.ml)+'</td><td>'+lgd(o.mw!=null&&o.ml!=null?o.mw-o.ml:null)+'</td>'+
+          '<td style="color:'+cc(r)+';font-weight:600">'+(r==null?'—':lgd(r,2))+'</td><td style="color:'+cc(o.cm?o.cm.r:null)+'">'+(o.cm?lgd(o.cm.r,2):'—')+'</td><td>'+lgPtxt(o.pw)+'</td>'+
+          '<td class="l" style="color:'+(sig?'var(--positive)':'var(--text-2)')+'">'+(r==null?'sin datos':lgStrength(r)+(sig?' · significativa':' · no significativa'))+'</td></tr>';}).join('')+
+      '</tbody></table></div></div>';
+    const t3=rows[2];
+    if(t3.cw){const r=t3.cw.r,sig=t3.pw!=null&&t3.pw<0.05;
+      h+='<div class="note-lg"><b>Lectura:</b> la relación entre tirar en el <b>3.er tramo</b> y ganar es <b>'+lgStrength(r)+'</b> (r = '+r.toFixed(2).replace('.',',')+'; '+(r<0?'a más tiros de último momento, menos victorias':'a más tiros de último momento, más victorias')+'). '+
+        (sig?'Es estadísticamente significativa (p = '+lgPtxt(t3.pw)+').':'<b>No es estadísticamente significativa</b> (p = '+lgPtxt(t3.pw)+') con '+nM+' partidos: no alcanza para afirmar que exista esa relación.')+
+        ' Las filas de eFG% y TS% sirven de control: miden eficiencia y siempre deberían correlacionar con ganar.</div>';}
+    // por cuarto
+    const qrows=[1,2,3,4,5].map(x=>{
+      const P=[];recs.forEach(r=>{const qr=B.QX[r.mid+'§'+teamKey(r.team)+'§'+x];if(!qr)return;const mg=(+qr.pts_favor||0)-(+qr.pts_contra||0);
+        const t=lgTr(r.sh.filter(s=>+s.periodo===x));if(t.tot<LG_MIN_SHQ)return;P.push({sh:t.t.map(o=>o.share),mg,mid:r.mid,efg:(()=>{const a=r.sh.filter(s=>+s.periodo===x&&+s.tramo>=1),m=a.filter(shotMade).length,m3=a.filter(s=>shotMade(s)&&s.tipo==='3pt').length;return a.length?100*(m+0.5*m3)/a.length:null;})()});});
+      if(P.length<8)return null;
+      const nq=new Set(P.map(p=>p.mid)).size;
+      const cs=[0,1,2].map(k=>{const c=lgCorr(P.map(p=>p.sh[k]),P.map(p=>p.mg));return c?{r:c.r,p:lgPval(c.r,nq)}:null;});
+      const ce=lgCorr(P.filter(p=>p.efg!=null).map(p=>p.efg),P.filter(p=>p.efg!=null).map(p=>p.mg));
+      return {x,n:P.length,nq,cs,ce:ce?{r:ce.r,p:lgPval(ce.r,nq)}:null,w:P.filter(p=>p.mg>0).length,mean3w:lgMean(P.filter(p=>p.mg>0).map(p=>p.sh[2])),mean3l:lgMean(P.filter(p=>p.mg<0).map(p=>p.sh[2]))};}).filter(Boolean);
+    h+='<div class="sec">Por cuarto · momento del tiro vs resultado del cuarto</div>';
+    if(!qrows.length)h+='<div class="empty" style="padding:24px">Aún no hay suficientes datos por cuarto (se necesitan resultados de cuarto guardados y al menos 8 registros con ≥4 tiros ubicados).</div>';
+    else{
+      const cell=o=>{if(!o)return '<td>—</td>';const sig=o.p!=null&&o.p<0.05;return '<td style="color:'+cc(o.r)+(sig?';font-weight:700':'')+'">'+lgd(o.r,2)+(sig?' ★':'')+'</td>';};
+      h+='<div class="board"><div class="board-title">Correlación (r) con el margen de puntos del cuarto</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Cuarto</th><th>Registros</th>'+
+        [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º tramo</th>').join('')+'<th>% 3.º · ganadores</th><th>% 3.º · perdedores</th><th>eFG% (control)</th></tr></thead><tbody>'+
+        qrows.map(o=>'<tr><td class="l">'+(o.x===5?'Prórroga':o.x+'.º cuarto')+'</td><td>'+o.n+'</td>'+o.cs.map(cell).join('')+'<td>'+lgp(o.mean3w)+'</td><td>'+lgp(o.mean3l)+'</td>'+cell(o.ce)+'</tr>').join('')+
+        '</tbody></table></div></div><div class="zone-sub" style="margin:-6px 0 12px">★ = significativa (p&lt;0,05, calculada con la cantidad de partidos, no de registros). Cuartos empatados cuentan con margen 0.</div>';
+    }
+  }
+
+  /* notas */
+  h+=help('Cómo se calcula y qué límites tiene',
+    '<ul><li><b>Momento de la posesión (tramo):</b> segundos del reloj de 24″ consumidos cuando sale el tiro, reconstruidos del play-by-play: <b>1.º</b> 0–8″, <b>2.º</b> 8–16″, <b>3.º</b> 16–24″.</li>'+
+    '<li><b>eFG%</b> = (convertidos + 0,5 × triples convertidos) ÷ intentos. <b>TS%</b> = puntos ÷ (2 × (intentos de campo + 0,44 × tiros libres intentados)). Ambos de partido y equipo salen de los totales de la planilla.</li>'+
+    '<li><b>El TS% no se calcula por tramo</b>: los tiros libres no tienen asignado un momento de la posesión, por eso dentro de cada tramo se usa eFG%.</li>'+
+    '<li><b>Cobertura:</b> el tramo solo existe para los tiros con ubicación en el play-by-play; el indicador «Tiros con tramo / FGA» muestra qué parte de los tiros de campo está cubierta.</li>'+
+    '<li><b>Correlación:</b> r de Pearson (con victoria = 1/0, equivale a la punto-biserial). Cada partido aporta dos registros (uno por equipo), que no son independientes; por eso el p-valor se calcula con la cantidad de <b>partidos</b>. Con pocos partidos, un r alto puede ser casualidad.</li>'+
+    '<li>La correlación no prueba causa: los equipos que van ganando suelen administrar el reloj distinto a los que pierden.</li>'+
+    '<li>Entran a las correlaciones los equipos-partido con al menos '+LG_MIN_SH+' tiros ubicados ('+LG_MIN_SHQ+' por cuarto).</li></ul>');
+  el.innerHTML=h;
+}
+
+function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();renderQxP();try{renderLiga();}catch(e){console.warn("liga",e);}try{if(document.body.classList.contains('v-placas'))renderPlacas();}catch(e){console.warn('placas',e);}}
 
 // ── ARMADOR DE QUINTETOS ──
 let armTeam='',armSel=[];
