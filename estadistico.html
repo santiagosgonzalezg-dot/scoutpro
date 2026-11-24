@@ -1019,6 +1019,27 @@ details.lg-j[open]>summary::before{transform:rotate(90deg)}
 .lg-teams{padding:0 14px 10px;font-size:12px;color:var(--text-2);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .lg-teams em{font-style:normal;background:var(--bg-panel);border:1px solid var(--border-light);border-radius:20px;padding:3px 10px;color:var(--text)}
 .chart text{font-family:var(--font-mono);fill:var(--text-2);font-size:10px}
+
+.lg-print-head{display:none}
+.lg-pbtn{margin-left:auto;align-self:flex-end}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body.print-liga{--bg-base:#fff;--bg-raised:#fff;--bg-panel:#eef0f4;--bg-hover:#fff;--text:#111;--text-2:#333;--text-3:#666;--border-light:#bbb;--border-subtle:#ddd;--offense:#c2410c;--insight:#6d4fd6;--positive:#15803d;--negative:#b91c1c;
+    background:#fff!important;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.print-liga>*:not(.wrap){display:none!important}
+  body.print-liga .wrap>*:not(#view-liga){display:none!important}
+  body.print-liga #view-liga{display:block!important}
+  body.print-liga .lg-ctl,body.print-liga .lg-ftxt,body.print-liga .help{display:none!important}
+  body.print-liga .lg-print-head{display:block;border-bottom:2px solid #c2410c;margin-bottom:10px;padding-bottom:6px}
+  body.print-liga .lg-ph-t{font-family:var(--font-disp);font-weight:900;font-size:22px;letter-spacing:1px}
+  body.print-liga .lg-ph-s{font-family:var(--font-mono);font-size:10px;color:#444}
+  body.print-liga .board,body.print-liga details.lg-j,body.print-liga .kpi,body.print-liga .tramo-card,body.print-liga .court-box,body.print-liga .insights-lg li{break-inside:avoid;background:#fff!important}
+  body.print-liga .sec{break-after:avoid}
+  body.print-liga table.t td,body.print-liga table.t th{font-size:9px;padding:4px 6px}
+  body.print-liga .chart line{stroke:#ddd}
+  body.print-liga .chart text{fill:#333}
+  body.print-liga details.lg-j>summary::before{display:none}
+}
 </style>
 </head>
 <body>
@@ -4625,6 +4646,7 @@ function renderLiga(){
     '<div class="field"><label>Fase</label><select onchange="lgSet(\'fase\',this.value)"><option value="">Todas</option>'+fases.map(f=>'<option value="'+lgEsc(f)+'"'+(f===LG.fase?' selected':'')+'>'+lgEsc(f||'Sin fase')+'</option>').join('')+'</select></div>'+
     '<div class="field"><label>Jornada</label><select onchange="lgSet(\'jor\',this.value)"><option value="">Todas</option>'+jors.map(j=>'<option value="'+lgEsc(j)+'"'+(j===LG.jor?' selected':'')+'>'+lgEsc(j===''?'Sin jornada':'Jornada '+j)+'</option>').join('')+'</select></div>'+
     '<div class="field"><label>Cuarto (momento del tiro)</label><select onchange="lgSet(\'q\',this.value)"><option value="0">Todo el partido</option>'+[1,2,3,4,5].map(q=>'<option value="'+q+'"'+(LG.q===q?' selected':'')+'>'+(q===5?'Prórroga':q+'.º cuarto')+'</option>').join('')+'</select></div>'+
+    '<button class="tb-btn lg-pbtn" onclick="lgPrint()" title="Se abre el diálogo de impresión: elegí «Guardar como PDF»">🖨 Imprimir / PDF</button>'+
     '</div>';
   const G=all.filter(m=>(!LG.fase||m.fase===LG.fase)&&(!LG.jor||m.jornada===LG.jor));
   if(!G.length){el.innerHTML=ctl+'<div class="empty">No hay partidos para esta combinación de filtros.</div>';return;}
@@ -4638,7 +4660,7 @@ function renderLiga(){
   const fgaAll=recs.reduce((s,r)=>s+r.a.fga,0),withTr=lgTr(recs.flatMap(r=>r.sh)).tot;
   const teamsSet=new Set(recs.map(r=>teamKey(r.team)));
   const cover=fgaAll?Math.round(100*withTr/fgaAll):0;
-  let h=ctl+'<div class="lg-ftxt">'+lgEsc(filtTxt)+'</div>';
+  let h=ctl+'<div class="lg-print-head"><div class="lg-ph-t">ScoutPro · Análisis de liga</div><div class="lg-ph-s">'+lgEsc(filtTxt)+' · generado el '+new Date().toLocaleDateString('es-UY')+'</div></div>'+'<div class="lg-ftxt">'+lgEsc(filtTxt)+'</div>';
   if(!SHOTS.length)h+='<div class="note-lg">No hay tiros con momento de posesión cargados (tabla <b>tiros_log</b>). Los indicadores de TS% y eFG% sí se calculan; el momento del tiro aparece al guardar partidos con play-by-play desde Quintetos.</div>';
   h+='<div class="kpis">'+
     '<div class="kpi"><div class="v">'+G.length+'</div><div class="k">Partidos</div></div>'+
@@ -4647,6 +4669,35 @@ function renderLiga(){
     '<div class="kpi"><div class="v">'+lgf(aL.ts)+'%</div><div class="k">TS% liga</div></div>'+
     '<div class="kpi"><div class="v" style="color:'+LG_TC[3]+'">'+lgp(trL.t[2].share)+'</div><div class="k">Tiros en 3.er tramo</div></div>'+
     '<div class="kpi"><div class="v">'+cover+'%</div><div class="k">Tiros con tramo / FGA</div></div></div>';
+
+  /* 0 · comparativo por fase (sin abrir por jornada; ignora los filtros Fase y Jornada) */
+  {
+    const fasesOrd=[];all.forEach(m=>{if(!fasesOrd.includes(m.fase))fasesOrd.push(m.fase);});
+    const fl=f=>f||'Sin fase';
+    const stats=rs=>{const a=agg(rs.flatMap(r=>r.rows)),t=lgTr(rs.flatMap(r=>lgShots(r,q))),g=rs.filter(r=>r.win).length;
+      return {pj:new Set(rs.map(r=>r.mid)).size,g,p:rs.length-g,a,t,sh:t.tot?t.t.map(o=>o.share):null};};
+    const dcol=v=>v==null?'':' style="color:'+(v>0?'var(--positive)':v<0?'var(--negative)':'var(--text-3)')+'"';
+    const rowsOf=(list,withRes)=>list.map((e,i)=>{const p=list[i-1],S=e.s;
+      const dE=p?S.a.efg-p.s.a.efg:null,dT=p?S.a.ts-p.s.a.ts:null,d3=p&&S.sh&&p.s.sh?S.sh[2]-p.s.sh[2]:null;
+      return '<tr><td class="l">'+lgEsc(fl(e.fase))+'</td><td>'+S.pj+'</td>'+(withRes?'<td>'+S.g+'–'+S.p+'</td>':'')+
+        '<td>'+lgf(S.a.efg)+'</td><td'+dcol(dE)+'>'+lgd(dE)+'</td><td>'+lgf(S.a.ts)+'</td><td'+dcol(dT)+'>'+lgd(dT)+'</td>'+
+        [0,1,2].map(k=>'<td>'+(S.sh?lgp(S.sh[k]):'—')+'</td>').join('')+'<td'+dcol(d3)+'>'+lgd(d3)+'</td><td class="'+(S.t.t[2].n<8?'low':'')+'">'+lgp(S.t.t[2].efg)+'</td></tr>';}).join('');
+    const head=withRes=>'<thead><tr><th class="l">Fase</th><th>PJ</th>'+(withRes?'<th>G–P</th>':'')+'<th>eFG%</th><th>Δ eFG</th><th>TS%</th><th>Δ TS</th>'+
+      [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th><th>eFG% 3.º</th></tr></thead>';
+    h+='<div class="sec">Comparativo por fase · cómo se comportó cada equipo'+(q?' · '+lgq(q):'')+'</div>';
+    const leagueList=fasesOrd.map(f=>({fase:f,s:stats(all.filter(m=>m.fase===f).flatMap(m=>m.recs))})).filter(e=>e.s.pj);
+    h+='<div class="board"><div class="board-title">Liga completa por fase</div><div class="tblwrap"><table class="t">'+head(false)+'<tbody>'+rowsOf(leagueList,false)+'</tbody></table></div></div>';
+    const allR=all.flatMap(m=>m.recs),tk={};allR.forEach(r=>{const k=teamKey(r.team);(tk[k]=tk[k]||{name:r.team,recs:[]}).recs.push(r);});
+    const teamsL=Object.values(tk).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    const per=teamsL.map(t=>({name:t.name,list:fasesOrd.map(f=>({fase:f,s:stats(t.recs.filter(r=>r.m.fase===f))})).filter(e=>e.s.pj)}));
+    if(fasesOrd.length>1&&per.length){
+      h+='<div class="board"><div class="board-title">Resumen: TS% · % de tiros en 3.er tramo · G–P, por equipo y fase</div><div class="tblwrap"><table class="t"><thead><tr><th class="l">Equipo</th>'+fasesOrd.map(f=>'<th>'+lgEsc(fl(f))+'</th>').join('')+'</tr></thead><tbody>'+
+        per.map(t=>'<tr><td class="l">'+teamCell(t.name)+'</td>'+fasesOrd.map(f=>{const e=t.list.find(x=>x.fase===f);if(!e)return '<td class="low">—</td>';const S=e.s;
+          return '<td>TS '+lgf(S.a.ts)+'% · 3.º '+(S.sh?lgp(S.sh[2]):'—')+'<br><span class="mini-lg">'+S.g+'–'+S.p+' · '+S.pj+' PJ</span></td>';}).join('')+'</tr>').join('')+'</tbody></table></div></div>';
+    }
+    h+=per.map(t=>'<div class="board lg-nb"><div class="board-title">'+teamCell(t.name)+'</div><div class="tblwrap"><table class="t">'+head(true)+'<tbody>'+rowsOf(t.list,true)+'</tbody></table></div></div>').join('');
+    h+='<div class="zone-sub" style="margin:-6px 0 12px">Cada fila junta todos los partidos de la fase (no se abre por jornada; la jornada se ve más abajo). Δ = cambio respecto de la fase anterior del mismo equipo, en puntos porcentuales. Gris: menos de 8 tiros.</div>';
+  }
 
   /* 1 · partidos por jornada */
   const groups=[];G.forEach(m=>{const k=keyOf(m);let g=groups.find(x=>x.k===k);if(!g){g={k,fase:m.fase,jornada:m.jornada,ms:[]};groups.push(g);}g.ms.push(m);});
@@ -4793,6 +4844,14 @@ function renderLiga(){
     '<li>La correlación no prueba causa: los equipos que van ganando suelen administrar el reloj distinto a los que pierden.</li>'+
     '<li>Entran a las correlaciones los equipos-partido con al menos '+LG_MIN_SH+' tiros ubicados ('+LG_MIN_SHQ+' por cuarto).</li></ul>');
   el.innerHTML=h;
+}
+
+function lgPrint(){
+  const ds=[...document.querySelectorAll('#view-liga details.lg-j')],st=ds.map(d=>d.open);
+  ds.forEach(d=>d.open=true);document.body.classList.add('print-liga');
+  const done=()=>{document.body.classList.remove('print-liga');ds.forEach((d,i)=>d.open=st[i]);window.removeEventListener('afterprint',done);};
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>window.print(),60);
 }
 
 function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();renderQxP();try{renderLiga();}catch(e){console.warn("liga",e);}try{if(document.body.classList.contains('v-placas'))renderPlacas();}catch(e){console.warn('placas',e);}}
