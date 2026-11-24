@@ -1040,6 +1040,30 @@ details.lg-j[open]>summary::before{transform:rotate(90deg)}
   body.print-liga .chart text{fill:#333}
   body.print-liga details.lg-j>summary::before{display:none}
 }
+
+.lg-report{display:none}
+@media print{
+  body.print-liga #view-liga>*:not(#lg-report){display:none!important}
+  body.print-liga #lg-report{display:block!important}
+  body.print-liga .lg-rp-h{border-bottom:2px solid #c2410c;margin-bottom:8px;padding-bottom:5px}
+  body.print-liga .lg-ph-t{font-family:var(--font-disp);font-weight:900;font-size:22px;letter-spacing:1px}
+  body.print-liga .lg-ph-s{font-family:var(--font-mono);font-size:10px;color:#444}
+  body.print-liga .lg-rp-k{grid-template-columns:repeat(5,1fr);margin-bottom:6px}
+  body.print-liga .lg-rp-k .kpi{padding:8px 10px}body.print-liga .lg-rp-k .kpi .v{font-size:22px}
+  body.print-liga .lg-rp-two{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;align-items:start;margin-bottom:6px}
+  body.print-liga .lg-rp-two .board{margin:0}
+  body.print-liga .lg-pg2{break-before:page}
+  body.print-liga .lg-note{margin:2px 0 8px;font-size:8.5px;line-height:1.4}
+  body.print-liga .lg-hi{color:#c2410c!important;font-weight:700;background:#fff1e6}
+  body.print-liga tr.lg-hrow td{background:#fff7ef}
+  body.print-liga .lg-fl{color:#c2410c;font-weight:700}
+  body.print-liga .lg-late{color:#b91c1c}body.print-liga .lg-early{color:#1d4ed8}
+  body.print-liga .insights-lg li{font-size:11px;padding:6px 10px}
+  body.print-liga .sec{margin:10px 0 6px}
+  body.print-liga .chart{max-height:170px}
+  body.print-liga .lg-leg{margin:0 0 4px;font-size:9px}
+}
+.lg-hi{color:var(--offense);font-weight:700}
 </style>
 </head>
 <body>
@@ -4852,12 +4876,118 @@ function renderLiga(){
   el.innerHTML=h;
 }
 
+
+/* ═══ INFORME PDF BREVE ═══ */
+const LG_HI={pp3:5,pp1:5,ts:3,teamProf:5,teamPhase:8};
+function lgReport(){
+  const B=lgBuild(),all=B.matches,keyOf=B.keyOf,q=LG.q;
+  if(!all.length)return '<div class="lg-rp-h"><div class="lg-ph-t">Sin datos</div></div>';
+  const fl=f=>f||'Sin fase',recs=all.flatMap(m=>m.recs);
+  const fasesOrd=[];all.forEach(m=>{if(!fasesOrd.includes(m.fase))fasesOrd.push(m.fase);});
+  const SHs=rs=>rs.flatMap(r=>lgShots(r,q));
+  const stat=rs=>{const a=agg(rs.flatMap(r=>r.rows)),t=lgTr(SHs(rs)),g=rs.filter(r=>r.win).length;
+    return {pj:new Set(rs.map(r=>r.mid)).size,eq:new Set(rs.map(r=>teamKey(r.team))).size,g,p:rs.length-g,a,t,tot:t.tot,sh:t.tot?t.t.map(o=>o.share):null};};
+  const hi=(v,thr)=>(v!=null&&Math.abs(v)>=thr)?' class="lg-hi"':'';
+  const arrow=v=>v==null?'—':(v>0?'▲ ':v<0?'▼ ':'')+lgd(v);
+  const L=stat(recs),qtxt=q?(q===5?'Prórroga':q+'.º cuarto'):'Todo el partido';
+  const E=[];
+
+  /* por fase */
+  const ph=fasesOrd.map(f=>({f,s:stat(all.filter(m=>m.fase===f).flatMap(m=>m.recs))})).filter(x=>x.s.pj);
+  let phRows='';
+  ph.forEach((e,i)=>{const p=ph[i-1],S=e.s;
+    const dT=p?S.a.ts-p.s.a.ts:null,d1=p&&S.sh&&p.s.sh?S.sh[0]-p.s.sh[0]:null,d3=p&&S.sh&&p.s.sh?S.sh[2]-p.s.sh[2]:null;
+    phRows+='<tr><td class="l"><b>'+lgEsc(fl(e.f))+'</b></td><td>'+S.pj+'</td><td>'+S.eq+'</td>'+
+      '<td>'+lgf(S.a.efg)+'</td><td>'+lgf(S.a.ts)+'</td><td'+hi(dT,LG_HI.ts)+'>'+arrow(dT)+'</td>'+
+      [0,1,2].map(k=>'<td'+(k===0?hi(d1,LG_HI.pp1):k===2?hi(d3,LG_HI.pp3):'')+'>'+(S.sh?lgp(S.sh[k]):'—')+'</td>').join('')+
+      '<td'+hi(d3,LG_HI.pp3)+'>'+arrow(d3)+'</td>'+
+      [0,1,2].map(k=>'<td class="'+(S.t.t[k].n<8?'low':'')+'">'+lgp(S.t.t[k].efg)+'</td>').join('')+'</tr>';});
+  const phW=ph.filter(x=>x.s.sh);
+  if(phW.length>=2){
+    const late=phW.reduce((a,b)=>b.s.sh[2]>a.s.sh[2]?b:a),early=phW.reduce((a,b)=>b.s.sh[2]<a.s.sh[2]?b:a);
+    if(late!==early)E.push('<b>Cómo se tiró:</b> la liga tiró más tarde en <b>'+lgEsc(fl(late.f))+'</b> ('+lgp(late.s.sh[2])+' de los tiros en el 3.er tramo) y más temprano en <b>'+lgEsc(fl(early.f))+'</b> ('+lgp(early.s.sh[2])+').');
+    const bt=ph.reduce((a,b)=>b.s.a.ts>a.s.a.ts?b:a),wt=ph.reduce((a,b)=>b.s.a.ts<a.s.a.ts?b:a);
+    if(bt!==wt)E.push('<b>Eficiencia:</b> mejor TS% en <b>'+lgEsc(fl(bt.f))+'</b> ('+lgf(bt.s.a.ts)+'%) y peor en <b>'+lgEsc(fl(wt.f))+'</b> ('+lgf(wt.s.a.ts)+'%).');
+  }else if(phW.length===1)E.push('<b>Cómo se tiró:</b> '+lgp(phW[0].s.sh[0])+' de los tiros en el 1.er tramo, '+lgp(phW[0].s.sh[1])+' en el 2.º y '+lgp(phW[0].s.sh[2])+' en el 3.º; TS% '+lgf(phW[0].s.a.ts)+'%.');
+
+  /* por jornada */
+  const jg=[];all.forEach(m=>{const k=keyOf(m);let g=jg.find(x=>x.k===k);if(!g){g={k,fase:m.fase,jornada:m.jornada,ms:[]};jg.push(g);}g.ms.push(m);});
+  const ev=jg.map(g=>{const S=stat(g.ms.flatMap(m=>m.recs));return Object.assign({g,lbl:{a:g.jornada===''?'s/j':'J'+g.jornada,b:(g.fase||'').slice(0,10)},name:(g.fase?g.fase+' · ':'')+(g.jornada===''?'Sin jornada':'J'+g.jornada)},S);});
+  const flags=[];
+  let jRows='';
+  ev.forEach((e,i)=>{const p=ev[i-1],ok=p&&e.sh&&p.sh&&e.tot>=40&&p.tot>=40;
+    const dT=ok?e.a.ts-p.a.ts:null,d1=ok?e.sh[0]-p.sh[0]:null,d3=ok?e.sh[2]-p.sh[2]:null;
+    const f=[];
+    if(d3!=null&&Math.abs(d3)>=LG_HI.pp3)f.push('3.er tramo '+lgd(d3)+' pp ('+lgp(p.sh[2])+' → '+lgp(e.sh[2])+')');
+    if(d1!=null&&Math.abs(d1)>=LG_HI.pp1)f.push('1.er tramo '+lgd(d1)+' pp ('+lgp(p.sh[0])+' → '+lgp(e.sh[0])+')');
+    if(dT!=null&&Math.abs(dT)>=LG_HI.ts)f.push('TS% '+lgd(dT)+' pp ('+lgf(p.a.ts)+' → '+lgf(e.a.ts)+')');
+    if(f.length)flags.push({from:p.name,to:e.name,txt:f.join(' · '),sc:Math.max(Math.abs(d3||0),Math.abs(d1||0),Math.abs(dT||0))});
+    jRows+='<tr'+(f.length?' class="lg-hrow"':'')+'><td class="l">'+lgEsc(e.name)+'</td><td>'+e.pj+'</td><td>'+lgf(e.a.efg)+'</td><td>'+lgf(e.a.ts)+'</td><td'+hi(dT,LG_HI.ts)+'>'+arrow(dT)+'</td>'+
+      [0,1,2].map(k=>'<td>'+(e.sh?lgp(e.sh[k]):'—')+'</td>').join('')+'<td'+hi(d3,LG_HI.pp3)+'>'+arrow(d3)+'</td><td class="l lg-fl">'+(f.length?'⚑ cambio':'')+'</td></tr>';});
+  const mx=flags.slice().sort((x,y)=>y.sc-x.sc)[0];
+  if(ev.length>=2){
+    E.push(flags.length?'<b>Cambios entre jornadas:</b> se detectaron <b>'+flags.length+'</b> salto'+(flags.length===1?'':'s')+' sustancial'+(flags.length===1?'':'es')+' (ver página 2). El mayor: '+lgEsc(mx.to)+' respecto de '+lgEsc(mx.from)+' — '+mx.txt+'.':
+      '<b>Cambios entre jornadas:</b> no hubo saltos sustanciales entre jornadas consecutivas (umbral: '+LG_HI.pp3+' pp en el reparto de tiros o '+LG_HI.ts+' pp en TS%).');
+  }
+
+  /* equipos */
+  const tk={};recs.forEach(r=>{const k=teamKey(r.team);(tk[k]=tk[k]||{name:r.team,recs:[]}).recs.push(r);});
+  const T=Object.values(tk).map(t=>{const S=stat(t.recs);
+    const byF=fasesOrd.map(f=>{const rs=t.recs.filter(r=>r.m.fase===f);return rs.length?stat(rs):null;});
+    return {name:t.name,S,byF,d1:S.sh&&L.sh?S.sh[0]-L.sh[0]:null,d3:S.sh&&L.sh?S.sh[2]-L.sh[2]:null};}).sort((a,b)=>(b.d3==null?-99:b.d3)-(a.d3==null?-99:a.d3));
+  const prof=t=>{if(t.S.tot<30||t.d3==null)return '<span class="low">pocos tiros</span>';
+    if(t.d3>=LG_HI.teamProf)return '<b class="lg-late">Tira tarde</b>';if(t.d1>=LG_HI.teamProf)return '<b class="lg-early">Tira temprano</b>';
+    if(t.d3<=-LG_HI.teamProf)return '<b class="lg-early">Tira temprano</b>';return 'Equilibrado';};
+  const Tv=T.filter(t=>t.S.tot>=30&&t.d3!=null);
+  if(Tv.length>=2){const late=Tv[0],early=Tv[Tv.length-1];
+    E.push('<b>Equipos:</b> el que más tira tarde es <b>'+lgEsc(late.name)+'</b> ('+lgp(late.S.sh[2])+' en el 3.er tramo, '+lgd(late.d3,0)+' pp vs liga) y el que más tira temprano, <b>'+lgEsc(early.name)+'</b> ('+lgp(early.S.sh[0])+' en el 1.er tramo, '+lgd(early.d1,0)+' pp vs liga).');}
+  const teamFlags=[];
+  T.forEach(t=>{for(let i=1;i<t.byF.length;i++){const a=t.byF[i-1],b=t.byF[i];if(!a||!b||!a.sh||!b.sh||a.tot<15||b.tot<15)continue;const d=b.sh[2]-a.sh[2];if(Math.abs(d)>=LG_HI.teamPhase)teamFlags.push(t.name+': '+fl(fasesOrd[i-1])+' → '+fl(fasesOrd[i])+', 3.er tramo '+lgd(d,0)+' pp');}});
+  if(teamFlags.length)E.push('<b>Equipos que cambiaron de una fase a otra</b> (≥'+LG_HI.teamPhase+' pp en el 3.er tramo): '+teamFlags.map(lgEsc).join('; ')+'.');
+
+  /* victoria */
+  const R=recs.map(r=>{const t=lgTr(r.sh);return t.tot<LG_MIN_SH?null:{r,s3:t.t[2].share};}).filter(Boolean),nM=new Set(R.map(x=>x.r.mid)).size;
+  if(nM>=4&&R.length>=8){
+    const c3=lgCorr(R.map(x=>x.s3),R.map(x=>x.r.win?1:0)),cT=lgCorr(R.map(x=>x.r.a.ts),R.map(x=>x.r.win?1:0));
+    if(c3){const p3=lgPval(c3.r,nM),sig=p3!=null&&p3<0.05;
+      E.push('<b>Tirar tarde y ganar:</b> relación '+lgStrength(c3.r)+' (r = '+c3.r.toFixed(2)+(c3.r<0?', más tiros tardíos ↔ menos victorias':', más tiros tardíos ↔ más victorias')+'); '+(sig?'estadísticamente significativa':'<b>no significativa</b>')+' con '+nM+' partidos. '+
+        (cT?'Como referencia, el TS% sí se asocia con ganar: r = '+cT.r.toFixed(2)+'.':''));}
+  }
+
+  /* HTML */
+  const cats=ev.map(e=>e.lbl);
+  const phStack=ph.filter(x=>x.s.sh);
+  const head='<div class="lg-rp-h"><div class="lg-ph-t">ScoutPro · Informe de liga</div><div class="lg-ph-s">'+lgEsc([ligaLabel(LIGA_SEL)||'Todas las ligas',qtxt].join(' · '))+' · '+L.pj+' partidos · '+L.eq+' equipos · generado el '+new Date().toLocaleDateString('es-UY')+'</div></div>';
+  let h=head;
+  h+='<div class="kpis lg-rp-k"><div class="kpi"><div class="v">'+lgf(L.a.efg)+'%</div><div class="k">eFG% liga</div></div><div class="kpi"><div class="v">'+lgf(L.a.ts)+'%</div><div class="k">TS% liga</div></div>'+
+    [0,1,2].map(k=>'<div class="kpi"><div class="v" style="color:'+LG_TC[k+1]+'">'+(L.sh?lgp(L.sh[k]):'—')+'</div><div class="k">Tiros en '+LG_TL[k+1]+'</div></div>').join('')+'</div>';
+  h+='<div class="sec">Lo más importante</div><ul class="insights-lg">'+E.map(t=>'<li>'+t+'</li>').join('')+'</ul>';
+  h+='<div class="sec">Cómo se tiró y con qué eficiencia, en cada fase</div><div class="lg-rp-two"><div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Fase</th><th>PJ</th><th>Eq.</th><th>eFG%</th><th>TS%</th><th>Δ TS</th>'+
+    [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">eFG% '+k+'.º</th>').join('')+'</tr></thead><tbody>'+phRows+'</tbody></table></div></div>'+
+    '<div class="court-box">'+lgLegend()+(phStack.length?lgStack(phStack.map(x=>({a:fl(x.f).slice(0,14),b:''})),phStack.map(x=>x.s.sh)):'')+'</div></div>';
+  h+='<div class="zone-sub lg-note">Tramos = momento de la posesión (reloj de 24″). Δ contra la fase anterior; en naranja, cambios sustanciales. TS% por tramo no existe (los tiros libres no tienen tramo): por eso se usa eFG%.</div>';
+  if(ev.length>=2){
+    h+='<div class="lg-pg2"><div class="sec">Evolución por jornada</div><div class="lg-rp-two"><div class="court-box"><div class="zone-sub">TS% y eFG% de la liga</div><div class="lg-leg"><span><i style="background:#a78bfa"></i>TS%</span><span><i style="background:#f97316"></i>eFG%</span></div>'+
+      lgLines(cats,[{name:'TS%',color:'#a78bfa',vals:ev.map(e=>e.a.ts)},{name:'eFG%',color:'#f97316',vals:ev.map(e=>e.a.efg)}],'%')+'</div>'+
+      '<div class="court-box"><div class="zone-sub">Reparto de tiros por momento de la posesión</div>'+lgLegend()+lgStack(cats,ev.map(e=>e.sh))+'</div></div>';
+    h+='<div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Jornada</th><th>PJ</th><th>eFG%</th><th>TS%</th><th>Δ TS</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th><th class="l">Alerta</th></tr></thead><tbody>'+jRows+'</tbody></table></div></div>';
+    h+='<div class="zone-sub lg-note">⚑ Cambio sustancial: salto de ≥'+LG_HI.pp3+' pp en el reparto de tiros o de ≥'+LG_HI.ts+' pp en TS% frente a la jornada anterior (solo jornadas con ≥40 tiros ubicados). Umbrales orientativos.</div>';
+  }else h+='<div class="lg-pg2">';
+  h+='<div class="sec">Qué equipo tira antes o después</div><div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Equipo</th><th>PJ</th><th>G–P</th><th>TS%</th><th>eFG%</th>'+
+    [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>% 3.º vs liga</th><th class="l">Perfil</th>'+fasesOrd.map(f=>'<th>% 3.º<br>'+lgEsc(fl(f).slice(0,12))+'</th>').join('')+'</tr></thead><tbody>'+
+    T.map(t=>{const S=t.S;return '<tr><td class="l">'+teamCell(t.name)+'</td><td>'+S.pj+'</td><td>'+S.g+'–'+S.p+'</td><td>'+lgf(S.a.ts)+'</td><td>'+lgf(S.a.efg)+'</td>'+
+      [0,1,2].map(k=>'<td>'+(S.sh?lgp(S.sh[k]):'—')+'</td>').join('')+'<td'+hi(t.d3,LG_HI.teamProf)+'>'+arrow(t.d3)+'</td><td class="l">'+prof(t)+'</td>'+
+      t.byF.map((b,i)=>{const p=t.byF.slice(0,i).reverse().find(x=>x&&x.sh);const d=b&&b.sh&&p?b.sh[2]-p.sh[2]:null;return '<td'+hi(d,LG_HI.teamPhase)+'>'+(b&&b.sh?lgp(b.sh[2]):'—')+'</td>';}).join('')+'</tr>';}).join('')+
+    '</tbody></table></div></div><div class="zone-sub lg-note">Ordenado de más tardío a más temprano. «Tira tarde / temprano»: ≥'+LG_HI.teamProf+' pp sobre el promedio de la liga en el 3.er (o 1.er) tramo, con ≥30 tiros. En naranja: cambio de ≥'+LG_HI.teamPhase+' pp en el 3.er tramo respecto de la fase anterior del equipo.</div></div>';
+  return h;
+}
 function lgPrint(){
-  const ds=[...document.querySelectorAll('#view-liga details.lg-j')],st=ds.map(d=>d.open);
-  ds.forEach(d=>d.open=true);document.body.classList.add('print-liga');
-  const done=()=>{document.body.classList.remove('print-liga');ds.forEach((d,i)=>d.open=st[i]);window.removeEventListener('afterprint',done);};
+  const v=document.getElementById('view-liga');if(!v)return;
+  const r=document.createElement('div');r.id='lg-report';r.className='lg-report';r.innerHTML=lgReport();v.appendChild(r);
+  document.body.classList.add('print-liga');
+  const done=()=>{document.body.classList.remove('print-liga');r.remove();window.removeEventListener('afterprint',done);};
   window.addEventListener('afterprint',done);
-  setTimeout(()=>window.print(),60);
+  setTimeout(()=>window.print(),80);
 }
 
 function renderAll(){renderDashboard();renderLideres();renderFicha();renderBuscador();renderTiros();renderCorrel();renderCuartos();renderEquipo();renderComparar();renderDuplas();renderRival();renderPareto();renderJugadores();renderEvolucion();renderArmador();renderSituacion();renderPartido();renderQxP();try{renderLiga();}catch(e){console.warn("liga",e);}try{if(document.body.classList.contains('v-placas'))renderPlacas();}catch(e){console.warn('placas',e);}}
