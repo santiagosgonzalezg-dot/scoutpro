@@ -4560,13 +4560,21 @@ function lgStrength(r){const a=Math.abs(r);return a<0.2?'casi nula':a<0.4?'débi
 function lgPtxt(p){return p==null?'—':p<0.001?'<0,001':p.toFixed(3).replace('.',',');}
 
 /* ── datos ── */
+/* Unifica variantes de escritura de la fase («Play Off Semis» → «Play Off Semi»; mayúsculas y espacios) */
+const LG_FASEMAP={};
+function lgFase(f){
+  const t=String(f||'').trim().replace(/\s+/g,' ').replace(/\b(semi)s\b/gi,'$1');
+  if(!t)return '';
+  const k=t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  return LG_FASEMAP[k]||(LG_FASEMAP[k]=t);
+}
 function lgBuild(){
   const SX={};SHOTS.forEach(s=>{const k=s.match_id+'§'+teamKey(s.equipo);(SX[k]=SX[k]||[]).push(s);});
   const QX={};QUARTERS.forEach(r=>{QX[r.match_id+'§'+teamKey(r.equipo)+'§'+(+r.cuarto)]=r;});
   const M={};
   DATA.forEach(r=>{
     const id=r.match_id||('?'+(r.fecha||'')+'|'+r.equipo+'|'+r.rival);
-    const m=M[id]||(M[id]={id,fecha:r.fecha||'',fase:r.fase||'',jornada:r.jornada==null?'':String(r.jornada).trim(),teams:{}});
+    const m=M[id]||(M[id]={id,fecha:r.fecha||'',fase:lgFase(r.fase),jornada:r.jornada==null?'':String(r.jornada).trim(),teams:{}});
     const t=m.teams[r.equipo]||(m.teams[r.equipo]={team:r.equipo,rival:r.rival,local:r.es_local,rows:[]});
     t.rows.push(r);
   });
@@ -4667,8 +4675,7 @@ function renderLiga(){
     '<div class="kpi"><div class="v">'+teamsSet.size+'</div><div class="k">Equipos</div></div>'+
     '<div class="kpi"><div class="v">'+lgf(aL.efg)+'%</div><div class="k">eFG% liga</div></div>'+
     '<div class="kpi"><div class="v">'+lgf(aL.ts)+'%</div><div class="k">TS% liga</div></div>'+
-    '<div class="kpi"><div class="v" style="color:'+LG_TC[3]+'">'+lgp(trL.t[2].share)+'</div><div class="k">Tiros en 3.er tramo</div></div>'+
-    '<div class="kpi"><div class="v">'+cover+'%</div><div class="k">Tiros con tramo / FGA</div></div></div>';
+    '<div class="kpi"><div class="v" style="color:'+LG_TC[3]+'">'+lgp(trL.t[2].share)+'</div><div class="k">Tiros en 3.er tramo</div></div></div>';
 
   /* 0 · comparativo por fase (sin abrir por jornada; ignora los filtros Fase y Jornada) */
   {
@@ -4839,7 +4846,6 @@ function renderLiga(){
     '<ul><li><b>Momento de la posesión (tramo):</b> segundos del reloj de 24″ consumidos cuando sale el tiro, reconstruidos del play-by-play: <b>1.º</b> 0–8″, <b>2.º</b> 8–16″, <b>3.º</b> 16–24″.</li>'+
     '<li><b>eFG%</b> = (convertidos + 0,5 × triples convertidos) ÷ intentos. <b>TS%</b> = puntos ÷ (2 × (intentos de campo + 0,44 × tiros libres intentados)). Ambos de partido y equipo salen de los totales de la planilla.</li>'+
     '<li><b>El TS% no se calcula por tramo</b>: los tiros libres no tienen asignado un momento de la posesión, por eso dentro de cada tramo se usa eFG%.</li>'+
-    '<li><b>Cobertura:</b> el tramo solo existe para los tiros con ubicación en el play-by-play; el indicador «Tiros con tramo / FGA» muestra qué parte de los tiros de campo está cubierta.</li>'+
     '<li><b>Correlación:</b> r de Pearson (con victoria = 1/0, equivale a la punto-biserial). Cada partido aporta dos registros (uno por equipo), que no son independientes; por eso el p-valor se calcula con la cantidad de <b>partidos</b>. Con pocos partidos, un r alto puede ser casualidad.</li>'+
     '<li>La correlación no prueba causa: los equipos que van ganando suelen administrar el reloj distinto a los que pierden.</li>'+
     '<li>Entran a las correlaciones los equipos-partido con al menos '+LG_MIN_SH+' tiros ubicados ('+LG_MIN_SHQ+' por cuarto).</li></ul>');
