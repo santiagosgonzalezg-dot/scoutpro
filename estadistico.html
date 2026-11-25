@@ -4923,7 +4923,7 @@ function lgReport(){
     if(dT!=null&&Math.abs(dT)>=LG_HI.ts)f.push('TS% '+lgd(dT)+' pp ('+lgf(p.a.ts)+' → '+lgf(e.a.ts)+')');
     if(f.length)flags.push({from:p.name,to:e.name,txt:f.join(' · '),sc:Math.max(Math.abs(d3||0),Math.abs(d1||0),Math.abs(dT||0))});
     jRows+='<tr'+(f.length?' class="lg-hrow"':'')+'><td class="l">'+lgEsc(e.name)+'</td><td>'+e.pj+'</td><td'+(e.tot<40?' class="low"':'')+'>'+e.tot+'</td><td>'+lgf(e.a.efg)+'</td><td>'+lgf(e.a.ts)+'</td><td'+hi(dT,LG_HI.ts)+'>'+arrow(dT)+'</td>'+
-      [0,1,2].map(k=>'<td>'+(e.sh?lgp(e.sh[k]):'—')+'</td>').join('')+'<td'+hi(d3,LG_HI.pp3)+'>'+arrow(d3)+'</td><td class="l lg-fl">'+(f.length?'⚑ cambio':'')+'</td></tr>';});
+      [0,1,2].map(k=>'<td>'+(e.sh?lgp(e.sh[k]):'—')+'</td>').join('')+'<td'+hi(d3,LG_HI.pp3)+'>'+arrow(d3)+'</td>'+[0,1,2].map(k=>'<td class="'+(e.t.t[k].n<8?'low':'')+'">'+lgp(e.t.t[k].efg)+'</td>').join('')+'<td class="l lg-fl">'+(f.length?'⚑ cambio':'')+'</td></tr>';});
   const mx=flags.slice().sort((x,y)=>y.sc-x.sc)[0];
   if(ev.length>=2){
     E.push(flags.length?'<b>Cambios entre jornadas:</b> se detectaron <b>'+flags.length+'</b> salto'+(flags.length===1?'':'s')+' sustancial'+(flags.length===1?'':'es')+' (ver página 2). El mayor: '+lgEsc(mx.to)+' respecto de '+lgEsc(mx.from)+' — '+mx.txt+'.':
@@ -4965,20 +4965,20 @@ function lgReport(){
   h+='<div class="sec">Cómo se tiró y con qué eficiencia, en cada fase</div><div class="lg-rp-two"><div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Fase</th><th>PJ</th><th>Eq.</th><th>Tiros</th><th>eFG%</th><th>TS%</th><th>Δ TS</th>'+
     [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">eFG% '+k+'.º</th>').join('')+'</tr></thead><tbody>'+phRows+'</tbody></table></div></div>'+
     '<div class="court-box">'+lgLegend()+(phStack.length?lgStack(phStack.map(x=>({a:fl(x.f).slice(0,14),b:''})),phStack.map(x=>x.s.sh)):'')+'</div></div>';
-  h+='<div class="zone-sub lg-note">Tramos = momento de la posesión (reloj de 24″). Δ contra la fase anterior; en naranja, cambios sustanciales. TS% por tramo no existe (los tiros libres no tienen tramo): por eso se usa eFG%. «Tiros» = tiros de campo ubicados en un tramo de la posesión.</div>';
+  h+='<div class="zone-sub lg-note">Tramos = momento de la posesión (reloj de 24″). Δ contra la fase anterior; en naranja, cambios sustanciales. TS% por tramo no existe (los tiros libres no tienen tramo): por eso se usa eFG%. «Tiros» = tiros de campo ubicados en un tramo de la posesión. eFG% 1.º/2.º/3.º = eficiencia de los tiros lanzados en los primeros, segundos o terceros 8″ (en gris: menos de 8 tiros).</div>';
   if(ev.length>=2){
     h+='<div class="lg-pg2"><div class="sec">Evolución por jornada</div><div class="lg-rp-two"><div class="court-box"><div class="zone-sub">TS% y eFG% de la liga</div><div class="lg-leg"><span><i style="background:#a78bfa"></i>TS%</span><span><i style="background:#f97316"></i>eFG%</span></div>'+
       lgLines(cats,[{name:'TS%',color:'#a78bfa',vals:ev.map(e=>e.a.ts)},{name:'eFG%',color:'#f97316',vals:ev.map(e=>e.a.efg)}],'%')+'</div>'+
       '<div class="court-box"><div class="zone-sub">Reparto de tiros por momento de la posesión</div>'+lgLegend()+lgStack(cats,ev.map(e=>e.sh))+'</div></div>';
-    h+='<div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Jornada</th><th>PJ</th><th>Tiros</th><th>eFG%</th><th>TS%</th><th>Δ TS</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th><th class="l">Alerta</th></tr></thead><tbody>'+jRows+'</tbody></table></div></div>';
+    h+='<div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Jornada</th><th>PJ</th><th>Tiros</th><th>eFG%</th><th>TS%</th><th>Δ TS</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>Δ % 3.º</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">eFG% '+k+'.º</th>').join('')+'<th class="l">Alerta</th></tr></thead><tbody>'+jRows+'</tbody></table></div></div>';
     h+='<div class="zone-sub lg-note">⚑ Cambio sustancial: salto de ≥'+LG_HI.pp3+' pp en el reparto de tiros o de ≥'+LG_HI.ts+' pp en TS% frente a la jornada anterior (solo jornadas con ≥40 tiros ubicados; en gris, las que no llegan). Umbrales orientativos.</div>';
   }else h+='<div class="lg-pg2">';
   h+='<div class="sec">Qué equipo tira antes o después</div><div class="board"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Equipo</th><th>PJ</th><th>G–P</th><th>Tiros</th><th>TS%</th><th>eFG%</th>'+
-    [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>% 3.º vs liga</th><th class="l">Perfil</th>'+fasesOrd.map(f=>'<th>% 3.º<br>'+lgEsc(fl(f).slice(0,12))+'</th>').join('')+'</tr></thead><tbody>'+
+    [1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">% '+k+'.º</th>').join('')+'<th>% 3.º vs liga</th><th class="l">Perfil</th>'+[1,2,3].map(k=>'<th style="color:'+LG_TC[k]+'">eFG% '+k+'.º</th>').join('')+fasesOrd.map(f=>'<th>% 3.º<br>'+lgEsc(fl(f).slice(0,12))+'</th>').join('')+'</tr></thead><tbody>'+
     T.map(t=>{const S=t.S;return '<tr><td class="l">'+teamCell(t.name)+'</td><td>'+S.pj+'</td><td>'+S.g+'–'+S.p+'</td><td'+(S.tot<30?' class="low"':'')+'>'+S.tot+'</td><td>'+lgf(S.a.ts)+'</td><td>'+lgf(S.a.efg)+'</td>'+
-      [0,1,2].map(k=>'<td>'+(S.sh?lgp(S.sh[k]):'—')+'</td>').join('')+'<td'+hi(t.d3,LG_HI.teamProf)+'>'+arrow(t.d3)+'</td><td class="l">'+prof(t)+'</td>'+
+      [0,1,2].map(k=>'<td>'+(S.sh?lgp(S.sh[k]):'—')+'</td>').join('')+'<td'+hi(t.d3,LG_HI.teamProf)+'>'+arrow(t.d3)+'</td><td class="l">'+prof(t)+'</td>'+[0,1,2].map(k=>'<td class="'+(S.t.t[k].n<8?'low':'')+'">'+lgp(S.t.t[k].efg)+'</td>').join('')+
       t.byF.map((b,i)=>{const p=t.byF.slice(0,i).reverse().find(x=>x&&x.sh);const d=b&&b.sh&&p?b.sh[2]-p.sh[2]:null;return '<td'+hi(d,LG_HI.teamPhase)+'>'+(b&&b.sh?lgp(b.sh[2]):'—')+'</td>';}).join('')+'</tr>';}).join('')+
-    '</tbody></table></div></div><div class="zone-sub lg-note">Ordenado de más tardío a más temprano. «Tira tarde / temprano»: ≥'+LG_HI.teamProf+' pp sobre el promedio de la liga en el 3.er (o 1.er) tramo, con ≥30 tiros. En naranja: cambio de ≥'+LG_HI.teamPhase+' pp en el 3.er tramo respecto de la fase anterior del equipo.</div></div>';
+    '</tbody></table></div></div><div class="zone-sub lg-note">Ordenado de más tardío a más temprano. eFG% por tramo en gris si hay menos de 8 tiros. «Tira tarde / temprano»: ≥'+LG_HI.teamProf+' pp sobre el promedio de la liga en el 3.er (o 1.er) tramo, con ≥30 tiros. En naranja: cambio de ≥'+LG_HI.teamPhase+' pp en el 3.er tramo respecto de la fase anterior del equipo.</div></div>';
   return h;
 }
 function lgPrint(){
