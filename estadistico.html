@@ -1052,6 +1052,13 @@ details.lg-j[open]>summary::before{transform:rotate(90deg)}
   body.print-liga .lg-rp-k .kpi{padding:8px 10px}body.print-liga .lg-rp-k .kpi .v{font-size:22px}
   body.print-liga .lg-rp-two{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;align-items:start;margin-bottom:6px}
   body.print-liga .lg-rp-two .board{margin:0}
+  body.print-liga .lg-rp-two{grid-template-columns:1.6fr 1fr}
+  /* tablas del informe: que quepan completas en la hoja (sin recorte de eFG% 1.º/2.º/3.º) */
+  body.print-liga #lg-report .board,body.print-liga #lg-report .tblwrap{overflow:visible}
+  body.print-liga #lg-report table.t{width:100%;table-layout:auto}
+  body.print-liga #lg-report table.t th,body.print-liga #lg-report table.t td{font-size:7.5px;padding:3px 4px;letter-spacing:0}
+  body.print-liga #lg-report table.t th{white-space:normal;line-height:1.2;letter-spacing:.3px}
+  body.print-liga #lg-report table.t td.l:last-child{white-space:normal}
   body.print-liga .lg-pg2{break-before:page}
   body.print-liga .lg-note{margin:2px 0 8px;font-size:8.5px;line-height:1.4}
   body.print-liga .lg-hi{color:#c2410c!important;font-weight:700;background:#fff1e6}
