@@ -119,6 +119,41 @@ td.low{color:var(--text-3)}
   table.t td,table.t th,.chart text,.chart .val,.kpi .k,.mh-s,.mini{color:#222;fill:#222}
   .kpi .v,.mh-t,.teamhead{color:#111}
 }
+/* ── variación por fase y por juego (informe) ── */
+.phead{display:none}
+table.t tr.flrow td{background:rgba(249,115,22,.07)}
+table.t td.fl{color:var(--offense);font-weight:700}
+.flg{color:var(--offense);font-weight:700;white-space:nowrap}
+.sigt{font-family:var(--font-mono);font-size:8.5px;border:1px solid var(--offense);color:var(--offense);border-radius:10px;padding:1px 5px;margin-left:4px;white-space:nowrap}
+.rephead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.repnote{font-family:var(--font-mono);font-size:10.5px;color:var(--text-3);line-height:1.6;margin:0 0 var(--sp-4)}
+@page{size:A4;margin:12mm}
+@media print{
+  :root{--bg-base:#fff;--bg-raised:#fff;--bg-panel:#f3f4f7;--bg-hover:#f3f4f7;--border-subtle:#e3e5ea;--border-light:#cfd3db;--border-strong:#9aa1ad;--text:#111;--text-2:#444;--text-3:#666;--offense:#c2410c;--insight:#6d4fd6}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.print-rep .view{display:none!important}
+  body.print-rep #view-tend{display:block!important}
+  body.print-rep #view-tend>*:not(#rep){display:none!important}
+  body.print-rep .wrap{padding:0;max-width:none}
+  body.print-rep .phead{display:block;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid #c2410c}
+  body.print-rep .phead h1{font-family:var(--font-disp);font-weight:900;font-size:27px;letter-spacing:.3px;color:#111}
+  body.print-rep .psub{font-family:var(--font-mono);font-size:10px;color:#444;margin-top:5px}
+  #rep .sec{font-size:15px;text-transform:uppercase;margin:18px 0 10px;break-after:avoid}
+  #rep .sec::before{content:'';width:3px;height:16px;background:#c2410c;border-radius:2px}
+  #rep .pb{break-before:page;page-break-before:always}
+  #rep .card,#rep .kpi,#rep .insights li,#rep table.t tr{break-inside:avoid}
+  #rep .card{padding:10px}
+  #rep .tblwrap{overflow:visible}
+  #rep table.t th{font-size:8px;padding:6px 5px}
+  #rep table.t td{font-size:9px;padding:5px 5px}
+  #rep .kpi{padding:10px;min-width:90px}
+  #rep .kpi .v{font-size:22px}
+  #rep .insights li{background:#fff;border:1px solid #d6d9e0;border-left-width:3px;font-size:11.5px;padding:8px 11px}
+  #rep .grid2{grid-template-columns:1fr 1fr}
+  #rep table.t tr.flrow td{background:#fdf1e8}
+  #rep .repnote{color:#555}
+  .spnav-burger,.spnav-back{display:none!important}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -635,10 +670,250 @@ function renderTend(){
     const list=Object.values(tm).filter(x=>x.sh.length).sort((a,b)=>b.sh.length-a.sh.length);
     h+=`<div class="sec">Comparativo entre equipos</div><div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Equipo</th><th>PJ</th><th>Tiros</th><th>% 1.º 8″</th><th>% 2.º 8″</th><th>% 3.º 8″</th><th>eFG% 1.º</th><th>eFG% 2.º</th><th>eFG% 3.º</th><th>eFG% total</th></tr></thead><tbody>${list.map(x=>{const t=agg(x.sh),s=bySeg(x.sh);return`<tr><td class="l">${esc(x.nm)}</td><td>${x.gp}</td><td>${t.n}</td>${SEG.map(k=>`<td>${fp(pct(s[k.n].n,t.n))}</td>`).join('')}${SEG.map(k=>`<td class="${s[k.n].n<5?'low':''}">${fp(s[k.n].efg)}</td>`).join('')}<td>${fp(t.efg)}</td></tr>`;}).join('')}</tbody></table></div></div>`;
   }
+  /* variación por fase y por juego */
+  h+=repSection();
   /* lectura */
   const base={n:DB.games.flatMap(x=>x.shots).length,s3:DB.games.flatMap(x=>x.shots).filter(s=>s.seg===3).length};
   h+=`<div class="sec">Lectura de tendencias</div><div class="card"><ul class="insights">${insightsFor(title,seg,tot,UI.tTeam?base:null).map(([c,t])=>`<li class="${c}">${t}</li>`).join('')}</ul></div>`;
   el.innerHTML=h;
+}
+
+/* ═══════════════ VARIACIÓN POR FASE Y POR JUEGO ═══════════════
+   Compara el momento del tiro entre fases y entre jornadas (jornada = N.º de juego dentro de la fase).
+   Ignora el filtro «Fase» (si no, no habría nada que comparar); respeta Equipo y Cuarto.
+   Solo hay tiros de campo (sin tiros libres): la eficiencia es eFG%, no TS%. */
+const TRCOL=['#34c769','#e0a93b','#f05050'];            /* 1.er → 3.er tramo (semáforo, como el informe de liga) */
+const FCOL=['#a78bfa','#4f8ef7','#e0a93b','#f05050','#8891a0','#34c769'];
+const MIN_J=40,UMB_D=5,UMB_E=3,UMB_EQ=8,MIN_EQ=20;      /* umbrales orientativos */
+const FABR={'Octavos de final':'Octavos','Cuartos de final':'Cuartos','Semifinal':'Semis'};
+const fAbr=f=>FABR[f]||(f.length>9?f.slice(0,8)+'…':f);
+const faseOrd=f=>{const i=FASES.indexOf(f);return i<0?FASES.length:i;};
+const FSIN='Sin fase';
+const r1=v=>Math.round(v*10)/10;
+const sgn=(v,d)=>v==null?'—':(v>0?'▲ +':v<0?'▼ ':'')+v.toFixed(d);
+const sg1=v=>(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(v%1?1:0);
+function groupBy(rows,kf){const m=new Map();rows.forEach(r=>{const k=kf(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r);});return m;}
+function varData(){
+  const rows=[];
+  DB.games.forEach(g=>['L','V'].forEach(side=>{
+    const nm=teamName(g,side);
+    if(UI.tTeam&&tkey(nm)!==tkey(UI.tTeam))return;
+    const sh=g.shots.filter(s=>s.t===side&&(!UI.tQ||s.q===+UI.tQ));
+    if(sh.length)rows.push({g,side,nm,sh});
+  }));
+  return rows;
+}
+function summarize(rs){
+  const sh=rs.flatMap(r=>r.sh),a=agg(sh),sg=bySeg(sh);
+  return{n:a.n,a,sg,pj:new Set(rs.map(r=>r.g.id)).size,eq:new Set(rs.map(r=>tkey(r.nm))).size,p:SEG.map(s=>pct(sg[s.n].n,a.n))};
+}
+const cmpF=(a,b)=>faseOrd(a)-faseOrd(b)||a.localeCompare(b);
+/* Δ contra la fila anterior + alerta de cambio sustancial (solo si ambas filas tienen ≥ MIN_J tiros) */
+function addDelta(list){
+  list.forEach((x,i)=>{
+    const p=list[i-1];x.prev=p||null;
+    x.dE=p&&x.a.efg!=null&&p.a.efg!=null?x.a.efg-p.a.efg:null;
+    x.d3=p&&x.p[2]!=null&&p.p[2]!=null?x.p[2]-p.p[2]:null;
+    let km=0,vm=0;
+    if(p)[0,1,2].forEach(k=>{const d=(x.p[k]||0)-(p.p[k]||0);if(Math.abs(d)>Math.abs(vm)){vm=d;km=k;}});
+    x.kMax=km;x.vMax=vm;
+    const ok=!!p&&x.n>=MIN_J&&p.n>=MIN_J;
+    x.fD=ok&&r1(Math.abs(vm))>=UMB_D;
+    x.fE=ok&&x.dE!=null&&r1(Math.abs(x.dE))>=UMB_E;
+    x.flag=x.fD||x.fE;
+    const ct=ok?chiTab([cnt3(p),cnt3(x)]):null;x.pR=ct?ct.p:null;x.sig=!!(x.flag&&ct&&ct.p<0.05);
+    x.score=ok?Math.max(Math.abs(vm)/UMB_D,x.dE==null?0:Math.abs(x.dE)/UMB_E):0;
+  });
+  return list;
+}
+function alertTxt(x){
+  if(!x.flag)return '';
+  const t=[];
+  if(x.fD)t.push(SEG[x.kMax].s.replace('.º tramo','.º').replace('tramo','')+' '+sg1(r1(x.vMax))+' pp');
+  if(x.fE)t.push('eFG '+sg1(r1(x.dE))+' pp');
+  return '<span class="flg">⚑ '+t.join(' · ')+'</span>'+(x.sig?' <span class="sigt" title="χ² del reparto contra la fila anterior: p = '+fmtP(x.pR)+'">p&lt;0.05</span>':'');
+}
+/* χ² de independencia fase × tramo (tiros como unidades) + V de Cramér */
+function lgamma(z){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=z,t=z+5.5;t-=(z+.5)*Math.log(t);let s=1.000000000190015;for(let j=0;j<6;j++)s+=c[j]/++y;return -t+Math.log(2.5066282746310005*s/z);}
+function gammaP(a,x){
+  if(x<=0)return 0;const gl=lgamma(a);
+  if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-13)break;}return sum*Math.exp(-x+a*Math.log(x)-gl);}
+  let b=x+1-a,c=1e300,d=1/b,h=d;
+  for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-13)break;}
+  return 1-Math.exp(-x+a*Math.log(x)-gl)*h;
+}
+function chiTab(tab){
+  const rs=tab.filter(r=>r.reduce((a,b)=>a+b,0)>0);if(rs.length<2)return null;
+  const col=[0,1,2].map(k=>rs.reduce((a,r)=>a+r[k],0)),cs=col.filter(c=>c>0).length;if(cs<2)return null;
+  const N=col.reduce((a,b)=>a+b,0);let chi=0;
+  rs.forEach(r=>{const n=r[0]+r[1]+r[2];col.forEach((c,k)=>{const e=n*c/N;if(e>0)chi+=Math.pow(r[k]-e,2)/e;});});
+  const df=(rs.length-1)*(cs-1);
+  return{chi,df,N,p:Math.min(1,Math.max(0,1-gammaP(df/2,chi/2))),V:Math.sqrt(chi/(N*Math.min(rs.length-1,cs-1)))};
+}
+const cnt3=x=>[1,2,3].map(k=>x.sg[k].n);
+function chiFase(list){return chiTab(list.filter(x=>x.n>0).map(cnt3));}
+const fmtP=p=>p<0.001?'< 0.001':p.toFixed(3);
+const efV=v=>v<0.07?'efecto ínfimo':v<0.21?'efecto pequeño':v<0.35?'efecto mediano':'efecto grande';
+
+/* ── gráficos ── */
+function lineChart(cats,series,opt){
+  opt=opt||{};const W=560,H=210,L=40,R=10,T=14,B=42;
+  const all=series.flatMap(s=>s.vals.filter(v=>v!=null));if(!all.length)return '';
+  let lo=Math.max(0,Math.floor((Math.min(...all)-3)/10)*10),hi=Math.min(100,Math.ceil((Math.max(...all)+3)/10)*10);if(hi-lo<20)hi=lo+20;
+  const iw=W-L-R,ih=H-T-B,X=i=>cats.length>1?L+iw*i/(cats.length-1):L+iw/2,Y=v=>T+ih-ih*(v-lo)/(hi-lo);
+  let g='';
+  for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="rgba(128,128,128,${i?0.2:0.45})"/><text x="${L-6}" y="${y+3}" text-anchor="end">${Math.round(v)}%</text>`;}
+  const every=cats.length>16?2:1;
+  cats.forEach((c,i)=>{
+    if(i%every===0)g+=`<text x="${X(i)}" y="${H-24}" text-anchor="middle" style="fill:var(--text);font-size:9px">${esc(c.l)}</text>`;
+    if(c.r)g+=`<text x="${X(i)}" y="${H-12}" text-anchor="middle" style="font-size:8.5px">${esc(c.r)}</text>`;
+  });
+  series.forEach(s=>{
+    let d='',open=false;
+    s.vals.forEach((v,i)=>{if(v==null){open=false;return;}d+=(open?'L':'M')+X(i)+','+Y(v);open=true;});
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`;
+    s.vals.forEach((v,i)=>{if(v==null)return;const low=cats[i].low;
+      g+=`<circle cx="${X(i)}" cy="${Y(v)}" r="4" fill="${low?'var(--bg-raised)':s.color}" stroke="${s.color}" stroke-width="1.8" data-tip="${esc(s.tips[i])}"/>`;});
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.title||'Evolución')}">${g}</svg>`;
+}
+/* barras verticales apiladas al 100 % (una columna por fase / jornada) */
+function colStack(rows,opt){
+  opt=opt||{};const W=560,H=210,L=36,R=8,T=10,B=42,iw=W-L-R,ih=H-T-B,gw=iw/rows.length,bw=Math.min(opt.maxw||34,gw-6);
+  let g='';
+  for(let i=0;i<=4;i++){const y=T+ih-ih*i/4;g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="rgba(128,128,128,${i?0.2:0.45})"/><text x="${L-6}" y="${y+3}" text-anchor="end">${i*25}%</text>`;}
+  rows.forEach((r,i)=>{
+    const tot=r.vals.reduce((a,b)=>a+b,0),cx=L+gw*i+gw/2;let yb=T+ih;
+    if(tot)r.vals.forEach((v,k)=>{
+      if(!v)return;const h=ih*v/tot,y=yb-h,pc=(100*v/tot).toFixed(0);
+      g+=`<rect x="${cx-bw/2}" y="${y}" width="${bw}" height="${Math.max(h-1,1)}" fill="${TRCOL[k]}" opacity="${r.low?.55:1}" data-tip="${esc(r.tipHead+' · '+SEG[k].l+': '+v+' de '+tot+' ('+pc+'%)')}"/>`;
+      if(h>=13&&bw>=22)g+=`<text x="${cx}" y="${y+h/2+3}" text-anchor="middle" style="fill:#111;font-size:${bw>=40?10:8.5}px;font-weight:600">${pc}%</text>`;
+      yb=y;});
+    if(i%(rows.length>16?2:1)===0)g+=`<text x="${cx}" y="${H-24}" text-anchor="middle" style="fill:var(--text);font-size:9px">${esc(r.l)}</text>`;
+    if(r.r)g+=`<text x="${cx}" y="${H-12}" text-anchor="middle" style="font-size:8.5px">${esc(r.r)}</text>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.title||'Reparto')}">${g}</svg>`;
+}
+const trLegend=()=>`<div class="legend">${SEG.map((s,i)=>`<span><span class="sw" style="background:${TRCOL[i]}"></span>${s.s} <span class="mini">${s.r.replace('seg. ','')}″</span></span>`).join('')}</div>`;
+
+function printRep(){
+  const t0=document.title;document.title='Informe de tendencias · Datos Tesis';
+  document.body.classList.add('print-rep');
+  const done=()=>{document.body.classList.remove('print-rep');document.title=t0;window.removeEventListener('afterprint',done);};
+  window.addEventListener('afterprint',done);
+  setTimeout(()=>window.print(),60);
+}
+
+function repSection(){
+  const head=`<div class="sec">Variación por fase y por juego</div>`;
+  const rows=varData();
+  if(!rows.length)return `<div id="rep">${head}<div class="card"><div class="empty" style="padding:20px">No hay tiros cargados para este filtro (equipo / cuarto).</div></div></div>`;
+  const title=UI.tTeam||'Toda la muestra',qTxt=UI.tQ?qLabel(+UI.tQ):'Todo el partido';
+  const all=summarize(rows);
+  const fases=[...groupBy(rows,r=>r.g.fase||FSIN)].map(([f,rs])=>({f,...summarize(rs)})).sort((a,b)=>cmpF(a.f,b.f));
+  addDelta(fases);
+  const jors=[...groupBy(rows,r=>(r.g.fase||FSIN)+'\u0001'+r.g.juego)].map(([k,rs])=>{const [f,j]=k.split('\u0001');return{f,j:+j,label:f+' · J'+j,...summarize(rs)};})
+    .sort((a,b)=>cmpF(a.f,b.f)||a.j-b.j);
+  addDelta(jors);
+  const chi=chiFase(fases);
+  const nFlag=jors.filter(x=>x.flag).length,nSig=jors.filter(x=>x.sig).length,nComp=jors.filter(x=>x.prev&&x.n>=MIN_J&&x.prev.n>=MIN_J).length;
+
+  /* equipos entre fases (solo toda la muestra) */
+  const trows=[];
+  if(!UI.tTeam){
+    [...groupBy(rows,r=>tkey(r.nm))].sort((a,b)=>a[1][0].nm.localeCompare(b[1][0].nm)).forEach(([k,rs])=>{
+      const lst=[...groupBy(rs,r=>r.g.fase||FSIN)].map(([f,x])=>({f,nm:rs[0].nm,...summarize(x)})).sort((a,b)=>cmpF(a.f,b.f));
+      if(lst.length<2)return;
+      lst.forEach((x,i)=>{const p=lst[i-1];x.first=i===0;x.prev=p||null;
+        x.d3=p&&x.p[2]!=null&&p.p[2]!=null?x.p[2]-p.p[2]:null;
+        x.dE=p&&x.a.efg!=null&&p.a.efg!=null?x.a.efg-p.a.efg:null;
+        x.flag=!!(p&&x.n>=MIN_EQ&&p.n>=MIN_EQ&&x.d3!=null&&r1(Math.abs(x.d3))>=UMB_EQ);});
+      trows.push(...lst);
+    });
+  }
+  const tFlag=trows.filter(x=>x.flag);
+
+  /* ── lo más importante ── */
+  const B=[];const el=fases.filter(x=>x.n>=MIN_EQ);
+  if(fases.length<2)B.push(['#4f8ef7',`<b>Cómo se tiró:</b> hay una sola fase cargada (${esc(fases[0].f)}); todavía no hay comparación entre fases.`]);
+  else if(el.length>=2){
+    const hi=el.reduce((a,x)=>x.p[2]>a.p[2]?x:a),lo=el.reduce((a,x)=>x.p[2]<a.p[2]?x:a);
+    B.push(['#4f8ef7',hi===lo?`<b>Cómo se tiró:</b> el 3.er tramo pesa igual en todas las fases (${fp(hi.p[2])}).`:
+      `<b>Cómo se tiró:</b> ${esc(title==='Toda la muestra'?'la muestra':title)} tiró más tarde en <b>${esc(hi.f)}</b> (${fp(hi.p[2])} de los tiros en el 3.er tramo) y más temprano en <b>${esc(lo.f)}</b> (${fp(lo.p[2])}).`]);
+    const be=el.reduce((a,x)=>x.a.efg>a.a.efg?x:a),we=el.reduce((a,x)=>x.a.efg<a.a.efg?x:a);
+    if(be!==we)B.push(['#34c769',`<b>Eficiencia:</b> mejor eFG% en <b>${esc(be.f)}</b> (${fp(be.a.efg,1)}) y peor en <b>${esc(we.f)}</b> (${fp(we.a.efg,1)}).`]);
+  }else B.push(['#4f8ef7',`<b>Cómo se tiró:</b> ninguna fase llega a ${MIN_EQ} tiros; la comparación entre fases no es confiable todavía.`]);
+  if(nComp){
+    const top=jors.filter(x=>x.flag).sort((a,b)=>b.score-a.score)[0];
+    B.push(['#f97316',nFlag?`<b>Cambios entre jornadas:</b> se detectaron <b>${nFlag}</b> saltos sustanciales de ${nComp} comparaciones posibles (ver detalle abajo); ${nSig===0?'<b>ninguno</b> es estadísticamente apreciable':'solo <b>'+nSig+'</b> '+(nSig===1?'es estadísticamente apreciable':'son estadísticamente apreciables')} en el reparto de tiros (χ², p &lt; 0.05, sin corrección por comparaciones múltiples). El mayor: <b>${esc(top.label)}</b> respecto de ${esc(top.prev.label)} — 3.er tramo ${sg1(r1(top.d3))} pp (${fp(top.prev.p[2])} → ${fp(top.p[2])}) · eFG% ${sg1(r1(top.dE))} pp (${fp(top.prev.a.efg,1)} → ${fp(top.a.efg,1)}).`
+      :`<b>Cambios entre jornadas:</b> no se detectaron saltos sustanciales en ${nComp} comparaciones (umbral: ${UMB_D} pp en el reparto o ${UMB_E} pp en eFG%).`]);
+  }else B.push(['#f97316',`<b>Cambios entre jornadas:</b> no hay jornadas consecutivas con ≥${MIN_J} tiros para comparar.`]);
+  if(chi)B.push(['#a78bfa',`<b>¿El reparto cambia entre fases?</b> χ²(${chi.df}) = ${chi.chi.toFixed(2)}, p ${chi.p<0.001?'':'= '}${fmtP(chi.p)}, V de Cramér = ${chi.V.toFixed(2)} (${efV(chi.V)}) con ${chi.N} tiros: ${chi.p<0.05?'diferencia estadísticamente apreciable':'diferencia no significativa'}. Los tiros de un mismo partido no son independientes, por lo que el p-valor es orientativo.`]);
+  if(!UI.tTeam&&trows.length)B.push(['#e0a93b',tFlag.length?`<b>Equipos que cambiaron de una fase a otra</b> (≥${UMB_EQ} pp en el 3.er tramo, ≥${MIN_EQ} tiros): ${tFlag.slice(0,4).map(x=>`${esc(x.nm)}: ${esc(x.prev.f)} → ${esc(x.f)}, ${sg1(r1(x.d3))} pp`).join('; ')}${tFlag.length>4?` y ${tFlag.length-4} más`:''}.`
+    :`<b>Equipos entre fases:</b> ningún equipo cambió ≥${UMB_EQ} pp en el 3.er tramo entre fases (con ≥${MIN_EQ} tiros en ambas).`]);
+
+  /* ── KPIs ── */
+  const kp=(v,k,c)=>`<div class="kpi"><div class="v"${c?` style="color:${c}"`:''}>${v}</div><div class="k">${k}</div></div>`;
+  const kpis=`<div class="kpis">${kp(fp(all.a.efg,1),'eFG% muestra')}${kp(f2(all.a.ppt),'Pts por tiro')}${kp(fp(all.p[0],0),'Tiros en 1.er tramo · 0–8″',TRCOL[0])}${kp(fp(all.p[1],0),'Tiros en 2.º tramo · 8–16″',TRCOL[1])}${kp(fp(all.p[2],0),'Tiros en 3.er tramo · 16–24″',TRCOL[2])}</div>`;
+
+  /* ── tabla por fase ── */
+  const fRows=fases.map(x=>{const lo=x.n<MIN_J;
+    return `<tr class="${x.flag?'flrow':''}"><td class="l"><b>${esc(x.f)}</b></td><td>${x.pj}</td><td>${x.eq}</td><td>${x.n}</td>
+      <td class="${lo?'low':''}">${fp(x.a.efg,1)}</td><td class="${x.fE?'fl':''}">${x.prev?sgn(x.dE==null?null:r1(x.dE),1):'—'}</td><td>${f2(x.a.ppt)}</td>
+      <td>${fp(x.p[0],0)}</td><td>${fp(x.p[1],0)}</td><td>${fp(x.p[2],0)}</td><td class="${x.fD&&x.kMax===2?'fl':''}">${x.prev?sgn(x.d3==null?null:r1(x.d3),1):'—'}</td><td class="l">${alertTxt(x)}</td></tr>`;}).join('');
+  const fStack=fases.map(x=>({l:fAbr(x.f),r:'n='+x.n,vals:SEG.map(s=>x.sg[s.n].n),tipHead:x.f,low:x.n<MIN_J}));
+  const efgSer=fases.map((x,fi)=>({name:x.f,color:FCOL[fi%FCOL.length],vals:SEG.map(s=>x.sg[s.n].n?x.sg[s.n].efg:null),
+    tips:SEG.map(s=>`${x.f} · ${s.l}: eFG% ${fp(x.sg[s.n].efg,1)} (${x.sg[s.n].m}/${x.sg[s.n].n})`)}));
+  const phLeg=`<div class="legend">${fases.map((x,fi)=>`<span><span class="sw" style="background:${FCOL[fi%FCOL.length]}"></span>${esc(x.f)}</span>`).join('')}</div>`;
+
+  /* ── tabla por jornada ── */
+  const jRows=jors.map(x=>{const lo=x.n<MIN_J;
+    return `<tr class="${x.flag?'flrow':''}"><td class="l">${esc(x.label)}</td><td>${x.pj}</td><td class="${lo?'low':''}">${x.n}</td>
+      <td class="${lo?'low':''}">${fp(x.a.efg,1)}</td><td class="${x.fE?'fl':''}">${x.prev?sgn(x.dE==null?null:r1(x.dE),1):'—'}</td><td>${f2(x.a.ppt)}</td>
+      <td>${fp(x.p[0],0)}</td><td>${fp(x.p[1],0)}</td><td>${fp(x.p[2],0)}</td><td class="${x.fD&&x.kMax===2?'fl':''}">${x.prev?sgn(x.d3==null?null:r1(x.d3),1):'—'}</td><td class="l">${alertTxt(x)}</td></tr>`;}).join('');
+  const jCats=jors.map((x,i)=>({l:'J'+x.j,r:(i===0||jors[i-1].f!==x.f)?fAbr(x.f):'',low:x.n<MIN_J}));
+  const jLine=lineChart(jCats,[
+    {name:'eFG%',color:'#8b5cf6',vals:jors.map(x=>x.a.efg),tips:jors.map(x=>`${x.label}: eFG% ${fp(x.a.efg,1)} (${x.a.m}/${x.a.n})${x.n<MIN_J?' · pocos tiros':''}`)},
+    {name:'% 3.er tramo',color:TRCOL[2],vals:jors.map(x=>x.p[2]),tips:jors.map(x=>`${x.label}: ${fp(x.p[2],0)} de los tiros en el 3.er tramo (${x.sg[3].n} de ${x.n})`)}
+  ],{title:'eFG% y % de tiros en el 3.er tramo por jornada'});
+  const jStack=colStack(jors.map((x,i)=>({l:'J'+x.j,r:jCats[i].r,vals:SEG.map(s=>x.sg[s.n].n),tipHead:x.label,low:x.n<MIN_J})),{title:'Reparto por jornada',maxw:26});
+
+  /* ── tabla equipos entre fases ── */
+  let tbl='';
+  if(!UI.tTeam){
+    tbl=trows.length?`<div class="sec">Cada equipo, de una fase a otra</div><div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Equipo</th><th class="l">Fase</th><th>PJ</th><th>Tiros</th><th>% 1.º</th><th>% 2.º</th><th>% 3.º</th><th>eFG%</th><th>Δ % 3.º</th><th class="l">Alerta</th></tr></thead><tbody>${
+      trows.map(x=>{const lo=x.n<MIN_EQ;return `<tr class="${x.flag?'flrow':''}"><td class="l">${x.first?`<b>${esc(x.nm)}</b>`:''}</td><td class="l">${esc(x.f)}</td><td>${x.pj}</td><td class="${lo?'low':''}">${x.n}</td><td>${fp(x.p[0],0)}</td><td>${fp(x.p[1],0)}</td><td>${fp(x.p[2],0)}</td><td class="${lo?'low':''}">${fp(x.a.efg,1)}</td><td class="${x.flag?'fl':''}">${x.prev?sgn(x.d3==null?null:r1(x.d3),1):'—'}</td><td class="l">${x.flag?`<span class="flg">⚑ 3.º ${sg1(r1(x.d3))} pp</span>`:''}</td></tr>`;}).join('')}</tbody></table></div>
+      <div class="mini" style="margin-top:8px">Solo equipos con tiros en 2 o más fases. Δ contra la fase anterior del mismo equipo. ⚑ = cambio de ≥${UMB_EQ} pp en el 3.er tramo con ≥${MIN_EQ} tiros en ambas fases. En gris: menos de ${MIN_EQ} tiros.</div></div>`
+      :`<div class="sec">Cada equipo, de una fase a otra</div><div class="card"><div class="empty" style="padding:20px">Ningún equipo tiene tiros cargados en más de una fase.</div></div>`;
+  }
+
+  const nPJ=all.pj,nEq=all.eq,fecha=new Date().toLocaleDateString('es-AR');
+  const thF=`<th>Δ eFG</th><th>Pts/tiro</th><th>% 1.º</th><th>% 2.º</th><th>% 3.º</th><th>Δ % 3.º</th><th class="l">Alerta</th>`;
+  return `<div id="rep">
+  <div class="phead"><h1>ScoutPro · Informe de tendencias</h1><div class="psub">Datos Tesis · Playoffs Liga Argentina · ${esc(title)} · ${esc(qTxt)} · ${nPJ} partidos · ${nEq} equipos · ${all.n} tiros · generado el ${fecha}</div></div>
+  <div class="rephead"><div class="sec" style="flex:1;margin-top:0">Variación por fase y por juego</div><button class="btn noprint" onclick="printRep()">🖨 Informe PDF (fases y jornadas)</button></div>
+  <div class="repnote noprint">Compara todas las fases (ignora el filtro «Fase»); respeta Equipo y Cuarto. Jornada = número de juego dentro de la fase. El PDF imprime solo esta sección.</div>
+  ${kpis}
+  <div class="sec">Lo más importante</div>
+  <ul class="insights">${B.map(([c,t])=>`<li style="border-left-color:${c}">${t}</li>`).join('')}</ul>
+
+  <div class="sec">Cómo se tiró y con qué eficiencia, en cada fase</div>
+  <div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Fase</th><th>PJ</th><th>Eq.</th><th>Tiros</th><th>eFG%</th>${thF}</tr></thead><tbody>${fRows}</tbody></table></div>
+  <div class="mini" style="margin-top:8px">Tramos = momento de la posesión (reloj de 24″). Δ contra la fase anterior; en naranja, cambios sustanciales. Solo hay tiros de campo, sin tiros libres: por eso la eficiencia es eFG% y no TS%. En gris: menos de ${MIN_J} tiros.</div></div>
+  <div class="grid2">
+    <div class="card"><div class="card-t">Reparto de tiros por tramo, según la fase</div>${trLegend()}${colStack(fStack,{title:'Reparto por fase',maxw:60})}</div>
+    <div class="card"><div class="card-t">eFG% por tramo, según la fase</div>${phLeg}${barChart(SEG.map(s=>({l:s.l,r:s.r})),efgSer,v=>v.toFixed(0)+'%',{unit:'%',max:60,title:'eFG por tramo y fase'})}</div>
+  </div>
+
+  <div class="pb"><div class="sec">Evolución por jornada</div>
+  <div class="grid2">
+    <div class="card"><div class="card-t">eFG% y % de tiros en el 3.er tramo</div><div class="legend"><span><span class="sw" style="background:#8b5cf6"></span>eFG%</span><span><span class="sw" style="background:${TRCOL[2]}"></span>% en 3.er tramo</span></div>${jLine}</div>
+    <div class="card"><div class="card-t">Reparto de tiros por momento de la posesión</div>${trLegend()}${jStack}</div>
+  </div>
+  <div class="card"><div class="tblwrap"><table class="t"><thead><tr><th class="l">Jornada</th><th>PJ</th><th>Tiros</th><th>eFG%</th>${thF}</tr></thead><tbody>${jRows}</tbody></table></div>
+  <div class="mini" style="margin-top:8px">⚑ Cambio sustancial: salto de ≥${UMB_D} pp en el reparto de tiros (se indica el tramo) o de ≥${UMB_E} pp en eFG% frente a la jornada anterior, solo cuando ambas jornadas tienen ≥${MIN_J} tiros. La primera jornada de una fase se compara con la última de la fase previa. Los umbrales son descriptivos; la marca p&lt;0.05 indica que además el reparto cambió más de lo esperable por azar (χ² contra la jornada anterior, sin corrección por comparaciones múltiples). Puntos huecos y barras tenues: menos de ${MIN_J} tiros.</div></div></div>
+  ${tbl}
+  </div>`;
 }
 
 /* ═══════════════ DATOS Y RESPALDO ═══════════════ */
